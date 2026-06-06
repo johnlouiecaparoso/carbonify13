@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { initiateWithdrawal, getWalletBalance } from '@/services/walletService'
+import { requestWithdrawal, getSellerBalance } from '@/services/payoutService'
 import UiInput from '@/components/ui/Input.vue'
 import UiButton from '@/components/ui/Button.vue'
 
@@ -9,7 +9,23 @@ const emit = defineEmits(['success', 'cancel'])
 const formData = ref({
   amount: '',
   paymentMethod: 'gcash',
+  accountName: '',
+  accountNumber: '',
 })
+
+// Map the chosen method to a payout destination shape (bank methods carry a bankCode).
+function buildDestination() {
+  const m = formData.value.paymentMethod
+  const base = {
+    accountName: formData.value.accountName.trim(),
+    accountNumber: formData.value.accountNumber.trim(),
+  }
+  if (m === 'gcash' || m === 'maya') {
+    return { method: m, ...base }
+  }
+  // bpi / bdo -> bank transfer with the bank as bankCode
+  return { method: 'bank', bankCode: m.toUpperCase(), ...base }
+}
 
 const errors = ref({})
 const loading = ref(false)
@@ -50,6 +66,13 @@ function validateForm() {
     errors.value.amount = 'Maximum withdrawal amount is ₱25,000'
   }
 
+  if (!formData.value.accountName.trim()) {
+    errors.value.accountName = 'Account name is required'
+  }
+  if (!formData.value.accountNumber.trim()) {
+    errors.value.accountNumber = 'Account number is required'
+  }
+
   return Object.keys(errors.value).length === 0
 }
 
@@ -59,13 +82,15 @@ async function handleSubmit() {
   loading.value = true
   try {
     const amount = parseFloat(formData.value.amount)
-    await initiateWithdrawal(amount, formData.value.paymentMethod) // userId will be set in service
-    emit('success', { amount, paymentMethod: formData.value.paymentMethod })
+    const payoutId = await requestWithdrawal({ amount, destination: buildDestination() })
+    emit('success', { amount, paymentMethod: formData.value.paymentMethod, payoutId })
 
     // Reset form
     formData.value = {
       amount: '',
       paymentMethod: 'gcash',
+      accountName: '',
+      accountNumber: '',
     }
   } catch (error) {
     console.error('Withdrawal error:', error)
@@ -85,8 +110,8 @@ function setMaxAmount() {
 
 async function loadBalance() {
   try {
-    const wallet = await getWalletBalance() // userId will be set in service
-    currentBalance.value = wallet.current_balance || 0
+    const balance = await getSellerBalance()
+    currentBalance.value = balance.available || 0
   } catch (error) {
     console.error('Error loading balance:', error)
   }
@@ -104,7 +129,7 @@ loadBalance()
   <div class="withdraw-form">
     <div class="form-header">
       <h2 class="form-title">Withdraw Funds</h2>
-      <p class="form-description">Transfer funds from your EcoLink wallet</p>
+      <p class="form-description">Withdraw your available seller earnings</p>
     </div>
 
     <!-- Current Balance -->
@@ -175,6 +200,26 @@ loadBalance()
           </label>
         </div>
       </div>
+
+      <!-- Destination account details -->
+      <UiInput
+        id="accountName"
+        label="Account Name *"
+        type="text"
+        placeholder="Registered account holder name"
+        v-model="formData.accountName"
+        :error="errors.accountName"
+        required
+      />
+      <UiInput
+        id="accountNumber"
+        label="Account / Mobile Number *"
+        type="text"
+        placeholder="Account no. or e-wallet mobile number"
+        v-model="formData.accountNumber"
+        :error="errors.accountNumber"
+        required
+      />
 
       <!-- General Error -->
       <div v-if="errors.general" class="error-message general-error">

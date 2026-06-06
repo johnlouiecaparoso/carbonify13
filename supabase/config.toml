@@ -18,3 +18,9 @@ verify_jwt = false
 # function instead, via HMAC-SHA256 signature verification (PAYMONGO_WEBHOOK_SECRET).
 [functions.paymongo-webhook]
 verify_jwt = false
+
+# Payout worker: invoked by a schedule/admin, not the browser. JWT off because a
+# cron caller carries no Supabase JWT; access is gated by PAYOUT_WORKER_SECRET
+# (x-worker-secret header) inside the function.
+[functions.process-payouts]
+verify_jwt = false
