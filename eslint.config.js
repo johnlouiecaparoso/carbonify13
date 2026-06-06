@@ -43,6 +43,9 @@ export default defineConfig([
       // UI primitives (Button, Input, Toast, Sidebar, ...) intentionally use
       // single-word names; this stylistic Vue rule is not a fit for this app.
       'vue/multi-word-component-names': 'off',
+      // Allow an underscore prefix to mark an intentionally-unused argument or
+      // caught error (e.g. interface stub methods, signature-shaped callbacks).
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
     },
   },
 ])
