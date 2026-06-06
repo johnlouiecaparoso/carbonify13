@@ -218,7 +218,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresVerifier: true },
     },
     { path: '/analytics', redirect: '/' },
-    { path: '/sales', redirect: '/' },
+    {
+      path: '/sales',
+      name: 'seller-earnings',
+      component: () => import('@/views/SellerEarningsView.vue'),
+      meta: { requiresAuth: true },
+    },
 
     // Settings Routes
     {

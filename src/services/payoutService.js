@@ -53,6 +53,30 @@ export async function requestWithdrawal({ amount, destination, idempotencyKey } 
   return data
 }
 
+/** The caller's sales (as seller), most recent first. */
+export async function getMySales(limit = 50) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('credit_transactions')
+    .select('id, quantity, price_per_credit, total_amount, currency, status, created_at, completed_at')
+    .eq('seller_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Error fetching sales:', error)
+    return []
+  }
+  return data || []
+}
+
 /** The caller's payout requests, most recent first. */
 export async function getMyPayouts(limit = 20) {
   const supabase = getSupabase()
