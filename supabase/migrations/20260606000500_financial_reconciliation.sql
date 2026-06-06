@@ -39,11 +39,17 @@ as $$
     )
 
   union all
-  -- 2) Completed transactions with no ledger entry group.
+  -- 2) NEW-FLOW completed transactions with no ledger entry group.
+  --    Scoped to transactions that went through the server-authoritative flow
+  --    (payment_reference matches a payment_intent), so legacy/pre-ledger
+  --    transactions are not flagged as drift.
   select 'transaction_no_ledger', ct.id::text,
          'completed transaction has no ledger_entries'
   from public.credit_transactions ct
   where ct.status = 'completed'
+    and exists (
+      select 1 from public.payment_intents pi where pi.id::text = ct.payment_reference
+    )
     and not exists (
       select 1 from public.ledger_entries le
       where le.ref_type = 'purchase' and le.ref_id = ct.id::text
