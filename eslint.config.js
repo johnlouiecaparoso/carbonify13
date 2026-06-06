@@ -16,6 +16,17 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.browser,
+        gtag: 'readonly', // Google Analytics, injected by the GA snippet
+      },
+    },
+  },
+
+  // Node-context files: build/test config, setup and CLI scripts.
+  {
+    files: ['scripts/**', '**/*.config*.js', '**/*.config*.mjs', 'src/test/**'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
       },
     },
   },
