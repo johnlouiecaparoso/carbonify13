@@ -26,46 +26,84 @@ const PAYMONGO_WEBHOOK_SECRET = Deno.env.get('PAYMONGO_WEBHOOK_SECRET') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
+// Allow unsigned webhooks ONLY when explicitly opted in (local dev). Default
+// is fail-closed: no secret + no opt-in => reject.
+const ALLOW_UNSIGNED_WEBHOOKS = Deno.env.get('ALLOW_UNSIGNED_WEBHOOKS') === 'true'
+// Reject events whose signed timestamp is older/newer than this (replay guard).
+const SIGNATURE_TOLERANCE_SECONDS = 300
+
+interface SignatureCheck {
+  ok: boolean
+  reason?: string
+}
+
+/** Lowercase hex HMAC-SHA256 digest. */
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Constant-time string compare. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let result = 0
+  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return result === 0
+}
+
 /**
- * Verify webhook signature from PayMongo
+ * Verify a PayMongo webhook signature with replay protection.
+ *
+ * Header format: `t=<unix_seconds>,te=<test_sig>,li=<live_sig>`.
+ * Signed message is `${t}.${rawBody}`, HMAC-SHA256 with the webhook secret,
+ * hex-encoded. We compare against li (live) then te (test).
  */
-function verifyWebhookSignature(
+async function verifyWebhookSignature(
   payload: string,
-  signature: string,
-  secret: string
-): boolean {
+  signatureHeader: string,
+  secret: string,
+  nowSeconds: number,
+): Promise<SignatureCheck> {
   if (!secret) {
-    console.warn('âš ï¸ PAYMONGO_WEBHOOK_SECRET not set, skipping signature verification')
-    return true // Allow in development if secret not set
+    if (ALLOW_UNSIGNED_WEBHOOKS) {
+      console.warn('PAYMONGO_WEBHOOK_SECRET not set; ALLOW_UNSIGNED_WEBHOOKS=true - accepting unsigned (DEV ONLY)')
+      return { ok: true }
+    }
+    return { ok: false, reason: 'PAYMONGO_WEBHOOK_SECRET not configured' }
+  }
+  if (!signatureHeader) {
+    return { ok: false, reason: 'missing signature header' }
   }
 
-  // PayMongo uses HMAC-SHA256 for webhook signatures
-  // Format: timestamp,payload (separated by comma)
-  // Signature: HMAC-SHA256(timestamp + payload, secret)
-  
-  // For production, implement proper signature verification
-  // This is a simplified version - enhance based on PayMongo docs
-  try {
-    const encoder = new TextEncoder()
-    const keyData = encoder.encode(secret)
-    const payloadData = encoder.encode(payload)
-    
-    // Import crypto key
-    const cryptoKey = crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    )
-    
-    // Note: This is a placeholder - check PayMongo's actual signature format
-    // PayMongo may use a different signature method
-    return true // For now, allow if secret is set
-  } catch (error) {
-    console.error('Error verifying signature:', error)
-    return false
+  const parts: Record<string, string> = {}
+  for (const kv of signatureHeader.split(',')) {
+    const [k, v] = kv.split('=').map((s) => s.trim())
+    if (k && v) parts[k] = v
   }
+
+  const timestamp = parts.t
+  const provided = parts.li || parts.te
+  if (!timestamp || !provided) {
+    return { ok: false, reason: 'malformed signature header' }
+  }
+
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts) || Math.abs(nowSeconds - ts) > SIGNATURE_TOLERANCE_SECONDS) {
+    return { ok: false, reason: 'timestamp outside tolerance (possible replay)' }
+  }
+
+  const expected = await hmacSha256Hex(secret, `${timestamp}.${payload}`)
+  return timingSafeEqual(expected, provided)
+    ? { ok: true }
+    : { ok: false, reason: 'signature mismatch' }
 }
 
 /**
@@ -208,6 +246,19 @@ async function processMarketplacePurchase(
   return { success: true }
 }
 
+/** Mark a recorded webhook event as fully processed (best-effort). */
+async function markEventProcessed(supabase: any, eventId: string) {
+  try {
+    await supabase
+      .from('webhook_events')
+      .update({ status: 'processed', processed_at: new Date().toISOString() })
+      .eq('provider', 'paymongo')
+      .eq('event_id', eventId)
+  } catch (err) {
+    console.warn('Failed to mark webhook event processed:', (err as Error)?.message)
+  }
+}
+
 serve(async (req) => {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -218,8 +269,9 @@ serve(async (req) => {
   }
 
   try {
-    // Get webhook signature from headers
-    const signature = req.headers.get('x-paymongo-signature') || ''
+    // PayMongo sends the signature in the `paymongo-signature` header.
+    const signature =
+      req.headers.get('paymongo-signature') || req.headers.get('x-paymongo-signature') || ''
     const payload = await req.text()
     const webhookData = JSON.parse(payload)
 
@@ -228,8 +280,10 @@ serve(async (req) => {
       event: webhookData.data?.attributes?.event,
     })
 
-    // Verify webhook signature
-    if (!verifyWebhookSignature(payload, signature, PAYMONGO_WEBHOOK_SECRET)) {
+    // Verify webhook signature (HMAC-SHA256) with replay protection.
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    const sigCheck = await verifyWebhookSignature(payload, signature, PAYMONGO_WEBHOOK_SECRET, nowSeconds)
+    if (!sigCheck.ok) {
       console.error('âŒ Invalid webhook signature')
       return new Response(JSON.stringify({ error: 'Invalid signature' }), {
         status: 401,
@@ -261,6 +315,40 @@ serve(async (req) => {
     // Initialize Supabase client with service role (bypasses RLS)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    // Event-level idempotency. Record the event keyed by (provider, event_id).
+    // A unique-violation means we've seen it before: short-circuit ONLY if the
+    // prior attempt actually finished (status 'processed'); otherwise fall
+    // through and (re)process — PayMongo retries unacknowledged events.
+    const eventId = webhookData.data?.id || paymentId
+    const { error: dedupError } = await supabase.from('webhook_events').insert({
+      provider: 'paymongo',
+      event_id: eventId,
+      event_type: eventType,
+      payload: webhookData,
+      status: 'received',
+    })
+    if (dedupError) {
+      if (dedupError.code === '23505') {
+        const { data: prior } = await supabase
+          .from('webhook_events')
+          .select('status')
+          .eq('provider', 'paymongo')
+          .eq('event_id', eventId)
+          .single()
+        if (prior?.status === 'processed') {
+          console.log('Duplicate webhook event ignored:', eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Already processed (duplicate event)' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+      } else {
+        // Table missing / other error: log and continue. Per-handler idempotency
+        // (below) still prevents double-crediting until the migration is applied.
+        console.warn('webhook_events insert failed (continuing):', dedupError.message)
+      }
+    }
+
     // Determine payment type from metadata
     const userId = metadata.user_id
     const transactionId = metadata.transaction_id
@@ -269,7 +357,8 @@ serve(async (req) => {
     if (isWalletTopUp && userId) {
       // Process wallet top-up
       const result = await processWalletTopUp(supabase, paymentId, sessionId, amount, userId)
-      
+      await markEventProcessed(supabase, eventId)
+
       return new Response(JSON.stringify({
         success: true,
         message: 'Wallet top-up processed',
@@ -287,7 +376,8 @@ serve(async (req) => {
         amount,
         metadata
       )
-      
+      await markEventProcessed(supabase, eventId)
+
       return new Response(JSON.stringify({
         success: true,
         message: 'Purchase processed',
