@@ -216,7 +216,7 @@ function triggerCleanupOnce() {
 }
 
 function applyMarketplaceFilters(sourceListings = [], filters = {}) {
-  const { forceRefresh: _forceRefresh, ...criteria } = filters || {}
+  const { ...criteria } = filters || {}
   let filtered = [...sourceListings]
 
   if (criteria.category && criteria.category !== 'all') {
@@ -1087,32 +1087,6 @@ export async function purchaseCredits(listingId, purchaseData) {
   } catch (error) {
     console.error('Error in purchaseCredits:', error)
     throw error
-  }
-}
-
-/**
- * Process payment for credit purchase
- * @param {Object} paymentData - Payment information
- * @returns {Promise<Object>} Payment result
- */
-async function processPayment(paymentData) {
-  try {
-    console.log('Processing real payment:', paymentData)
-
-    // Use real payment service based on method
-    if (paymentData.method === 'gcash') {
-      return await realPaymentService.processGCashPayment(paymentData)
-    } else if (paymentData.method === 'maya') {
-      return await realPaymentService.processMayaPayment(paymentData)
-    } else {
-      throw new Error(`Unsupported payment method: ${paymentData.method}`)
-    }
-  } catch (error) {
-    console.error('Payment processing error:', error)
-    return {
-      success: false,
-      error: error.message,
-    }
   }
 }
 

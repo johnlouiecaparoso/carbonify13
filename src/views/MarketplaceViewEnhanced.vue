@@ -760,21 +760,6 @@ function viewProject(listing) {
   openPurchaseModal(listing)
 }
 
-function navigateToBuyCredits(listing) {
-  console.log('Navigating to marketplace for:', listing.project_title)
-  // Navigate to marketplace (buy credits functionality is now in marketplace)
-  router.push({
-    path: '/marketplace',
-    query: {
-      project: listing.project_id,
-      listing: listing.listing_id,
-      title: listing.project_title,
-      price: listing.price_per_credit,
-      currency: listing.currency,
-    },
-  })
-}
-
 function isSoldOut(listing) {
   return !listing || (listing.available_quantity !== undefined && listing.available_quantity <= 0)
 }

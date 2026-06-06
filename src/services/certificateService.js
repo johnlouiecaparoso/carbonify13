@@ -673,7 +673,7 @@ export async function generateMissingCertificates(userId) {
     }
 
     // Get existing certificates to find which transactions are missing certificates
-    const { data: existingCerts, error: certError } = await supabase
+    const { data: existingCerts } = await supabase
       .from('certificates')
       .select('transaction_id')
       .eq('user_id', userId)

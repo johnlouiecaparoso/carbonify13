@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { registerWithEmail } from '@/services/authService'
-import { useUserStore } from '@/store/userStore'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 
@@ -18,7 +17,6 @@ const emailError = ref('')
 const passwordError = ref('')
 const confirmError = ref('')
 // Removed showPassword and showConfirm as UiInput handles password visibility internally
-const store = useUserStore()
 
 async function handleSubmit() {
   errorMessage.value = ''

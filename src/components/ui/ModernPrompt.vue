@@ -87,7 +87,7 @@ function formatMessage(message) {
   let formatted = message.replace(/\n/g, '<br>')
   
   // Convert bullet points (• or -) to styled list items
-  formatted = formatted.replace(/^([•\-\*]\s+)(.+)$/gm, '<li class="message-item">$2</li>')
+  formatted = formatted.replace(/^([•\-*]\s+)(.+)$/gm, '<li class="message-item">$2</li>')
   
   // Wrap consecutive list items in <ul>
   formatted = formatted.replace(/(<li class="message-item">.*?<\/li>(?:\s*<li class="message-item">.*?<\/li>)*)/g, '<ul class="message-list">$1</ul>')

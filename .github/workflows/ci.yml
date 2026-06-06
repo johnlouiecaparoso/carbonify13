@@ -28,12 +28,10 @@ jobs:
         run: npm ci
 
       # Non-mutating lint check (the `lint` script uses --fix, which is for local
-      # use only). Non-blocking for now: there is a pre-existing lint backlog
-      # (unused vars) being cleared in a separate hygiene pass — flip to required
-      # once that lands so new violations fail the build.
+      # use only). Required: the tree is at zero lint errors, so any new
+      # violation fails the build.
       - name: Run linting
         run: npm run lint:check
-        continue-on-error: true
 
       - name: Run unit tests
         run: npm run test:run

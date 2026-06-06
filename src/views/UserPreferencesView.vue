@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import UiButton from '@/components/ui/Button.vue'
-import UiInput from '@/components/ui/Input.vue'
 
 const preferencesStore = usePreferencesStore()
 
@@ -146,7 +145,7 @@ function importPreferences(event) {
 
         alert('Preferences imported successfully!')
         window.location.reload()
-      } catch (error) {
+      } catch {
         alert('Error importing preferences. Please check the file format.')
       }
     }

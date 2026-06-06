@@ -670,16 +670,6 @@ function formatReceiptDate(dateString) {
   })
 }
 
-function formatReceiptCurrency(amount, currency = 'PHP') {
-  const parsedAmount = parseAmount(amount)
-  if (parsedAmount === null) return 'N/A'
-
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency,
-  }).format(parsedAmount)
-}
-
 function formatReceiptCurrencyForPdf(amount, currency = 'PHP') {
   const parsedAmount = parseAmount(amount)
   if (parsedAmount === null) return 'N/A'

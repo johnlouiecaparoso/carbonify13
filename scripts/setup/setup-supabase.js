@@ -99,7 +99,7 @@ async function testSupabaseConnection(credentials) {
     const supabase = createClient(credentials.url, credentials.key)
 
     // Test connection by trying to get session
-    const { data, error } = await supabase.auth.getSession()
+    const { error } = await supabase.auth.getSession()
 
     if (error) {
       logError(`Connection failed: ${error.message}`)
@@ -135,7 +135,7 @@ async function checkDatabaseTables(supabase) {
 
   for (const table of requiredTables) {
     try {
-      const { data, error } = await supabase.from(table).select('*').limit(1)
+      const { error } = await supabase.from(table).select('*').limit(1)
 
       if (error) {
         if (error.code === '42P01') {
@@ -167,7 +167,7 @@ async function testAuthentication(supabase) {
 
   try {
     // Test sign up (this will fail if email already exists, which is expected)
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: 'test@example.com',
       password: 'testpassword123',
     })
@@ -179,7 +179,7 @@ async function testAuthentication(supabase) {
     }
 
     // Test sign in with invalid credentials
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email: 'nonexistent@example.com',
       password: 'wrongpassword',
     })
@@ -200,7 +200,7 @@ async function checkRLSPolicies(supabase) {
 
   try {
     // Test if we can query profiles table (should work with RLS)
-    const { data, error } = await supabase.from('profiles').select('*').limit(1)
+    const { error } = await supabase.from('profiles').select('*').limit(1)
 
     if (error) {
       logWarning(`RLS policy test failed: ${error.message}`)

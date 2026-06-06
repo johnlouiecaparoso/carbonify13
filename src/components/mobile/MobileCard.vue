@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { touchGestures } from '@/utils/mobile'
 
 const props = defineProps({

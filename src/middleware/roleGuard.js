@@ -1,4 +1,4 @@
-import { ROLES, PERMISSIONS } from '@/constants/roles'
+import { ROLES } from '@/constants/roles'
 import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 
 /**
@@ -9,7 +9,7 @@ import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
  * @returns {Object|undefined} Navigation guard result
  */
 export function createRoleGuard(userStore) {
-  return async (to, from) => {
+  return async (to) => {
     // If no session, let the auth guard handle it
     if (!userStore.isAuthenticated) {
       return undefined
@@ -19,7 +19,7 @@ export function createRoleGuard(userStore) {
     if (!userStore.profile) {
       try {
         await userStore.fetchUserProfile()
-      } catch {}
+      } catch { /* profile load failed; continue with current state */ }
     }
 
     const userRole = userStore.role
@@ -44,7 +44,7 @@ export function createRoleGuard(userStore) {
  * @returns {Function} Route guard function
  */
 export function createAdminGuard(userStore) {
-  return async (to, from) => {
+  return async (to) => {
     if (!userStore.isAuthenticated) {
       console.log('[AdminGuard] User not authenticated, redirecting to login')
       return { name: 'login', query: { redirect: to.fullPath } }
@@ -136,7 +136,7 @@ export function createAdminGuard(userStore) {
  * @returns {Function} Route guard function
  */
 export function createVerifierGuard(userStore) {
-  return async (to, from) => {
+  return async (to) => {
     if (!userStore.isAuthenticated) {
       return { name: 'login', query: { redirect: to.fullPath } }
     }
@@ -196,7 +196,7 @@ export function createVerifierGuard(userStore) {
  * @returns {Function} Route guard function
  */
 export function createProjectDeveloperGuard(userStore) {
-  return async (to, from) => {
+  return async (to) => {
     if (!userStore.isAuthenticated) {
       return { name: 'login', query: { redirect: to.fullPath } }
     }
@@ -288,7 +288,7 @@ export function createLguGuard(userStore) {
  * @returns {Function} Route guard function
  */
 export function createPermissionGuard(requiredPermissions, userStore) {
-  return async (to, from) => {
+  return async (to) => {
     if (!userStore.isAuthenticated) {
       return { name: 'login', query: { redirect: to.fullPath } }
     }

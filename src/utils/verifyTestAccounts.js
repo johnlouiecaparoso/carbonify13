@@ -26,7 +26,6 @@ export async function verifyTestAccounts() {
 
     // Check for expected roles
     const expectedRoles = ['admin', 'verifier', 'user']
-    const foundRoles = profiles.map((p) => p.role)
     const testAccountProfiles = profiles.filter((p) => expectedRoles.includes(p.role))
 
     console.log('✅ Found profiles with test roles:')

@@ -2,7 +2,6 @@
 
 import { execSync } from 'child_process'
 import { existsSync } from 'fs'
-import { join } from 'path'
 
 const colors = {
   green: '\x1b[32m',

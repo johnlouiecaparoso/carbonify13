@@ -1,6 +1,7 @@
 import { getSupabase } from '@/services/supabaseClient'
 import { USE_DATABASE } from '@/config/database'
 import { realPaymentService } from './realPaymentService'
+import { checkPaymentStatus } from './paymentGatewayService'
 
 export async function getWalletBalance(userId = null) {
   // In production, always use database (USE_DATABASE should be true)
@@ -338,7 +339,6 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
     }
 
     // Create payment intent with the payment gateway
-    let paymentIntent
     const paymentData = {
       amount: amount,
       currency: 'PHP',

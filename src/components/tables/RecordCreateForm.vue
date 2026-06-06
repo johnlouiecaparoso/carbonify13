@@ -261,7 +261,7 @@ export default {
         },
       }
 
-      formData.value = { ...defaultValues[props.table.name] } || {}
+      formData.value = { ...defaultValues[props.table.name] }
     }
 
     onMounted(() => {

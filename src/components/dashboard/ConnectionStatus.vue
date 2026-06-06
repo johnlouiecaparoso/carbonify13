@@ -98,11 +98,10 @@ async function testSupabaseConnection() {
     // Test auth session
     const {
       data: { session },
-      error: sessionError,
     } = await supabase.auth.getSession()
 
     // Test database connection
-    const { data, error } = await supabase.from('profiles').select('count').limit(1)
+    const { error } = await supabase.from('profiles').select('count').limit(1)
 
     if (error) {
       return {

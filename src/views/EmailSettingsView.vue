@@ -1,5 +1,4 @@
 <script setup>
-import { ref } from 'vue'
 import PageLayout from '@/components/layout/PageLayout.vue'
 import EmailPreferences from '@/components/EmailPreferences.vue'
 

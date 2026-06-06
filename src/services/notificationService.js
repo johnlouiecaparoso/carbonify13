@@ -408,7 +408,7 @@ export async function createNotificationsForUsers(userIds = [], payload = {}) {
     throw new Error(error.message || 'Failed to create notifications')
   }
 
-  return data || localNotifications
+  return data || []
 }
 
 export async function createNotificationsForRoles(roles = [], payload = {}, options = {}) {

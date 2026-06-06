@@ -246,7 +246,7 @@ export class CreditOwnershipService {
               }))
               console.log('✅ Found project_credit_id:', projectCredit.id)
             }
-          } catch (findErr) {
+          } catch {
             console.warn('⚠️ Could not find project_credit_id for project:', projectId)
           }
         }

@@ -4,11 +4,9 @@
  */
 
 import { getSupabase } from '@/services/supabaseClient'
-import { 
-  createCheckoutSession, 
-  processPaymentCallback,
-  getPayMongoPublicKey,
-  initPayMongo 
+import {
+  createCheckoutSession,
+  processPaymentCallback
 } from './paymongoService'
 
 export class RealPaymentService {

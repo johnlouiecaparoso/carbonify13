@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/store/userStore'
 import { generateCarbonImpactReport } from '@/services/receiptService'
 import { formatDate } from '@/utils/formatDate'

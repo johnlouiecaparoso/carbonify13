@@ -54,7 +54,7 @@ export class ProjectService {
       }
 
       // Prepare insert data with all fields including estimated_credits and credit_price
-      const { documents, ...projectDataWithoutDocuments } = projectData
+      const { documents } = projectData
       
       // Convert numeric fields to numbers (form inputs are strings)
       const estimatedCredits = projectData.estimated_credits 
@@ -210,9 +210,10 @@ export class ProjectService {
    * Update a project (only if status is pending)
    * @param {string} projectId - Project ID
    * @param {Object} updates - Project updates
+   * @param {boolean} isAdmin - Whether the caller is an admin (fetch any project, not just own)
    * @returns {Promise<Object>} Updated project
    */
-  async updateProject(projectId, updates) {
+  async updateProject(projectId, updates, isAdmin = false) {
     if (!projectId) {
       throw new Error('Project ID missing')
     }

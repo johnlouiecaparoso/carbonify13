@@ -24,7 +24,7 @@ function loadEnv() {
     })
 
     return envVars
-  } catch (error) {
+  } catch {
     console.warn('⚠️  Could not load .env file, using process.env')
     return process.env
   }
@@ -88,7 +88,7 @@ async function createTestAccounts() {
       console.log(`Creating ${account.role} account: ${account.email}`)
 
       // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      const { error: authError } = await supabase.auth.admin.createUser({
         user_id: account.id,
         email: account.email,
         password: account.password,

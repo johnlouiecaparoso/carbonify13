@@ -154,8 +154,6 @@ export async function createSampleUsers() {
     throw new Error('Sample user creation is not allowed in production')
   }
 
-  const supabase = getSupabase()
-
   try {
     console.log('[DEV] Creating sample users...')
 

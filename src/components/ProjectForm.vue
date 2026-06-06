@@ -215,7 +215,6 @@ const isFormValid = computed(() => {
   const isValid = Object.keys(validationRules).every((field) => {
     const value = formData.value[field]
     const rule = validationRules[field]
-    let fieldValid = true
 
     // Handle required validation - check for empty values (string, number, null, undefined)
     if (rule.required) {
@@ -239,41 +238,6 @@ const isFormValid = computed(() => {
         }
       }
     }
-
-    // Attach technical & compliance documents with simple metadata
-    const addIfFile = (file, label) => {
-      if (file) {
-        projectData.documents.push({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          label,
-          uploadDate: new Date().toISOString(),
-        })
-      }
-    }
-
-    addIfFile(formData.value.pdd_file, 'pdd')
-    addIfFile(formData.value.baseline_file, 'baseline')
-    addIfFile(formData.value.additionality_file, 'additionality')
-    addIfFile(formData.value.leakage_file, 'leakage')
-    addIfFile(formData.value.safeguards_file, 'safeguards')
-    addIfFile(formData.value.feasibility_file, 'feasibility')
-    addIfFile(formData.value.lgu_endorsement_file, 'lgu_endorsement')
-    addIfFile(formData.value.land_ownership_file, 'land_ownership')
-    addIfFile(formData.value.ecc_file, 'ecc')
-    addIfFile(formData.value.moa_file, 'moa')
-
-    // Include any generic uploaded files as well
-    uploadedFiles.value.forEach((file) => {
-      projectData.documents.push({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        label: 'other',
-        uploadDate: file.uploadDate,
-      })
-    })
 
     // Handle string length validation (only for strings)
     if (typeof value === 'string' && value) {
@@ -514,14 +478,6 @@ function removeFile(fileId) {
   }
 }
 
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
 // Project image upload methods
 function validateImageFile(file) {
   // Check file size
@@ -732,6 +688,41 @@ async function handleSubmit() {
       documents: [],
     }
 
+    // Attach technical & compliance documents with simple metadata
+    const addIfFile = (file, label) => {
+      if (file) {
+        projectData.documents.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          label,
+          uploadDate: new Date().toISOString(),
+        })
+      }
+    }
+
+    addIfFile(formData.value.pdd_file, 'pdd')
+    addIfFile(formData.value.baseline_file, 'baseline')
+    addIfFile(formData.value.additionality_file, 'additionality')
+    addIfFile(formData.value.leakage_file, 'leakage')
+    addIfFile(formData.value.safeguards_file, 'safeguards')
+    addIfFile(formData.value.feasibility_file, 'feasibility')
+    addIfFile(formData.value.lgu_endorsement_file, 'lgu_endorsement')
+    addIfFile(formData.value.land_ownership_file, 'land_ownership')
+    addIfFile(formData.value.ecc_file, 'ecc')
+    addIfFile(formData.value.moa_file, 'moa')
+
+    // Include any generic uploaded files as well
+    uploadedFiles.value.forEach((file) => {
+      projectData.documents.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        label: 'other',
+        uploadDate: file.uploadDate,
+      })
+    })
+
     // Convert project image to base64 for database storage
     if (projectImage.value) {
       try {
@@ -904,103 +895,6 @@ async function handleSubmit() {
 function handleCancel() {
   resetForm()
   emit('cancel')
-}
-
-// Debug function to test form submission
-function debugFormSubmission() {
-  console.log('=== FORM DEBUG INFO ===')
-  console.log('Form Data:', formData.value)
-  console.log('Form Valid:', isFormValid.value)
-  console.log('Validation Rules:', validationRules)
-  console.log('Errors:', errors.value)
-  console.log('Loading:', loading.value)
-  console.log('User Store:', userStore)
-  console.log('User Store Session:', userStore.session)
-  console.log('User Store Profile:', userStore.profile)
-  console.log('User Store Role:', userStore.role)
-  console.log('User Store Session User ID:', userStore.session?.user?.id)
-  console.log('User Store Is Authenticated:', userStore.isAuthenticated)
-  console.log('======================')
-}
-
-// Simple direct submission function for testing
-async function forceSubmit() {
-  console.log('Force submitting project...')
-  loading.value = true
-
-  try {
-    const projectData = {
-      title: formData.value.title || 'Test Project',
-      description: formData.value.description || 'Test Description',
-      category: formData.value.category || 'Reforestation & Agroforestry',
-      location: formData.value.location || 'Test Location',
-      expected_impact: formData.value.expected_impact || 'Test Impact',
-    }
-
-    console.log('Submitting with data:', projectData)
-
-    // Try direct submission to Supabase
-    const supabase = (await import('@/services/supabaseClient')).getSupabase()
-    if (supabase) {
-      // Test authentication methods
-      console.log('Testing authentication methods...')
-
-      // Method 1: getUser()
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-      console.log('getUser() result:', { userData, userError })
-
-      // Method 2: getSession()
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      console.log('getSession() result:', { sessionData, sessionError })
-
-      // Method 3: Check localStorage
-      const authToken = localStorage.getItem('sb-fmngptolarydbgrtltnd-auth-token')
-      console.log('localStorage auth token:', authToken ? 'exists' : 'not found')
-
-      // Try multiple methods to get user ID
-      let userId = userStore.session?.user?.id
-      console.log('User store session user ID:', userId)
-
-      if (!userId) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        userId = user?.id
-        console.log('Force submit using Supabase user ID:', userId)
-      }
-
-      if (!userId) {
-        throw new Error('No authenticated user found - tried user store and Supabase auth')
-      }
-
-      const { data, error } = await supabase
-        .from('projects')
-        .insert([
-          {
-            ...projectData,
-            user_id: userId,
-            status: 'pending',
-          },
-        ])
-        .select()
-        .single()
-
-      if (error) {
-        throw error
-      }
-
-      console.log('Project submitted successfully:', data)
-      success.value = 'Project submitted successfully!'
-      resetForm()
-    } else {
-      throw new Error('Supabase not available')
-    }
-  } catch (error) {
-    console.error('Force submission failed:', error)
-    errors.value.general = error.message || 'Submission failed'
-  } finally {
-    loading.value = false
-  }
 }
 
 // Initialize form with project data if editing

@@ -34,7 +34,7 @@ export class ProjectWorkflowService {
       }
 
       // Create the project with all fields including estimated_credits and credit_price
-      const { documents, ...projectDataWithoutDocuments } = projectData
+      const { documents } = projectData
       
       // Convert numeric fields to numbers (form inputs are strings)
       const estimatedCredits = projectData.estimated_credits 

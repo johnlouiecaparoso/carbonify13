@@ -191,7 +191,7 @@ onMounted(async () => {
               completed_at: new Date().toISOString(), // Schema has completed_at field
             }
 
-            const { data: purchase, error: purchaseError } = await supabase
+            const { error: purchaseError } = await supabase
               .from('credit_purchases')
               .insert(purchaseDataToInsert)
               .select()
@@ -202,9 +202,6 @@ onMounted(async () => {
               console.error('❌ Error creating purchase record:', purchaseError)
               console.warn('⚠️ Purchase transaction may still be valid - payment was successful')
             }
-
-            // Use purchase ID if available, otherwise use session ID as fallback
-            const purchaseId = purchase?.id || paymentResult.sessionId || `purchase_${Date.now()}`
 
             // Create credit_transactions record FIRST (CRITICAL - needed for certificates and history)
             // This must be created before credit_ownership to get the transaction ID

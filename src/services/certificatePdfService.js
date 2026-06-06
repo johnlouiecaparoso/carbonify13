@@ -7,7 +7,7 @@ export async function generateCertificatePDF(certificate, transaction = null) {
     let jsPDF
     try {
       jsPDF = (await import('jspdf')).default
-    } catch (importError) {
+    } catch {
       console.warn('jsPDF not available, using text fallback')
       throw new Error('jsPDF not installed')
     }

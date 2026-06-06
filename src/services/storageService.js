@@ -1,4 +1,3 @@
-import { getSupabase } from '@/services/supabaseClient'
 
 /**
  * Storage service for handling file uploads to Supabase Storage
@@ -79,7 +78,7 @@ export async function uploadProfilePhoto(file, userId) {
     const filePath = fileName
 
     // Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('avatars')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -129,7 +128,7 @@ export async function uploadProfilePhoto(file, userId) {
  * @param {string} userId - The user ID
  * @returns {Promise<void>}
  */
-export async function deleteProfilePhoto(fileUrl, userId) {
+export async function deleteProfilePhoto(fileUrl) {
   // Use async version to ensure Supabase is initialized
   const { getSupabaseAsync } = await import('@/services/supabaseClient')
   const supabase = await getSupabaseAsync()

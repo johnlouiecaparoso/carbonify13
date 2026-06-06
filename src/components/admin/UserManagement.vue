@@ -101,7 +101,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
-import { roleService } from '@/services/roleService'
 
 const users = ref([])
 const loading = ref(true)

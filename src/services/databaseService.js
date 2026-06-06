@@ -2,7 +2,7 @@ import { getSupabase } from './supabaseClient'
 
 export const databaseService = {
   // Execute raw SQL queries (Note: This requires a custom RPC function in Supabase)
-  async executeQuery(query) {
+  async executeQuery() {
     try {
       // For now, we'll use a simple approach with direct table operations
       // In production, you'd need to create an RPC function in Supabase

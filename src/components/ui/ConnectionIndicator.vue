@@ -24,7 +24,7 @@ import { getWalletBalance } from '@/services/walletService'
 import { getMarketplaceListings } from '@/services/marketplaceService'
 import { useUserStore } from '@/store/userStore'
 
-const props = defineProps({
+defineProps({
   showDetails: { type: Boolean, default: false },
   position: { type: String, default: 'bottom-right' }, // bottom-right, top-right, etc.
 })
@@ -100,7 +100,7 @@ async function testSupabase() {
     const supabase = getSupabase()
     if (!supabase) return { status: 'error', message: 'Not initialized' }
 
-    const { data, error } = await supabase.from('profiles').select('count').limit(1)
+    const { error } = await supabase.from('profiles').select('count').limit(1)
     if (error) return { status: 'error', message: error.message }
 
     return { status: 'connected', message: 'Connected' }

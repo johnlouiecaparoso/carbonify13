@@ -6,7 +6,7 @@ async function testFinalMarketplaceIntegration() {
     // Check if we can access the marketplace integration service
     console.log('Step 1: Testing marketplace integration service...')
 
-    const { marketplaceIntegrationService } = await import(
+    await import(
       '/src/services/marketplaceIntegrationService.js'
     )
     console.log('✅ Marketplace integration service loaded')

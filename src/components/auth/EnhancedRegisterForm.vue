@@ -1,7 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/store/userStore'
 
 const router = useRouter()
 const name = ref('')
@@ -16,7 +15,6 @@ const passwordError = ref('')
 const confirmError = ref('')
 const showPassword = ref(false)
 const showConfirm = ref(false)
-const store = useUserStore()
 
 // Real-time validation
 function validateName() {
@@ -103,7 +101,7 @@ async function handleSubmit() {
 
     // Redirect to login with success message
     router.push('/login?registered=1')
-  } catch (err) {
+  } catch {
     errorMessage.value = 'Registration failed. Please try again.'
   } finally {
     loading.value = false

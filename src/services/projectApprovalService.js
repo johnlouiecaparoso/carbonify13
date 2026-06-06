@@ -1,6 +1,5 @@
 import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
-import { isTestAccount } from '@/utils/testAccounts'
 import { notifyProjectSubmitted } from '@/services/emailService'
 
 const PROJECT_WORKFLOW_STATUS = {
@@ -226,7 +225,7 @@ export class ProjectApprovalService {
         console.log('✅ Project credits already exist, checking for listing...')
         
         // Check for existing listings (use maybeSingle to handle duplicates gracefully)
-        const { data: existingListings, error: listingsCheckError } = await this.supabase
+        const { data: existingListings } = await this.supabase
           .from('credit_listings')
           .select('*')
           .eq('project_credit_id', existingCredits.id)
@@ -537,7 +536,8 @@ export class ProjectApprovalService {
       }
 
       // Prepare project data (exclude documents field as it doesn't exist in DB)
-      const { documents, ...projectDataWithoutDocuments } = projectData
+      const projectDataWithoutDocuments = { ...projectData }
+      delete projectDataWithoutDocuments.documents
       const submitData = {
         ...projectDataWithoutDocuments,
         user_id: finalUserId,

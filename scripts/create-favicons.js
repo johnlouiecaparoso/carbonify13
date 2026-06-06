@@ -14,7 +14,7 @@ const path = require('path')
 let sharp = null
 try {
   sharp = require('sharp')
-} catch (e) {
+} catch {
   console.log('⚠️  Sharp not installed. Using file copy method.')
   console.log('   Install sharp for better image resizing: npm install sharp --save-dev')
 }

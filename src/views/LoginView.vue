@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import LoginForm from '@/components/auth/LoginForm.vue'
 
 // Fixed route injection issues - no route dependency

@@ -61,7 +61,6 @@ export async function createCheckoutSession(sessionData) {
       description,
       metadata,
       billing,
-      paymentMethodTypes = ['card', 'gcash', 'paymaya'],
     } = sessionData
 
     // Validate amount

@@ -24,7 +24,7 @@ async function testBasicConnection() {
   console.log('🔍 Testing basic Supabase connection...')
 
   try {
-    const { data, error } = await supabase.from('profiles').select('count').limit(1)
+    const { error } = await supabase.from('profiles').select('count').limit(1)
 
     if (error) {
       console.error('❌ Connection failed:', error.message)
@@ -69,7 +69,7 @@ async function testAuthentication() {
 
   try {
     // Test if we can access auth
-    const { data, error } = await supabase.auth.getSession()
+    const { error } = await supabase.auth.getSession()
 
     if (error) {
       console.log('⚠️  Auth test failed:', error.message)

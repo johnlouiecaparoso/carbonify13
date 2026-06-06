@@ -18,7 +18,7 @@ export async function checkWebhookTransactionStatus(sessionId) {
 
   try {
     // Check wallet transactions
-    const { data: walletTx, error: walletError } = await supabase
+    const { data: walletTx } = await supabase
       .from('wallet_transactions')
       .select('id, status, amount, created_at')
       .eq('external_reference', sessionId)
@@ -35,7 +35,7 @@ export async function checkWebhookTransactionStatus(sessionId) {
     }
 
     // Check credit purchases (marketplace)
-    const { data: purchase, error: purchaseError } = await supabase
+    const { data: purchase } = await supabase
       .from('credit_purchases')
       .select('id, status, total_amount, created_at')
       .eq('payment_reference', sessionId)
