@@ -1,265 +1,124 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-// Payment service imports temporarily disabled for development
-// import {
-//   initializePayment,
-//   confirmPayment,
-//   calculatePaymentFees,
-//   getAvailableProviders,
-// } from '@/services/paymentService'
 
-// Mock implementations for testing
-const initializePayment = async (data) => ({ success: true, paymentIntentId: 'test_pi' })
-const confirmPayment = async (id, provider, method) => ({
-  success: true,
-  paymentId: 'test_payment',
-})
-const calculatePaymentFees = (amount, provider, method) => ({
-  amount,
-  fee: amount * 0.03,
-  total: amount * 1.03,
-})
-const getAvailableProviders = () => [{ id: 'paymongo', name: 'PayMongo' }]
+// NOTE: This suite was previously testing a non-existent functional API
+// (initializePayment/confirmPayment/calculatePaymentFees/getAvailableProviders)
+// via fake inline stubs, so it asserted behavior that exists nowhere in the
+// codebase. It has been rewritten to exercise the real `PaymentService` class
+// in src/services/paymentService.js. The payment layer is slated for a rebuild
+// in Phase 1 (server-side amounts + provider abstraction); update these tests
+// alongside that work.
+
+vi.mock('@/services/auditService', () => ({
+  logUserAction: vi.fn(),
+}))
+
+vi.mock('@/services/supabaseClient', () => ({
+  getSupabase: vi.fn(),
+}))
+
+import { PaymentService } from '@/services/paymentService'
+import { getSupabase } from '@/services/supabaseClient'
 
 describe('PaymentService', () => {
+  let service
+  let mockSupabase
+
   beforeEach(() => {
     vi.clearAllMocks()
-
-    // Mock fetch globally
-    global.fetch = vi.fn()
+    mockSupabase = { from: vi.fn() }
+    getSupabase.mockReturnValue(mockSupabase)
+    service = new PaymentService()
   })
 
-  describe('calculatePaymentFees', () => {
-    it('should calculate fees correctly for PayMongo card payments', () => {
-      const result = calculatePaymentFees(100, 'paymongo', 'card')
+  describe('processPayment', () => {
+    it('returns a completed result echoing the requested amount and currency', async () => {
+      const result = await service.processPayment({ amount: 500, currency: 'PHP' })
 
-      expect(result.fee).toBe(3.5) // 3.5% of 100
-      expect(result.total).toBe(103.5)
-      expect(result.breakdown.amount).toBe(100)
-      expect(result.breakdown.fee).toBe(3.5)
-      expect(result.breakdown.total).toBe(103.5)
-    })
-
-    it('should calculate fees correctly for GCash payments', () => {
-      const result = calculatePaymentFees(100, 'paymongo', 'gcash')
-
-      expect(result.fee).toBe(2) // 2% of 100
-      expect(result.total).toBe(102)
-    })
-
-    it('should calculate fees correctly for Stripe card payments', () => {
-      const result = calculatePaymentFees(100, 'stripe', 'card')
-
-      expect(result.fee).toBe(2.9) // 2.9% of 100
-      expect(result.total).toBe(102.9)
-    })
-
-    it('should handle zero amount', () => {
-      const result = calculatePaymentFees(0, 'paymongo', 'card')
-
-      expect(result.fee).toBe(0)
-      expect(result.total).toBe(0)
-    })
-
-    it('should handle unknown provider gracefully', () => {
-      const result = calculatePaymentFees(100, 'unknown', 'card')
-
-      expect(result.fee).toBe(0)
-      expect(result.total).toBe(100)
+      expect(result.success).toBe(true)
+      expect(result.status).toBe('completed')
+      expect(result.amount).toBe(500)
+      expect(result.currency).toBe('PHP')
+      expect(result.transactionId).toMatch(/^pay_/)
     })
   })
 
-  describe('getAvailableProviders', () => {
-    it('should return all available payment providers', () => {
-      const providers = getAvailableProviders()
+  describe('recordTransaction', () => {
+    it('inserts a wallet transaction and returns the created row', async () => {
+      const inserted = { id: 'txn_1', amount: 100 }
+      const single = vi.fn().mockResolvedValue({ data: inserted, error: null })
+      const select = vi.fn().mockReturnValue({ single })
+      const insert = vi.fn().mockReturnValue({ select })
+      mockSupabase.from.mockReturnValue({ insert })
 
-      expect(providers).toHaveLength(3)
-      expect(providers).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            id: 'paymongo',
-            name: 'PayMongo',
-            supportedMethods: expect.arrayContaining(['card', 'gcash', 'grab_pay', 'paymaya']),
-            currency: 'PHP',
-          }),
-          expect.objectContaining({
-            id: 'stripe',
-            name: 'Stripe',
-            supportedMethods: expect.arrayContaining(['card', 'bank_transfer']),
-            currency: 'PHP',
-          }),
-          expect.objectContaining({
-            id: 'paypal',
-            name: 'PayPal',
-            supportedMethods: expect.arrayContaining(['paypal', 'card']),
-            currency: 'PHP',
-          }),
-        ]),
+      const result = await service.recordTransaction({
+        userId: 'u1',
+        amount: 100,
+        transactionId: 'ref_1',
+      })
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('wallet_transactions')
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: 'u1', amount: 100, reference_id: 'ref_1' }),
       )
+      expect(result).toEqual(inserted)
+    })
+
+    it('throws when the insert fails', async () => {
+      const single = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
+      const select = vi.fn().mockReturnValue({ single })
+      const insert = vi.fn().mockReturnValue({ select })
+      mockSupabase.from.mockReturnValue({ insert })
+
+      await expect(
+        service.recordTransaction({ userId: 'u1', amount: 100 }),
+      ).rejects.toThrow('Failed to record payment')
+    })
+
+    it('returns null when the Supabase client is unavailable', async () => {
+      getSupabase.mockReturnValue(null)
+
+      const result = await service.recordTransaction({ userId: 'u1', amount: 100 })
+
+      expect(result).toBeNull()
     })
   })
 
-  describe('initializePayment', () => {
-    it('should initialize PayMongo payment successfully', async () => {
-      const mockResponse = {
-        id: 'pi_test_123',
-        client_secret: 'pi_test_123_secret',
-        status: 'requires_payment_method',
-      }
+  describe('getUserPayments', () => {
+    it('returns the user transactions ordered by created_at', async () => {
+      const rows = [{ id: 'a' }, { id: 'b' }]
+      const order = vi.fn().mockResolvedValue({ data: rows, error: null })
+      const eq = vi.fn().mockReturnValue({ order })
+      const select = vi.fn().mockReturnValue({ eq })
+      mockSupabase.from.mockReturnValue({ select })
 
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      })
+      const result = await service.getUserPayments('u1')
 
-      const paymentData = {
-        provider: 'paymongo',
-        amount: 100,
-        currency: 'PHP',
-        description: 'Test payment',
-        metadata: { test: true },
-      }
-
-      const result = await initializePayment(paymentData)
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/payments/paymongo/create-intent',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
-          body: expect.stringContaining('"amount":10000'),
-        }),
-      )
-
-      expect(result).toEqual(
-        expect.objectContaining({
-          success: true,
-          paymentIntentId: 'pi_test_123',
-          clientSecret: 'pi_test_123_secret',
-          provider: 'paymongo',
-          amount: 100,
-          currency: 'PHP',
-          status: 'requires_payment_method',
-        }),
-      )
+      expect(eq).toHaveBeenCalledWith('user_id', 'u1')
+      expect(result).toEqual(rows)
     })
 
-    it('should handle PayMongo payment initialization failure', async () => {
-      global.fetch.mockResolvedValue({
-        ok: false,
-        status: 400,
-        statusText: 'Bad Request',
-      })
+    it('returns an empty array on query error', async () => {
+      const order = vi.fn().mockResolvedValue({ data: null, error: { message: 'nope' } })
+      const eq = vi.fn().mockReturnValue({ order })
+      const select = vi.fn().mockReturnValue({ eq })
+      mockSupabase.from.mockReturnValue({ select })
 
-      const paymentData = {
-        provider: 'paymongo',
-        amount: 100,
-        currency: 'PHP',
-        description: 'Test payment',
-      }
+      const result = await service.getUserPayments('u1')
 
-      await expect(initializePayment(paymentData)).rejects.toThrow('Failed to initialize payment')
-    })
-
-    it('should initialize Stripe payment successfully', async () => {
-      const mockResponse = {
-        id: 'pi_stripe_123',
-        client_secret: 'pi_stripe_123_secret',
-        status: 'requires_payment_method',
-      }
-
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      })
-
-      const paymentData = {
-        provider: 'stripe',
-        amount: 100,
-        currency: 'PHP',
-        description: 'Test payment',
-      }
-
-      const result = await initializePayment(paymentData)
-
-      expect(result.provider).toBe('stripe')
-      expect(result.paymentIntentId).toBe('pi_stripe_123')
-    })
-
-    it('should initialize PayPal payment successfully', async () => {
-      const mockResponse = {
-        id: 'paypal_order_123',
-        links: [{ rel: 'approve', href: 'https://paypal.com/approve' }],
-      }
-
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      })
-
-      const paymentData = {
-        provider: 'paypal',
-        amount: 100,
-        currency: 'PHP',
-        description: 'Test payment',
-      }
-
-      const result = await initializePayment(paymentData)
-
-      expect(result.provider).toBe('paypal')
-      expect(result.paymentIntentId).toBe('paypal_order_123')
-      expect(result.approvalUrl).toBe('https://paypal.com/approve')
-    })
-
-    it('should throw error for unsupported provider', async () => {
-      const paymentData = {
-        provider: 'unsupported',
-        amount: 100,
-        currency: 'PHP',
-      }
-
-      await expect(initializePayment(paymentData)).rejects.toThrow('Failed to initialize payment')
+      expect(result).toEqual([])
     })
   })
 
-  describe('confirmPayment', () => {
-    it('should confirm PayMongo payment successfully', async () => {
-      const mockResponse = {
-        id: 'pi_test_123',
-        status: 'succeeded',
-        amount: 10000,
-        currency: 'PHP',
-      }
+  describe('refundPayment', () => {
+    it('throws when the original transaction is not found', async () => {
+      const single = vi.fn().mockResolvedValue({ data: null, error: { message: 'missing' } })
+      const eq = vi.fn().mockReturnValue({ single })
+      const select = vi.fn().mockReturnValue({ eq })
+      mockSupabase.from.mockReturnValue({ select })
 
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      })
-
-      const result = await confirmPayment('pi_test_123', 'paymongo', { type: 'card' })
-
-      expect(result).toEqual(
-        expect.objectContaining({
-          success: true,
-          paymentId: 'pi_test_123',
-          status: 'succeeded',
-          amount: 10000,
-          currency: 'PHP',
-          provider: 'paymongo',
-        }),
-      )
-    })
-
-    it('should handle payment confirmation failure', async () => {
-      global.fetch.mockResolvedValue({
-        ok: false,
-        status: 400,
-      })
-
-      await expect(confirmPayment('pi_test_123', 'paymongo', { type: 'card' })).rejects.toThrow(
-        'Failed to confirm payment',
-      )
+      await expect(
+        service.refundPayment('ref_1', 50, 'duplicate charge'),
+      ).rejects.toThrow('Original transaction not found')
     })
   })
 })

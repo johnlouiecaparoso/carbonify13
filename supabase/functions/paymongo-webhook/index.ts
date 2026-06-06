@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PayMongo Webhook Handler
  * 
  * This Edge Function receives webhooks from PayMongo when payments are completed.
@@ -35,7 +35,7 @@ function verifyWebhookSignature(
   secret: string
 ): boolean {
   if (!secret) {
-    console.warn('⚠️ PAYMONGO_WEBHOOK_SECRET not set, skipping signature verification')
+    console.warn('âš ï¸ PAYMONGO_WEBHOOK_SECRET not set, skipping signature verification')
     return true // Allow in development if secret not set
   }
 
@@ -78,7 +78,7 @@ async function processWalletTopUp(
   amount: number,
   userId: string
 ) {
-  console.log('💰 Processing wallet top-up:', { paymentId, sessionId, amount, userId })
+  console.log('ðŸ’° Processing wallet top-up:', { paymentId, sessionId, amount, userId })
 
   // Check if transaction already processed (idempotency)
   const { data: existingTx } = await supabase
@@ -89,7 +89,7 @@ async function processWalletTopUp(
 
   if (existingTx) {
     if (existingTx.status === 'completed') {
-      console.log('✅ Transaction already processed:', existingTx.id)
+      console.log('âœ… Transaction already processed:', existingTx.id)
       return { success: true, message: 'Already processed', transactionId: existingTx.id }
     }
     // Update existing pending transaction
@@ -119,7 +119,7 @@ async function processWalletTopUp(
 
   if (balanceError) {
     // If balance update fails, create transaction record for tracking
-    console.error('❌ Balance update failed:', balanceError)
+    console.error('âŒ Balance update failed:', balanceError)
     
     // Try to create/update transaction record for manual review
     if (!existingTx) {
@@ -163,7 +163,7 @@ async function processWalletTopUp(
     }
   }
 
-  console.log('✅ Wallet top-up processed successfully')
+  console.log('âœ… Wallet top-up processed successfully')
   return { success: true, newBalance: balanceResult }
 }
 
@@ -177,7 +177,7 @@ async function processMarketplacePurchase(
   amount: number,
   metadata: any
 ) {
-  console.log('🛒 Processing marketplace purchase:', { paymentId, sessionId, amount, metadata })
+  console.log('ðŸ›’ Processing marketplace purchase:', { paymentId, sessionId, amount, metadata })
 
   // Marketplace purchases are handled in PaymentCallbackView
   // This webhook just confirms payment - actual purchase logic in callback
@@ -190,7 +190,7 @@ async function processMarketplacePurchase(
     .single()
 
   if (existingPurchase && existingPurchase.status === 'completed') {
-    console.log('✅ Purchase already processed')
+    console.log('âœ… Purchase already processed')
     return { success: true, message: 'Already processed' }
   }
 
@@ -223,14 +223,14 @@ serve(async (req) => {
     const payload = await req.text()
     const webhookData = JSON.parse(payload)
 
-    console.log('📥 Webhook received:', {
+    console.log('ðŸ“¥ Webhook received:', {
       type: webhookData.type,
       event: webhookData.data?.attributes?.event,
     })
 
     // Verify webhook signature
     if (!verifyWebhookSignature(payload, signature, PAYMONGO_WEBHOOK_SECRET)) {
-      console.error('❌ Invalid webhook signature')
+      console.error('âŒ Invalid webhook signature')
       return new Response(JSON.stringify({ error: 'Invalid signature' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -240,7 +240,7 @@ serve(async (req) => {
     // Only process 'checkout.payment.paid' events
     const eventType = webhookData.data?.attributes?.event
     if (eventType !== 'checkout.payment.paid') {
-      console.log('ℹ️ Ignoring event type:', eventType)
+      console.log('â„¹ï¸ Ignoring event type:', eventType)
       return new Response(JSON.stringify({ message: 'Event ignored' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -297,7 +297,7 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json' },
       })
     } else {
-      console.warn('⚠️ Unknown payment type or missing metadata')
+      console.warn('âš ï¸ Unknown payment type or missing metadata')
       return new Response(JSON.stringify({
         success: false,
         message: 'Unknown payment type',
@@ -307,7 +307,7 @@ serve(async (req) => {
       })
     }
   } catch (error) {
-    console.error('❌ Webhook processing error:', error)
+    console.error('âŒ Webhook processing error:', error)
     return new Response(JSON.stringify({
       error: error.message || 'Webhook processing failed',
     }), {
@@ -316,29 +316,3 @@ serve(async (req) => {
     })
   }
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<<<<<<< HEAD
-
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 191b09e226eebf78c886c5d495f26a15031099cd
-=======
->>>>>>> cdeda1ddb03759c7616575d52de04771aba3c655

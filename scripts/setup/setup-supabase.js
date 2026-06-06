@@ -52,7 +52,9 @@ function logInfo(message) {
 async function checkEnvironmentVariables() {
   logStep(1, 'Checking environment variables')
 
-  const envPath = path.join(__dirname, '.env')
+  // .env lives at the project root; resolve from the run directory, not the
+  // script's own folder (the script was relocated into scripts/setup/).
+  const envPath = path.join(process.cwd(), '.env')
 
   if (!fs.existsSync(envPath)) {
     logError('.env file not found!')
