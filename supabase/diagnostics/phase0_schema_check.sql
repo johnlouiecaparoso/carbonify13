@@ -45,9 +45,17 @@ where schemaname = 'public'
   and tablename in ('credit_transactions', 'wallet_accounts', 'certificates')
 order by tablename, policyname;
 
--- 4) Which of the pending Phase 0 migrations are already applied live?
---    (If your project tracks them in supabase_migrations.schema_migrations.)
-select version, name
-from supabase_migrations.schema_migrations
-where version >= '20260215000000'
-order by version;
+-- 4) Migration tracking (optional / informational).
+--    NOTE: if the query below returns 0 rows, this project does NOT use the
+--    Supabase CLI migration table — migrations have been applied by hand in the
+--    SQL Editor, which is the root cause of live schema drifting from the
+--    migration files. (The original `select ... from
+--    supabase_migrations.schema_migrations` errors with 42P01 in that case;
+--    this existence check is the safe replacement.)
+select schema_name
+from information_schema.schemata
+where schema_name = 'supabase_migrations';
+
+-- If the above returns a row, you can then list applied versions:
+--   select version, name from supabase_migrations.schema_migrations
+--   where version >= '20260215000000' order by version;
