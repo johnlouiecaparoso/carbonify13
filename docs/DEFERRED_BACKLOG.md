@@ -61,6 +61,35 @@ Migrations are applied by hand → live schema drifts from `supabase/migrations/
 
 ---
 
+## From Phase 1 (Money Foundation) — gated / follow-up
+
+### P1. Financial-table RLS lockdown (cutover) 🔴
+`supabase/cutover/lockdown_financial_writes.sql` makes `credit_transactions`,
+`credit_ownership`, `wallet_accounts`, `wallet_transactions` **server-write-only**.
+**Gated:** run ONLY after the marketplace/wallet UI is switched to the
+server-authoritative flow (`createMarketplaceCheckout` → webhook →
+`process_marketplace_purchase`) and no longer writes those tables from the
+browser. Running early breaks live purchases.
+
+### P2. Client cutover to server-authoritative purchase 🔴
+Switch the marketplace "Buy" UI from the legacy client-amount checkout to
+`createMarketplaceCheckout({ listingId, quantity })`, and remove client-side
+inserts into `credit_transactions` / `credit_ownership` (the webhook RPC now owns
+those). Precondition for P1.
+
+### P3. Derive `payment_intents.user_id` from the verified JWT 🟠
+The checkout Edge Function currently takes `user_id` from the request body; it
+should come from the verified Supabase JWT. (The amount is already server-authoritative.)
+
+### P4. External settlement reconciliation 🟠
+`reconcile_financials()` reconciles the system against itself. Add a scheduled job
+that pulls PayMongo's settlement/payout report and reconciles real money in/out
+against the ledger. Needs the PayMongo API.
+
+### P5. Wallet top-up via payment_intents 🟠
+Wallet top-ups still use the legacy client-`data` checkout path. Migrate them to
+record a `payment_intent` (purpose `wallet_topup`) for consistent reconciliation.
+
 ## Carried into Phase 1
 - **Consolidate the 3 payment services** (`paymentService`, `realPaymentService`, `paymongoService`)
   behind one interface — this is Phase 1's "provider abstraction" task, handled there rather than as Phase 0 cleanup.
