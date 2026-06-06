@@ -2,9 +2,12 @@
 // This runs server-side to create PayMongo checkout sessions securely
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const PAYMONGO_SECRET_KEY = Deno.env.get('PAYMONGO_SECRET_KEY') || ''
 const PAYMONGO_API_URL = 'https://api.paymongo.com/v1'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 // CORS headers required when invoking from browser (localhost or production).
 const corsHeaders = {
@@ -64,6 +67,128 @@ async function verifyCheckoutSession(sessionId: string) {
   }
 }
 
+/**
+ * Server-authoritative marketplace checkout (Phase 1.2).
+ *
+ * The client sends ONLY { listing_id, quantity, origin, user_id, billing }.
+ * The amount is recomputed here from credit_listings.price_per_credit — a
+ * client-supplied amount is never trusted. We record a payment_intent (the
+ * authoritative amount) before creating the PayMongo session.
+ *
+ * NOTE (hardening, tracked): user_id should be derived from the verified JWT
+ * rather than the request body. The critical fix here is server-side AMOUNT.
+ */
+async function createMarketplaceCheckout(body: any) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  const listingId = body.listing_id
+  const quantity = Number(body.quantity)
+  const userId = body.user_id ?? null
+  const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
+
+  if (!listingId || !Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error('listing_id and a positive quantity are required')
+  }
+
+  const { data: listing, error: listingErr } = await supabase
+    .from('credit_listings')
+    .select('id, price_per_credit, quantity, currency, status, seller_id')
+    .eq('id', listingId)
+    .single()
+
+  if (listingErr || !listing) throw new Error('Listing not found')
+  if (listing.status !== 'active') throw new Error('Listing is not active')
+  if (quantity > Number(listing.quantity)) {
+    throw new Error('Requested quantity exceeds availability')
+  }
+
+  const unitAmount = Number(listing.price_per_credit)
+  if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+    throw new Error('Listing has no valid price')
+  }
+  const amount = Math.round(unitAmount * quantity * 100) / 100 // server-computed total
+  const currency = listing.currency || 'PHP'
+
+  // Record the authoritative intent BEFORE creating the provider session.
+  const { data: intent, error: intentErr } = await supabase
+    .from('payment_intents')
+    .insert({
+      user_id: userId,
+      purpose: 'marketplace_purchase',
+      listing_id: listingId,
+      quantity,
+      unit_amount: unitAmount,
+      amount,
+      currency,
+      provider: 'paymongo',
+      status: 'created',
+      metadata: { seller_id: listing.seller_id },
+    })
+    .select('id')
+    .single()
+
+  if (intentErr || !intent) {
+    throw new Error(`Failed to create payment intent: ${intentErr?.message ?? 'unknown'}`)
+  }
+
+  const checkoutData = {
+    data: {
+      attributes: {
+        send_email_receipt: false,
+        show_description: true,
+        show_line_items: true,
+        description: `Purchase of ${quantity} carbon credit(s)`,
+        line_items: [
+          {
+            name: `Carbon Credits x${quantity}`,
+            quantity,
+            amount: Math.round(unitAmount * 100), // per-unit centavos; PayMongo multiplies by quantity
+            currency,
+          },
+        ],
+        payment_method_types: ['card', 'gcash', 'paymaya'],
+        success_url: `${origin}/payment/callback`,
+        cancel_url: `${origin}/marketplace?cancelled=true`,
+        metadata: {
+          payment_intent_id: intent.id,
+          listing_id: listingId,
+          quantity: String(quantity),
+        },
+        ...(body.billing && (body.billing.name || body.billing.email || body.billing.phone)
+          ? { billing: body.billing }
+          : {}),
+      },
+    },
+  }
+
+  const res = await fetch(`${PAYMONGO_API_URL}/checkout_sessions`, {
+    method: 'POST',
+    headers: authHeader(),
+    body: JSON.stringify(checkoutData),
+  })
+  const result = await res.json()
+  if (!res.ok) {
+    // Mark the intent failed so it isn't left dangling.
+    await supabase.from('payment_intents').update({ status: 'failed' }).eq('id', intent.id)
+    throw new Error(result.errors?.[0]?.detail || 'Failed to create checkout session')
+  }
+
+  const sessionId = result.data.id
+  await supabase
+    .from('payment_intents')
+    .update({ provider_session_id: sessionId, status: 'pending', updated_at: new Date().toISOString() })
+    .eq('id', intent.id)
+
+  return {
+    success: true,
+    sessionId,
+    checkoutUrl: result.data.attributes.checkout_url,
+    amount,
+    currency,
+    paymentIntentId: intent.id,
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders })
@@ -87,7 +212,20 @@ serve(async (req) => {
       })
     }
 
-    // Default: create checkout session
+    // Server-authoritative marketplace checkout: amount computed from the
+    // listing, not trusted from the client (Phase 1.2).
+    if (body.action === 'create_marketplace_checkout') {
+      const result = await createMarketplaceCheckout(body)
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Default (legacy): create checkout session from a client-supplied payload.
+    // INSECURE for marketplace purchases (amount is client-controlled) — retained
+    // only for wallet top-ups (where the amount is the user's own deposit).
+    // Marketplace flows must use action 'create_marketplace_checkout' above.
     const { data } = body
     if (!data) throw new Error('Missing data for checkout session')
 

@@ -195,6 +195,55 @@ export async function createCheckoutSession(sessionData) {
 }
 
 /**
+ * Server-authoritative marketplace checkout (Phase 1.2).
+ *
+ * The client sends ONLY the listing id + quantity; the Edge Function recomputes
+ * the price from credit_listings and records a payment_intent. No client-supplied
+ * amount is involved, which closes the "pay any price" hole in the legacy
+ * createCheckoutSession path.
+ *
+ * @param {{ listingId: string, quantity: number, billing?: object }} args
+ * @returns {Promise<{ success: boolean, sessionId: string, checkoutUrl: string, amount: number, currency: string, paymentIntentId: string }>}
+ */
+export async function createMarketplaceCheckout({ listingId, quantity, billing } = {}) {
+  if (!listingId || !quantity || quantity <= 0) {
+    throw new Error('listingId and a positive quantity are required')
+  }
+
+  const supabase = await getSupabaseAsync()
+  if (!supabase) {
+    throw new Error('Supabase client not available for checkout')
+  }
+
+  let userId = null
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+    userId = userData?.user?.id ?? null
+  } catch {
+    // Unauthenticated callers are rejected server-side; leave userId null.
+  }
+
+  const { data: result, error } = await supabase.functions.invoke('paymongo-checkout', {
+    body: {
+      action: 'create_marketplace_checkout',
+      listing_id: listingId,
+      quantity,
+      user_id: userId,
+      origin: window.location.origin,
+      billing,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message || 'Failed to create marketplace checkout')
+  }
+  if (result?.error) {
+    throw new Error(result.error)
+  }
+  return result
+}
+
+/**
  * Process a successful payment callback
  * This is called when user returns from PayMongo checkout
  *
