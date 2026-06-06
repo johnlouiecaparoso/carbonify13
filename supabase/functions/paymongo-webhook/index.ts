@@ -352,7 +352,27 @@ serve(async (req) => {
     // Determine payment type from metadata
     const userId = metadata.user_id
     const transactionId = metadata.transaction_id
+    const paymentIntentId = metadata.payment_intent_id
     const isWalletTopUp = metadata.method && ['gcash', 'maya'].includes(metadata.method)
+
+    // Server-authoritative marketplace purchase (Phase 1.2/1.5): the checkout
+    // recorded a payment_intent; settle it atomically (decrement + ownership +
+    // ledger) via the RPC. This is the source of truth, not the callback page.
+    if (paymentIntentId) {
+      const { data: txnId, error: rpcError } = await supabase.rpc('process_marketplace_purchase', {
+        p_payment_intent_id: paymentIntentId,
+        p_provider_payment_id: paymentId,
+      })
+      if (rpcError) {
+        // Leave the event unprocessed so PayMongo retries.
+        throw new Error(`process_marketplace_purchase failed: ${rpcError.message}`)
+      }
+      await markEventProcessed(supabase, eventId)
+      return new Response(
+        JSON.stringify({ success: true, message: 'Purchase settled', transactionId: txnId }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
 
     if (isWalletTopUp && userId) {
       // Process wallet top-up
