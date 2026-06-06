@@ -12,3 +12,9 @@ verify_jwt = false
 
 [functions.send-approval-email]
 verify_jwt = false
+
+# PayMongo calls this URL directly with no Supabase JWT, so JWT verification must
+# be OFF or every webhook is rejected with 401. Security is enforced inside the
+# function instead, via HMAC-SHA256 signature verification (PAYMONGO_WEBHOOK_SECRET).
+[functions.paymongo-webhook]
+verify_jwt = false
