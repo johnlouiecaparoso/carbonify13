@@ -1,7 +1,9 @@
 # Ecolink — Implementation Roadmap & Timeline
 
 > **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Ecolink scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
-> **Compiled:** 2026-06-06
+> **Compiled:** 2026-06-06 · **Progress updated:** 2026-06-13
+>
+> **📍 Progress (2026-06-13):** **Phases 0, 1, and 2 are code-complete and locally green** (ESLint 0, 47 unit tests, build ✓; financial schema applied live) — see `handoff.md`. They are **not yet runtime-verified**: no sandbox purchase or payout has executed. **Next:** the Phase 1/2 sandbox verification checkpoint, then **Phase 3**. Per-phase status is marked inline below.
 
 ---
 
@@ -14,24 +16,26 @@
 
 ### Timeline at a glance
 
-| Phase | Theme | Solo-dev weeks | Cumulative |
-|---|---|---|---|
-| **0** | Stabilize & clean up | 1–2 | Wk 2 |
-| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 |
-| **2** | Get sellers paid 🔴 | 3 | Wk 9 |
-| **3** | Real credits + buyer trust 🔴 | 3 | Wk 12 |
-| **4** | Workflow completeness 🟠 | 3 | Wk 15 |
-| **5** | Admin & compliance 🟠 | 3 | Wk 18 |
-| **6** | Buyer & LGU experience 🟢 | 3 | Wk 21 |
-| **7** | Scale, transparency & security hardening 🟠 | 3 | Wk 24 |
-| **8** | Mobile / PWA 🟢 | 3 | Wk 27 |
-| **9** | Future / institutional ⏳ | ongoing | — |
+| Phase | Theme | Solo-dev weeks | Cumulative | Status |
+|---|---|---|---|---|
+| **0** | Stabilize & clean up | 1–2 | Wk 2 | 🆕 **Code-complete** (verify gates pending) |
+| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 | 🆕 **Code-complete** (sandbox run pending) |
+| **2** | Get sellers paid 🔴 | 3 | Wk 9 | 🆕 **Code-complete** (sandbox run pending) |
+| **3** | Real credits + buyer trust 🔴 | 3 | Wk 12 | ⬜ Next |
+| **4** | Workflow completeness 🟠 | 3 | Wk 15 | ⬜ Not started |
+| **5** | Admin & compliance 🟠 | 3 | Wk 18 | ⬜ Not started |
+| **6** | Buyer & LGU experience 🟢 | 3 | Wk 21 | ⬜ Not started |
+| **7** | Scale, transparency & security hardening 🟠 | 3 | Wk 24 | ⬜ Not started |
+| **8** | Mobile / PWA 🟢 | 3 | Wk 27 | ⬜ Not started |
+| **9** | Future / institutional ⏳ | ongoing | — | ⏳ Parallel/ongoing |
 
 **≈ 6 months solo to a production-credible web platform** (Phases 0–7), excluding the business/legal track that runs in parallel and excluding mobile.
 
 ---
 
-## Phase 0 — Stabilize & Clean Up (Weeks 1–2)
+## Phase 0 — Stabilize & Clean Up (Weeks 1–2) · 🆕 CODE-COMPLETE (2026-06-13)
+
+> **Status:** Branch `phase-0-stabilize`. Webhook conflict markers removed, `scripts/setup/` restored, 4 latent runtime bugs fixed, ESLint 183→0 + CI fixed, schema fixes applied live. **Remaining gates** (need live env): a test purchase puts credits in the portfolio with no console errors, and `paymongo-webhook` deploys clean (`DEFERRED_BACKLOG.md` #2). Code hygiene partly deferred (dual-column cleanup, Prettier — backlog #1, #5).
 
 **Goal:** Fix the known bugs and remove the rot so every later phase builds on solid ground. Do this *first* — it's cheap and unblocks everything.
 
@@ -50,7 +54,9 @@
 
 ---
 
-## Phase 1 — Money Foundation (Weeks 3–6) 🔴
+## Phase 1 — Money Foundation (Weeks 3–6) 🔴 · 🆕 CODE-COMPLETE (2026-06-13)
+
+> **Status:** Branch `phase-1-money-foundation`. All tasks built: `PaymentProvider`/Mock/PayMongo, server-authoritative `create_marketplace_checkout`, signed+deduped webhook, double-entry `ledger_entries` + `idempotency_keys` + `payment_intents`, atomic `process_marketplace_purchase`, `reconcile_financials()`. Migrations applied live. **Not yet runtime-verified** — the "Done when" gate (forced double-webhook, declined card, tampered amount, zero drift) needs a **sandbox run**. Gated cutover (browser-write lockdown) tracked as backlog P1–P3.
 
 **Goal:** Make real money *safe*. Today amounts are set client-side — this is the single production blocker. Everything else in money/marketplace depends on this. (Design: [`PAYMENTS_ARCHITECTURE.md`](PAYMENTS_ARCHITECTURE.md), [`VENDOR_SCORECARD_AND_TECH_DESIGN.md`](VENDOR_SCORECARD_AND_TECH_DESIGN.md).)
 
@@ -69,7 +75,9 @@
 
 ---
 
-## Phase 2 — Get Sellers Paid (Weeks 7–9) 🔴
+## Phase 2 — Get Sellers Paid (Weeks 7–9) 🔴 · 🆕 CODE-COMPLETE (2026-06-13)
+
+> **Status:** Branch `phase-2-seller-payouts` (current). All tasks built: `escrow_holds` hold/release, `PayoutProvider`/Mock, `payout_requests` state machine + dead-letter, `payoutService.js` + `process-payouts` worker behind `Withdraw.vue`, seller KYB (`kyb_applications`, payouts gated), refund/dispute via compensating ledger entries, `SellerEarningsView.vue` at `/sales` + listing management. **Not yet runtime-verified** — the "Done when" gate (KYB seller sees earnings → withdraws → sandbox disbursement reconciles; refund reverses cleanly) needs a **sandbox payout run**.
 
 **Goal:** Developers can actually cash out. Without this Ecolink is not a real marketplace.
 
@@ -88,7 +96,9 @@
 
 ---
 
-## Phase 3 — Real Credits & Buyer Trust (Weeks 10–12) 🔴
+## Phase 3 — Real Credits & Buyer Trust (Weeks 10–12) 🔴 · ⬜ NEXT
+
+> **Status:** Not started. **Precondition:** finish the Phase 1/2 sandbox verification checkpoint first (see `handoff.md` §5). The `PaymentProvider`/`PayoutProvider` abstractions from Phases 1–2 set the pattern for the `CreditSupplier` interface below.
 
 **Goal:** Make the credits *real* (or clearly labeled), and give buyers what they need to trust a purchase. (Strategy: [`REAL_WORLD_GOLIVE_PLAYBOOK.md`](REAL_WORLD_GOLIVE_PLAYBOOK.md) Track A.)
 
