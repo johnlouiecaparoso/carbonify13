@@ -119,6 +119,16 @@
                 <span class="detail-label">Issued</span>
                 <span class="detail-value">{{ formatDate(cert.issued_at) }}</span>
               </div>
+              <div v-if="cert.registry_serial" class="detail-row">
+                <span class="detail-label">Registry Serial</span>
+                <span class="detail-value mono">{{ cert.registry_serial }}</span>
+              </div>
+              <div v-if="cert.registry_receipt_url" class="detail-row">
+                <span class="detail-label">Retirement Receipt</span>
+                <span class="detail-value">
+                  <a :href="cert.registry_receipt_url" target="_blank" rel="noopener noreferrer">View receipt ↗</a>
+                </span>
+              </div>
               <div v-if="cert.signature_hash" class="detail-row">
                 <span class="detail-label">Digital Signature</span>
                 <span class="detail-value mono signature">{{ cert.signature_hash }}</span>

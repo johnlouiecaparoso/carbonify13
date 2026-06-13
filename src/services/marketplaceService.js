@@ -286,6 +286,7 @@ export async function getMarketplaceListings(filters = {}) {
       currency,
       seller_id,
       status,
+      source,
       project_credit_id,
       project_credits:project_credits (
         id,
@@ -415,6 +416,7 @@ export async function getMarketplaceListings(filters = {}) {
           currency: listing.currency || credit.currency || 'PHP',
           seller_id: listing.seller_id,
       seller_name: sellerMap.get(listing.seller_id) || 'Unknown Seller',
+          source: listing.source || 'local',
           listed_at: listing.created_at,
           project_image: project.project_image,
           image_name: project.image_name,

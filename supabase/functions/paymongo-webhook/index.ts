@@ -259,6 +259,142 @@ async function markEventProcessed(supabase: any, eventId: string) {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 3 — supplier fulfillment saga (TS port of src/services/credits/
+// fulfillmentSaga.js; keep the two in sync). Runs only for 'supplier'-sourced
+// purchases, AFTER process_marketplace_purchase has committed. On supplier
+// failure it calls the idempotent refund_purchase RPC to compensate.
+// No real vendor SDK exists yet, so it uses a deterministic mock supplier
+// (CREDIT_SUPPLIER defaults to 'mock').
+// ───────────────────────────────────────────────────────────────────────────
+let _mockOrderSeq = 0
+function mockPlaceOrder(referenceId: string, quantity: number) {
+  if (!(quantity > 0)) throw new Error('placeOrder requires a positive quantity')
+  const n = ++_mockOrderSeq
+  return { orderId: `mock_order_${n}_${referenceId}`, registrySerial: `ECO-MOCK-REG-${n}` }
+}
+function mockRetire(orderId: string, registrySerial: string) {
+  return { registrySerial, retirementReceiptUrl: `https://mock.local/registry/retire/${orderId}` }
+}
+
+async function runFulfillment(
+  supabase: any,
+  opts: { transactionId: string; quantity: number; certificateId: string | null },
+): Promise<{ status: string; error?: string }> {
+  const { transactionId, quantity, certificateId } = opts
+  const supplierId = (Deno.env.get('CREDIT_SUPPLIER') || 'mock').trim()
+
+  // 1) Ensure a supplier_orders row (idempotent on transaction_id).
+  await supabase.from('supplier_orders').upsert(
+    { transaction_id: transactionId, certificate_id: certificateId, quantity, supplier_id: supplierId, status: 'pending' },
+    { onConflict: 'transaction_id', ignoreDuplicates: true },
+  )
+  const { data: order } = await supabase
+    .from('supplier_orders')
+    .select('*')
+    .eq('transaction_id', transactionId)
+    .single()
+
+  if (order && (order.status === 'retired' || order.status === 'refunded')) {
+    return { status: order.status }
+  }
+
+  const patch = async (p: Record<string, unknown>) =>
+    supabase
+      .from('supplier_orders')
+      .update({ ...p, updated_at: new Date().toISOString() })
+      .eq('transaction_id', transactionId)
+
+  const compensate = async (reason: string) => {
+    await patch({ status: 'failed', last_error: reason })
+    const { error } = await supabase.rpc('refund_purchase', {
+      p_transaction_id: transactionId,
+      p_reason: `Auto-refund (supplier fulfillment): ${reason}`,
+    })
+    if (error) return { status: 'failed', error: reason }
+    await patch({ status: 'refunded' })
+    return { status: 'refunded', error: reason }
+  }
+
+  // 2) placeOrder
+  let registrySerial = order?.registry_serial as string | null
+  let supplierOrderId = order?.supplier_order_id as string | null
+  if (!order || order.status === 'pending' || order.status === 'failed') {
+    try {
+      const placed = mockPlaceOrder(transactionId, quantity)
+      registrySerial = placed.registrySerial
+      supplierOrderId = placed.orderId
+      await patch({
+        status: 'ordered',
+        supplier_order_id: supplierOrderId,
+        registry_serial: registrySerial,
+        attempts: (order?.attempts ?? 0) + 1,
+      })
+    } catch (err) {
+      return compensate((err as Error)?.message || 'placeOrder failed')
+    }
+  }
+
+  // 3) retire
+  let retirementReceiptUrl: string | null = null
+  try {
+    const retired = mockRetire(supplierOrderId as string, registrySerial as string)
+    retirementReceiptUrl = retired.retirementReceiptUrl
+    await patch({ status: 'retired', retirement_receipt_url: retirementReceiptUrl })
+  } catch (err) {
+    return compensate((err as Error)?.message || 'retire failed')
+  }
+
+  // 4) Persist registry info onto the certificate (non-critical).
+  if (certificateId) {
+    try {
+      await supabase
+        .from('certificates')
+        .update({ registry_serial: registrySerial, registry_receipt_url: retirementReceiptUrl })
+        .eq('id', certificateId)
+    } catch (err) {
+      console.warn('attachRegistryInfo failed (non-critical):', (err as Error)?.message)
+    }
+  }
+
+  return { status: 'retired' }
+}
+
+// Fetch the quantity + listing source for a settled transaction, and any
+// certificate already generated for it.
+async function loadFulfillmentContext(supabase: any, transactionId: string) {
+  const { data: txn } = await supabase
+    .from('credit_transactions')
+    .select('id, quantity, listing_id')
+    .eq('id', transactionId)
+    .single()
+  if (!txn) return null
+
+  let source = 'local'
+  if (txn.listing_id) {
+    const { data: listing } = await supabase
+      .from('credit_listings')
+      .select('source')
+      .eq('id', txn.listing_id)
+      .single()
+    source = listing?.source || 'local'
+  }
+
+  let certificateId: string | null = null
+  try {
+    const { data: certs } = await supabase
+      .from('certificates')
+      .select('id')
+      .eq('transaction_id', transactionId)
+      .limit(1)
+    certificateId = certs?.[0]?.id ?? null
+  } catch (err) {
+    console.warn('certificate lookup failed (non-critical):', (err as Error)?.message)
+  }
+
+  return { quantity: Number(txn.quantity) || 0, source, certificateId }
+}
+
 serve(async (req) => {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -367,9 +503,30 @@ serve(async (req) => {
         // Leave the event unprocessed so PayMongo retries.
         throw new Error(`process_marketplace_purchase failed: ${rpcError.message}`)
       }
+
+      // Phase 3 — fulfill 'supplier'-sourced credits via the external registry.
+      // Local credits need no external retirement. Saga failure is already
+      // compensated by refund_purchase, so we still mark the event processed
+      // (the purchase itself succeeded); leaving it unprocessed would thrash.
+      let fulfillment = 'skipped'
+      try {
+        const ctx = txnId ? await loadFulfillmentContext(supabase, txnId) : null
+        if (ctx && ctx.source === 'supplier') {
+          const result = await runFulfillment(supabase, {
+            transactionId: txnId,
+            quantity: ctx.quantity,
+            certificateId: ctx.certificateId,
+          })
+          fulfillment = result.status
+        }
+      } catch (err) {
+        console.error('Fulfillment saga error (non-blocking):', (err as Error)?.message)
+        fulfillment = 'error'
+      }
+
       await markEventProcessed(supabase, eventId)
       return new Response(
-        JSON.stringify({ success: true, message: 'Purchase settled', transactionId: txnId }),
+        JSON.stringify({ success: true, message: 'Purchase settled', transactionId: txnId, fulfillment }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       )
     }

@@ -153,9 +153,14 @@ const router = createRouter({
       component: () => import('@/views/KycView.vue'),
       meta: { requiresAuth: true },
     },
-    // Redirect old project routes
+    // Redirect old project list route; full detail page for a single project.
     { path: '/projects', redirect: '/marketplace' },
-    { path: '/projects/:id', redirect: '/marketplace' },
+    {
+      path: '/projects/:id',
+      name: 'project-detail',
+      component: () => import('@/views/ProjectDetailView.vue'),
+      props: true,
+    },
     {
       path: '/admin',
       name: 'admin',

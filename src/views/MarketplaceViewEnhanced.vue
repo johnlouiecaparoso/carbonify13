@@ -140,8 +140,20 @@
                     />
                   </div>
                   <div class="project-grid-content">
-                    <h3 class="project-grid-title">{{ listing.project_title }}</h3>
+                    <div class="project-grid-titlerow">
+                      <h3 class="project-grid-title">{{ listing.project_title }}</h3>
+                      <span class="source-badge" :class="listing.source === 'supplier' ? 'supplier' : 'local'">
+                        {{ listing.source === 'supplier' ? 'Registry' : 'Local' }}
+                      </span>
+                    </div>
                     <p class="project-grid-description">{{ listing.project_description }}</p>
+                    <router-link
+                      :to="`/projects/${listing.project_id}`"
+                      class="details-link"
+                      @click.stop
+                    >
+                      View project details →
+                    </router-link>
                     <div class="project-grid-meta">
                       <span class="material-symbols-outlined location-icon" aria-hidden="true"
                         >location_on</span
@@ -1340,12 +1352,51 @@ onUnmounted(() => {
   flex: 1;
 }
 
+.project-grid-titlerow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .project-grid-title {
   font-size: 1.125rem;
   font-weight: 600;
   color: #111827;
   margin: 0;
   line-height: 1.4;
+}
+
+.source-badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.source-badge.local {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.source-badge.supplier {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.details-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #069e2d;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.details-link:hover {
+  text-decoration: underline;
 }
 
 .project-grid-description {
