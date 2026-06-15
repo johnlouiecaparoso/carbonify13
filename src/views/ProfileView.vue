@@ -270,6 +270,32 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- Role & Access -->
+                  <div class="settings-section">
+                    <h3 class="section-title">Role &amp; Access</h3>
+                    <div class="role-access">
+                      <div class="role-access-head">
+                        <span class="role-name">{{ roleAccess.name }}</span>
+                        <p class="role-desc">{{ roleAccess.description }}</p>
+                      </div>
+                      <div class="role-links">
+                        <router-link
+                          v-for="link in roleAccess.links"
+                          :key="link.to"
+                          :to="link.to"
+                          class="role-link"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">{{ link.icon }}</span>
+                          <span>{{ link.label }}</span>
+                        </router-link>
+                      </div>
+                      <p v-if="roleAccess.showApply" class="role-apply-hint">
+                        Want to develop projects or become a verifier?
+                        <router-link to="/apply">Apply for an advanced role →</router-link>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Notifications Tab -->
@@ -334,6 +360,8 @@ import {
   ROLE_APPLICATION_ROLES,
   getLatestRoleApplicationForUser,
 } from '@/services/roleApplicationService'
+import { ROLES, getRoleDisplayName } from '@/constants/roles'
+import { getRoleDescription } from '@/services/roleService'
 import ChangePasswordPanel from '@/components/auth/ChangePasswordPanel.vue'
 import MfaSetupPanel from '@/components/auth/MfaSetupPanel.vue'
 import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
@@ -427,6 +455,44 @@ export default {
     isKybVerified() {
       const profile = this.store.profile || this.latestProfile || {}
       return profile?.kyb_verified === true
+    },
+    // Role-aware access panel: name, description, and quick links per role.
+    roleAccess() {
+      const role = this.store.role || ROLES.GENERAL_USER
+      const linksByRole = {
+        [ROLES.ADMIN]: [
+          { label: 'Admin Dashboard', to: '/admin', icon: 'dashboard' },
+          { label: 'System Configuration', to: '/admin/config', icon: 'tune' },
+          { label: 'User Management', to: '/admin/users', icon: 'group' },
+        ],
+        [ROLES.VERIFIER]: [
+          { label: 'Verifier Panel', to: '/verifier', icon: 'fact_check' },
+        ],
+        [ROLES.PROJECT_DEVELOPER]: [
+          { label: 'My Projects', to: '/developer/projects', icon: 'inventory_2' },
+          { label: 'Submit Project', to: '/submit-project', icon: 'add_circle' },
+          { label: 'Monitoring (MRV)', to: '/monitoring', icon: 'monitoring' },
+        ],
+        [ROLES.LGU_USER]: [
+          { label: 'LGU Tools', to: '/lgu', icon: 'map' },
+        ],
+        [ROLES.BUYER_INVESTOR]: [
+          { label: 'My Portfolio', to: '/credit-portfolio', icon: 'account_balance_wallet' },
+          { label: 'Wallet', to: '/wallet', icon: 'payments' },
+          { label: 'Saved', to: '/watchlist', icon: 'favorite' },
+          { label: 'Cart', to: '/cart', icon: 'shopping_cart' },
+        ],
+        [ROLES.GENERAL_USER]: [
+          { label: 'Browse Marketplace', to: '/marketplace', icon: 'storefront' },
+          { label: 'Apply for a role', to: '/apply', icon: 'badge' },
+        ],
+      }
+      return {
+        name: getRoleDisplayName(role),
+        description: getRoleDescription(role),
+        links: linksByRole[role] || linksByRole[ROLES.GENERAL_USER],
+        showApply: role === ROLES.GENERAL_USER,
+      }
     },
     accountStatusItems() {
       const user = this.store.session?.user || null
@@ -1838,5 +1904,59 @@ export default {
     padding: 1.5rem;
   }
 
+}
+
+.role-access-head {
+  margin-bottom: 1rem;
+}
+.role-name {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #047857;
+  background: #ecfdf5;
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
+}
+.role-desc {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+.role-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+.role-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.role-link:hover {
+  border-color: #069e2d;
+  background: #f9fafb;
+}
+.role-link .material-symbols-outlined {
+  color: #069e2d;
+  font-size: 1.2rem;
+}
+.role-apply-hint {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+.role-apply-hint a {
+  color: #069e2d;
+  font-weight: 600;
+  text-decoration: none;
 }
 </style>

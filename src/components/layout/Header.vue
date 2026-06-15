@@ -355,6 +355,7 @@ const navItems = computed(() => {
   const baseItems = [
     { path: '/', label: 'Home' },
     { path: '/marketplace', label: 'Marketplace' },
+    { path: '/about', label: 'About' },
   ]
 
   if (!userStore.isAuthenticated) {

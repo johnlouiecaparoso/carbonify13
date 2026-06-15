@@ -174,6 +174,18 @@ async function handleSubmit() {
       <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
     </button>
 
+    <div class="role-apply-box">
+      <p class="role-apply-title">Applying as a Project Developer or Verifier?</p>
+      <p class="role-apply-text">
+        These roles require additional details (business registration, accreditation, supporting
+        documents) and are reviewed before approval.
+      </p>
+      <div class="role-apply-links">
+        <router-link to="/apply?role=project-developer">Apply as a Project Developer →</router-link>
+        <router-link to="/apply?role=verifier">Apply as a Verifier →</router-link>
+      </div>
+    </div>
+
     <p class="lgu-register-hint">
       Representing a local government unit?
       <router-link to="/register/lgu">Register as an LGU →</router-link>
@@ -429,6 +441,37 @@ button[disabled] {
 .lgu-register-hint a {
   color: #069e2d;
   font-weight: 600;
+  text-decoration: none;
+}
+
+.role-apply-box {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+.role-apply-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #374151;
+}
+.role-apply-text {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+.role-apply-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.role-apply-links a {
+  color: #069e2d;
+  font-weight: 600;
+  font-size: 0.82rem;
   text-decoration: none;
 }
 </style>

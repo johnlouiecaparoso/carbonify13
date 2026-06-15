@@ -33,6 +33,7 @@ const router = createRouter({
     // Public Routes
     { path: '/home', name: 'home', component: HomepageView },
     { path: '/', redirect: '/home' },
+    { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/register', name: 'register', component: RegisterView },
     {
@@ -333,7 +334,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
   // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password']
+  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password']
   if (publicRoutes.includes(to.name)) {
     console.log('✅ Public route, allowing access')
     next()
