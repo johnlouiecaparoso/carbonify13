@@ -235,6 +235,13 @@
           </button>
         </div>
 
+        <ProjectCommentThread
+          v-if="activeProject"
+          :key="activeProject.id"
+          :project-id="activeProject.id"
+          :allow-internal="true"
+        />
+
         <div
           v-if="activeProject && processingProjects.includes(activeProject.id)"
           class="processing-overlay"
@@ -287,20 +294,34 @@
             </div>
 
             <div class="prompt-content">
-              <h3 class="prompt-title">Confirm Rejected?</h3>
+              <h3 class="prompt-title">
+                {{ rejectPromptState.mode === 'needs_revision' ? 'Request revision?' : 'Confirm Rejected?' }}
+              </h3>
               <p class="prompt-message-center">
-                Are you sure you want to mark "{{ rejectPromptState.projectTitle }}" as rejected?
-                This action cannot be undone.
+                <template v-if="rejectPromptState.mode === 'needs_revision'">
+                  Send "{{ rejectPromptState.projectTitle }}" back to the developer for changes.
+                  They'll be able to edit, reply, and resubmit.
+                </template>
+                <template v-else>
+                  Are you sure you want to mark "{{ rejectPromptState.projectTitle }}" as rejected?
+                  This action cannot be undone.
+                </template>
               </p>
 
               <div class="reject-notes-group">
-                <label class="reject-notes-label" for="reject-notes">Rejection notes for project owner</label>
+                <label class="reject-notes-label" for="reject-notes">
+                  {{ rejectPromptState.mode === 'needs_revision'
+                    ? 'What needs to change? (shown to the developer)'
+                    : 'Rejection notes for project owner' }}
+                </label>
                 <textarea
                   id="reject-notes"
                   v-model="rejectPromptState.notes"
                   class="reject-notes-input"
                   rows="4"
-                  placeholder="Explain why this project is rejected and what should be improved."
+                  :placeholder="rejectPromptState.mode === 'needs_revision'
+                    ? 'List the specific revisions the developer should make before resubmitting.'
+                    : 'Explain why this project is rejected and what should be improved.'"
                 />
                 <p v-if="rejectPromptError" class="reject-notes-error">{{ rejectPromptError }}</p>
               </div>
@@ -311,7 +332,7 @@
                 Cancel
               </button>
               <button type="button" class="reject-confirm-btn" @click="confirmRejectPrompt">
-                Confirm Rejected
+                {{ rejectPromptState.mode === 'needs_revision' ? 'Request revision' : 'Confirm Rejected' }}
               </button>
             </div>
           </div>
@@ -329,6 +350,8 @@ import { useModernPrompt } from '@/composables/useModernPrompt'
 import { projectService } from '@/services/projectService'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import ProjectAssessmentPanel from '@/components/verifier/ProjectAssessmentPanel.vue'
+import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
+import { addProjectComment } from '@/services/projectCommentService'
 
 const { promptState, confirm, success, error: showErrorPrompt, handleConfirm, handleCancel, handleClose } = useModernPrompt()
 
@@ -345,6 +368,7 @@ const decisionCard = ref(null)
 const rejectPromptError = ref('')
 const rejectPromptState = ref({
   isOpen: false,
+  mode: 'rejected', // 'rejected' | 'needs_revision'
   projectTitle: '',
   notes: '',
   resolve: null,
@@ -597,13 +621,14 @@ function parsedSupportingDocuments(project) {
   }
 }
 
-function openRejectPrompt(project) {
+function openRejectPrompt(project, mode = 'rejected') {
   return new Promise((resolve) => {
     rejectPromptError.value = ''
     rejectPromptState.value = {
       isOpen: true,
+      mode,
       projectTitle: project?.title || 'this project',
-      notes: project?.verification_notes || '',
+      notes: mode === 'needs_revision' ? '' : project?.verification_notes || '',
       resolve,
     }
   })
@@ -613,6 +638,7 @@ function closeRejectPrompt(result = null) {
   const resolver = rejectPromptState.value.resolve
   rejectPromptState.value = {
     isOpen: false,
+    mode: 'rejected',
     projectTitle: '',
     notes: '',
     resolve: null,
@@ -632,7 +658,10 @@ function handleRejectOverlayClick(event) {
 function confirmRejectPrompt() {
   const notes = String(rejectPromptState.value.notes || '').trim()
   if (notes.length < 5) {
-    rejectPromptError.value = 'Please provide a rejection note with at least 5 characters.'
+    rejectPromptError.value =
+      rejectPromptState.value.mode === 'needs_revision'
+        ? 'Please describe what needs to change (at least 5 characters).'
+        : 'Please provide a rejection note with at least 5 characters.'
     return
   }
 
@@ -646,8 +675,8 @@ async function openVerificationModal(project, newStatus) {
   let verifierNotes = ''
   let confirmed = false
 
-  if (newStatus === 'rejected') {
-    const notes = await openRejectPrompt(project)
+  if (newStatus === 'rejected' || newStatus === 'needs_revision') {
+    const notes = await openRejectPrompt(project, newStatus)
     if (!notes) {
       return
     }
@@ -673,6 +702,16 @@ async function openVerificationModal(project, newStatus) {
   try {
     const result = await projectApprovalService.updateProjectStatus(project.id, newStatus, verifierNotes)
     console.log('Project status updated:', result)
+
+    // Mirror the revision reason into the comment thread so the developer can
+    // reply and the back-and-forth is recorded in one place.
+    if (newStatus === 'needs_revision' && verifierNotes) {
+      try {
+        await addProjectComment(project.id, verifierNotes, { authorRole: userStore.role })
+      } catch (commentErr) {
+        console.warn('Could not post revision comment (non-critical):', commentErr?.message)
+      }
+    }
 
     // Update project status in all lists
     const projectIndex = allProjects.value.findIndex(p => p.id === project.id)

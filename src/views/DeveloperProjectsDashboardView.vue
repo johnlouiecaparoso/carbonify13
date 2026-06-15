@@ -20,6 +20,10 @@
             <p class="summary-label">Pending</p>
             <p class="summary-value">{{ stats.pending }}</p>
           </div>
+          <div class="summary-card revision">
+            <p class="summary-label">Needs Revision</p>
+            <p class="summary-value">{{ stats.needsRevision }}</p>
+          </div>
           <div class="summary-card approved">
             <p class="summary-label">Approved</p>
             <p class="summary-value">{{ stats.approved }}</p>
@@ -83,13 +87,35 @@
               <p>{{ project.verification_notes || 'No rejection note was provided by verifier.' }}</p>
             </div>
 
+            <div v-else-if="project.status === 'needs_revision'" class="notes-box revision-note">
+              <h4>Revisions Requested</h4>
+              <p>{{ project.verification_notes || 'The verifier asked for changes — see the conversation below.' }}</p>
+              <div class="revision-actions">
+                <button class="resubmit-btn" type="button" @click="goToEdit(project)">
+                  Edit details
+                </button>
+                <button
+                  class="resubmit-btn primary"
+                  type="button"
+                  :disabled="resubmittingId === project.id"
+                  @click="resubmit(project)"
+                >
+                  {{ resubmittingId === project.id ? 'Resubmitting…' : 'Resubmit for review' }}
+                </button>
+              </div>
+            </div>
+
             <div
-              v-else-if="project.status === 'approved' && project.verification_notes"
+              v-else-if="['approved', 'validated'].includes(project.status) && project.verification_notes"
               class="notes-box approved-note"
             >
               <h4>Verifier Notes</h4>
               <p>{{ project.verification_notes }}</p>
             </div>
+
+            <!-- Conversation with the verifier (always available so threads persist
+                 across the needs_revision → resubmit → re-review cycle). -->
+            <ProjectCommentThread :project-id="project.id" :allow-internal="false" />
           </article>
         </div>
       </div>
@@ -101,7 +127,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { projectService } from '@/services/projectService'
+import { projectApprovalService } from '@/services/projectApprovalService'
 import ProjectProgressTracker from '@/components/ProjectProgressTracker.vue'
+import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 
 const router = useRouter()
 
@@ -109,24 +137,38 @@ const loading = ref(true)
 const errorMessage = ref('')
 const projects = ref([])
 const activeFilter = ref('all')
+const resubmittingId = ref(null)
+
+const has = (project, ...statuses) => statuses.includes(project.status)
 
 const stats = computed(() => ({
   total: projects.value.length,
-  pending: projects.value.filter((project) => project.status === 'pending').length,
-  approved: projects.value.filter((project) => project.status === 'approved').length,
-  rejected: projects.value.filter((project) => project.status === 'rejected').length,
+  pending: projects.value.filter((p) => has(p, 'pending', 'submitted', 'in_review')).length,
+  needsRevision: projects.value.filter((p) => has(p, 'needs_revision')).length,
+  approved: projects.value.filter((p) => has(p, 'approved', 'validated')).length,
+  rejected: projects.value.filter((p) => has(p, 'rejected')).length,
 }))
 
 const tabs = computed(() => [
   { value: 'all', label: 'All', count: stats.value.total },
   { value: 'pending', label: 'Pending', count: stats.value.pending },
+  { value: 'needs_revision', label: 'Needs Revision', count: stats.value.needsRevision },
   { value: 'approved', label: 'Approved', count: stats.value.approved },
   { value: 'rejected', label: 'Rejected', count: stats.value.rejected },
 ])
 
+// Map legacy and canonical status values onto the tab buckets.
+const TAB_STATUSES = {
+  pending: ['pending', 'submitted', 'in_review'],
+  needs_revision: ['needs_revision'],
+  approved: ['approved', 'validated'],
+  rejected: ['rejected'],
+}
+
 const filteredProjects = computed(() => {
   if (activeFilter.value === 'all') return projects.value
-  return projects.value.filter((project) => project.status === activeFilter.value)
+  const allowed = TAB_STATUSES[activeFilter.value] || [activeFilter.value]
+  return projects.value.filter((project) => allowed.includes(project.status))
 })
 
 function formatDate(value) {
@@ -135,19 +177,47 @@ function formatDate(value) {
 }
 
 function statusLabel(status) {
-  if (status === 'pending') return 'Pending'
-  if (status === 'approved') return 'Approved'
-  if (status === 'rejected') return 'Rejected'
-  if (status === 'under_review') return 'Under Review'
-  return status || 'Unknown'
+  const labels = {
+    pending: 'Pending',
+    submitted: 'Pending',
+    in_review: 'Under Review',
+    under_review: 'Under Review',
+    needs_revision: 'Needs Revision',
+    approved: 'Approved',
+    validated: 'Approved',
+    rejected: 'Rejected',
+  }
+  return labels[status] || status || 'Unknown'
 }
 
 function statusClass(status) {
+  // Collapse canonical aliases onto the existing badge styles.
+  if (['submitted', 'in_review', 'under_review'].includes(status)) return 'pending'
+  if (status === 'validated') return 'approved'
   return status || 'unknown'
 }
 
 function goToSubmitProject() {
   router.push('/submit-project')
+}
+
+function goToEdit(project) {
+  // Best-effort: open the submission form for this project. The form reads an
+  // optional id query when editing an existing draft.
+  router.push({ path: '/submit-project', query: { id: project.id } })
+}
+
+async function resubmit(project) {
+  resubmittingId.value = project.id
+  try {
+    await projectApprovalService.resubmitProject(project.id)
+    await loadProjects()
+  } catch (error) {
+    console.error('Resubmit failed:', error)
+    errorMessage.value = error.message || 'Failed to resubmit project.'
+  } finally {
+    resubmittingId.value = null
+  }
 }
 
 async function loadProjects() {
@@ -356,6 +426,11 @@ onMounted(() => {
   color: #075985;
 }
 
+.status-badge.needs_revision {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .notes-box {
   margin-top: 1rem;
   border-radius: 10px;
@@ -379,5 +454,38 @@ onMounted(() => {
 .approved-note {
   background: #ecfdf5;
   border: 1px solid #bbf7d0;
+}
+
+.revision-note {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.revision-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.resubmit-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.resubmit-btn.primary {
+  background: #069e2d;
+  border-color: #069e2d;
+  color: #fff;
+}
+
+.resubmit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
