@@ -332,11 +332,11 @@ export async function getMarketplaceListings(filters = {}) {
     if (sellerIds.length > 0) {
       const { data: sellers, error: sellerError } = await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, kyc_level')
         .in('id', sellerIds)
 
       if (!sellerError && sellers) {
-        sellerMap = new Map(sellers.map((seller) => [seller.id, seller.full_name]))
+        sellerMap = new Map(sellers.map((seller) => [seller.id, seller]))
       } else if (sellerError) {
         console.warn('Warning: Failed to load seller profiles:', sellerError)
       }
@@ -415,7 +415,8 @@ export async function getMarketplaceListings(filters = {}) {
           price_per_credit: pricePerCredit,
           currency: listing.currency || credit.currency || 'PHP',
           seller_id: listing.seller_id,
-      seller_name: sellerMap.get(listing.seller_id) || 'Unknown Seller',
+      seller_name: sellerMap.get(listing.seller_id)?.full_name || 'Unknown Seller',
+      seller_kyc_verified: Number(sellerMap.get(listing.seller_id)?.kyc_level) >= 2,
           source: listing.source || 'local',
           listed_at: listing.created_at,
           project_image: project.project_image,

@@ -97,6 +97,90 @@ export async function registerWithEmail({ name, email, password }) {
   return data
 }
 
+/**
+ * Start a Google OAuth sign-in. Redirects the browser to Google and back to
+ * /auth/callback, where the session is finalized and a profile is ensured.
+ * Requires the Google provider to be enabled in the Supabase dashboard.
+ */
+export async function signInWithGoogle() {
+  const supabase = getSupabase()
+  const redirectTo =
+    typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : undefined
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  })
+  if (error) {
+    await logUserAction('OAUTH_START_FAILED', 'user', null, null, {
+      provider: 'google',
+      error: error.message,
+    })
+    throw new Error(error.message || 'Could not start Google sign-in.')
+  }
+  return data
+}
+
+/**
+ * Send a one-time SMS code to a phone number (E.164, e.g. +639171234567).
+ * Requires an SMS provider configured in Supabase Auth.
+ */
+export async function sendPhoneOtp(phone) {
+  const supabase = getSupabase()
+  const { data, error } = await supabase.auth.signInWithOtp({ phone })
+  if (error) {
+    await logUserAction('PHONE_OTP_SEND_FAILED', 'user', null, null, { error: error.message })
+    throw new Error(error.message || 'Could not send the verification code.')
+  }
+  return data
+}
+
+/**
+ * Verify the SMS code and establish a session. On success ensures a profile row
+ * exists (phone signups have none yet).
+ */
+export async function verifyPhoneOtp(phone, token) {
+  const supabase = getSupabase()
+  const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' })
+  if (error) {
+    await logUserAction('PHONE_OTP_VERIFY_FAILED', 'user', null, null, { error: error.message })
+    throw new Error(error.message || 'Invalid or expired code.')
+  }
+  if (data?.user) {
+    await ensureUserProfile()
+  }
+  await logUserAction('LOGIN_SUCCESS', 'user', data.user?.id, null, { method: 'phone' })
+  return data
+}
+
+/**
+ * Ensure the currently authenticated user has a profile row, creating one if
+ * missing. Used after OAuth / phone sign-in (and safe to call repeatedly) since
+ * those flows don't go through registerWithEmail. Idempotent.
+ */
+export async function ensureUserProfile() {
+  const supabase = getSupabase()
+  if (!supabase) return null
+
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData?.user
+  if (!user) return null
+
+  // Already has a profile? Done.
+  try {
+    const { getProfile } = await import('@/services/profileService')
+    const existing = await getProfile(user.id)
+    if (existing) return existing
+  } catch {
+    // fall through to creation
+  }
+
+  const meta = user.user_metadata || {}
+  const fullName =
+    meta.full_name || meta.name || user.email?.split('@')[0] || user.phone || 'User'
+
+  return createUserProfile(user.id, { full_name: fullName })
+}
+
 async function createUserProfile(userId, profileData) {
   const supabase = getSupabase()
   if (!supabase) return

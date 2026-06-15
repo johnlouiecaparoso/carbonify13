@@ -57,7 +57,11 @@
                 <div v-if="photoError" class="photo-error">{{ photoError }}</div>
               </div>
               <div class="profile-info">
-                <h2 class="profile-name">{{ userProfile.fullName }}</h2>
+                <h2 class="profile-name">
+                  {{ userProfile.fullName }}
+                  <VerifiedBadge v-if="isKycVerified" type="kyc" />
+                  <VerifiedBadge v-if="isKybVerified" type="kyb" />
+                </h2>
                 <p class="profile-email">{{ userProfile.email }}</p>
                 <div class="profile-company">
                   <svg class="company-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,10 +336,11 @@ import {
 } from '@/services/roleApplicationService'
 import ChangePasswordPanel from '@/components/auth/ChangePasswordPanel.vue'
 import MfaSetupPanel from '@/components/auth/MfaSetupPanel.vue'
+import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 
 export default {
   name: 'ProfileView',
-  components: { ChangePasswordPanel, MfaSetupPanel },
+  components: { ChangePasswordPanel, MfaSetupPanel, VerifiedBadge },
   setup() {
     const store = useUserStore()
     return { store }
@@ -413,6 +418,16 @@ export default {
     }
   },
   computed: {
+    // Identity verified (KYC) once an admin sets kyc_level >= 2.
+    isKycVerified() {
+      const profile = this.store.profile || this.latestProfile || {}
+      return Number(profile?.kyc_level) >= 2
+    },
+    // Business verified (KYB) — relevant for sellers / project developers.
+    isKybVerified() {
+      const profile = this.store.profile || this.latestProfile || {}
+      return profile?.kyb_verified === true
+    },
     accountStatusItems() {
       const user = this.store.session?.user || null
       const profile = this.store.profile || this.latestProfile || {}

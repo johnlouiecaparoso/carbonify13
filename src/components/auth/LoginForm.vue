@@ -3,7 +3,13 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { ROLES } from '@/constants/roles'
-import { loginWithEmail, signOut } from '@/services/authService'
+import {
+  loginWithEmail,
+  signOut,
+  signInWithGoogle,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+} from '@/services/authService'
 import { isMfaRequired, challengeAndVerify } from '@/services/mfaService'
 import { getTestAccountByEmail } from '@/utils/testAccounts'
 import UiInput from '@/components/ui/Input.vue'
@@ -25,6 +31,70 @@ const mfaFactorId = ref(null)
 const mfaCode = ref('')
 const mfaError = ref('')
 const mfaLoading = ref(false)
+
+// Social / phone auth state
+const googleLoading = ref(false)
+const phoneMode = ref(false)
+const phone = ref('')
+const otpSent = ref(false)
+const otpCode = ref('')
+const phoneLoading = ref(false)
+const phoneError = ref('')
+
+async function loginGoogle() {
+  errorMessage.value = ''
+  googleLoading.value = true
+  try {
+    await signInWithGoogle() // redirects to Google, then /auth/callback
+  } catch (err) {
+    errorMessage.value = err?.message || 'Could not start Google sign-in.'
+    googleLoading.value = false
+  }
+}
+
+function togglePhoneMode() {
+  phoneMode.value = !phoneMode.value
+  phoneError.value = ''
+  errorMessage.value = ''
+  otpSent.value = false
+  otpCode.value = ''
+}
+
+async function sendOtp() {
+  phoneError.value = ''
+  if (!/^\+\d{8,15}$/.test(phone.value.trim())) {
+    phoneError.value = 'Enter your number in international format, e.g. +639171234567.'
+    return
+  }
+  phoneLoading.value = true
+  try {
+    await sendPhoneOtp(phone.value.trim())
+    otpSent.value = true
+  } catch (err) {
+    phoneError.value = err?.message || 'Could not send the code. SMS sign-in may not be enabled yet.'
+  } finally {
+    phoneLoading.value = false
+  }
+}
+
+async function verifyOtp() {
+  phoneError.value = ''
+  if (!otpCode.value || otpCode.value.trim().length < 6) {
+    phoneError.value = 'Enter the 6-digit code we texted you.'
+    return
+  }
+  phoneLoading.value = true
+  try {
+    const result = await verifyPhoneOtp(phone.value.trim(), otpCode.value.trim())
+    if (result?.session) store.session = result.session
+    else await store.fetchSession()
+    await finishLogin()
+  } catch (err) {
+    phoneError.value = err?.message || 'Invalid or expired code.'
+  } finally {
+    phoneLoading.value = false
+  }
+}
 
 async function finishLogin() {
   // Fetch user profile to get role for redirect
@@ -255,6 +325,59 @@ async function handleSubmit() {
         <span>Sign In</span>
       </UiButton>
     </form>
+
+    <!-- Alternative sign-in methods (hidden during MFA step) -->
+    <template v-if="!mfaRequired">
+      <div class="auth-divider"><span>or</span></div>
+
+      <button type="button" class="social-button" :disabled="googleLoading" @click="loginGoogle">
+        <img
+          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+          alt=""
+          class="social-icon"
+        />
+        <span>{{ googleLoading ? 'Redirecting…' : 'Continue with Google' }}</span>
+      </button>
+
+      <button type="button" class="social-button" @click="togglePhoneMode">
+        <span class="material-symbols-outlined" aria-hidden="true">smartphone</span>
+        <span>{{ phoneMode ? 'Use email instead' : 'Sign in with phone' }}</span>
+      </button>
+
+      <!-- Phone OTP flow -->
+      <form v-if="phoneMode" class="form-grid phone-form" @submit.prevent="otpSent ? verifyOtp() : sendOtp()">
+        <div class="form-field">
+          <label for="phone" class="form-label">
+            <span class="material-symbols-outlined label-icon" aria-hidden="true">call</span>
+            Phone number
+          </label>
+          <UiInput
+            id="phone"
+            type="tel"
+            placeholder="+639171234567"
+            v-model="phone"
+            :disabled="otpSent"
+          />
+        </div>
+
+        <div v-if="otpSent" class="form-field">
+          <label for="otpCode" class="form-label">
+            <span class="material-symbols-outlined label-icon" aria-hidden="true">password</span>
+            Verification code
+          </label>
+          <UiInput id="otpCode" type="text" inputmode="numeric" placeholder="6-digit code" v-model="otpCode" />
+        </div>
+
+        <div v-if="phoneError" class="error-message">{{ phoneError }}</div>
+
+        <UiButton type="submit" :loading="phoneLoading" block class="sign-in-button">
+          <span>{{ otpSent ? 'Verify & sign in' : 'Send code' }}</span>
+        </UiButton>
+        <button v-if="otpSent" type="button" class="link-button" @click="otpSent = false">
+          Use a different number
+        </button>
+      </form>
+    </template>
   </div>
 </template>
 
@@ -434,6 +557,63 @@ async function handleSubmit() {
   font-size: 0.78rem;
   color: #6b7280;
   margin: 0.4rem 0 0;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  margin: 1.25rem 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.auth-divider span {
+  padding: 0 0.75rem;
+}
+
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.6rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.social-button:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.social-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.social-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.phone-form {
+  margin-top: 0.75rem;
 }
 
 .link-button {

@@ -107,7 +107,10 @@
 
         <div v-if="userStore.isAuthenticated" class="user-menu">
             <div class="user-info">
-              <span class="user-name">{{ userStore.profile?.full_name || 'User' }}</span>
+              <span class="user-name">
+                {{ userStore.profile?.full_name || 'User' }}
+                <VerifiedBadge v-if="isKycVerified" type="kyc" icon-only />
+              </span>
               <span class="user-role">{{ getRoleDisplayName(userStore.role) }}</span>
             </div>
           <div
@@ -320,6 +323,7 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getRoleDisplayName } from '@/constants/roles'
 import { getUserInitials } from '@/services/profileService'
+import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 import { getSupabase } from '@/services/supabaseClient'
 import {
   getUserNotifications,
@@ -329,6 +333,7 @@ import {
 
 const route = useRoute()
 const userStore = useUserStore()
+const isKycVerified = computed(() => Number(userStore.profile?.kyc_level) >= 2)
 
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)

@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { registerWithEmail } from '@/services/authService'
+import { registerWithEmail, signInWithGoogle } from '@/services/authService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 
 const router = useRouter()
+const googleLoading = ref(false)
 const name = ref('')
 const email = ref('')
 const password = ref('')
@@ -17,6 +18,17 @@ const emailError = ref('')
 const passwordError = ref('')
 const confirmError = ref('')
 // Removed showPassword and showConfirm as UiInput handles password visibility internally
+
+async function signUpGoogle() {
+  errorMessage.value = ''
+  googleLoading.value = true
+  try {
+    await signInWithGoogle()
+  } catch (err) {
+    errorMessage.value = err?.message || 'Could not start Google sign-up.'
+    googleLoading.value = false
+  }
+}
 
 async function handleSubmit() {
   errorMessage.value = ''
@@ -150,6 +162,22 @@ async function handleSubmit() {
         <span>Create Account</span>
       </UiButton>
     </form>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <button type="button" class="social-button" :disabled="googleLoading" @click="signUpGoogle">
+      <img
+        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+        alt=""
+        class="social-icon"
+      />
+      <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
+    </button>
+
+    <p class="lgu-register-hint">
+      Representing a local government unit?
+      <router-link to="/register/lgu">Register as an LGU →</router-link>
+    </p>
   </div>
 </template>
 
@@ -337,5 +365,70 @@ button[disabled] {
   .form-grid {
     gap: 1rem;
   }
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  margin: 1.25rem 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.auth-divider span {
+  padding: 0 0.75rem;
+}
+
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.social-button:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.social-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.social-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.lgu-register-hint {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.lgu-register-hint a {
+  color: #069e2d;
+  font-weight: 600;
+  text-decoration: none;
 }
 </style>
