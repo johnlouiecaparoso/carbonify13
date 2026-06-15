@@ -53,6 +53,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      // OAuth / phone sign-in lands here to finalize the session.
+      path: '/auth/callback',
+      name: 'auth-callback',
+      component: () => import('@/views/AuthCallbackView.vue'),
+    },
+    {
       path: '/marketplace',
       name: 'marketplace',
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
@@ -153,6 +159,12 @@ const router = createRouter({
       component: () => import('@/views/KycView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/upgrade',
+      name: 'upgrade',
+      component: () => import('@/views/UpgradeView.vue'),
+      meta: { requiresAuth: true },
+    },
     // Redirect old project list route; full detail page for a single project.
     { path: '/projects', redirect: '/marketplace' },
     {
@@ -201,6 +213,15 @@ const router = createRouter({
       path: '/admin/kyc',
       name: 'admin-kyc',
       component: () => import('@/components/admin/KycReviewPanel.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      path: '/admin/config',
+      name: 'admin-config',
+      component: () => import('@/views/SystemConfigView.vue'),
       meta: {
         requiresAuth: true,
         requiresAdmin: true,
@@ -404,7 +425,7 @@ router.beforeEach(async (to, from, next) => {
 
     // IMPORTANT: Ensure profile is loaded before checking role-specific routes
     // This prevents navigation issues where role isn't loaded yet
-    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu) {
+    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFeature) {
       if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
         console.log('⏳ Profile/role not loaded yet, fetching before route check...')
         try {
@@ -473,6 +494,14 @@ router.beforeEach(async (to, from, next) => {
         next(getRoleDefaultRoute(normalizedRole || ROLES.GENERAL_USER))
         return
       }
+    }
+
+    // Subscription / premium gating (orthogonal to roles). Client-side UX gate
+    // only — premium actions are also enforced server-side.
+    if (to.meta.requiresFeature && !userStore.hasFeature(to.meta.requiresFeature)) {
+      console.log('🔒 Feature not in plan, redirecting to upgrade:', to.meta.requiresFeature)
+      next({ name: 'upgrade', query: { feature: to.meta.requiresFeature } })
+      return
     }
 
     next()
