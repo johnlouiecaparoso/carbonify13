@@ -84,7 +84,16 @@
           @click="activeProjectId = project.id"
         >
           <span class="project-list-title">{{ project.title }}</span>
-          <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
+          <span class="project-list-badges">
+            <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
+            <span
+              v-if="projectOverdue(project)"
+              class="sla-badge overdue"
+              :title="`Waiting ${ageDays(project)} days — over the ${slaDays}-day SLA`"
+            >
+              {{ ageDays(project) }}d · overdue
+            </span>
+          </span>
         </button>
       </aside>
 
@@ -108,7 +117,10 @@
             </div>
             <div class="meta-item">
               <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
-              <span>Submitted {{ formatDate(activeProject.created_at) }}</span>
+              <span>Submitted {{ formatDate(activeProject.created_at) }} ({{ ageDays(activeProject) }}d ago)</span>
+              <span v-if="projectOverdue(activeProject)" class="sla-badge overdue">
+                Over {{ slaDays }}-day SLA
+              </span>
             </div>
           </div>
 
@@ -165,6 +177,8 @@
         </div>
 
         <ProjectAssessmentPanel :project="activeProject" />
+
+        <ValidationChecklist :key="activeProject.id" :project-id="activeProject.id" />
 
         <div class="detail-actions">
           <button
@@ -352,6 +366,8 @@ import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import ProjectAssessmentPanel from '@/components/verifier/ProjectAssessmentPanel.vue'
 import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 import { addProjectComment } from '@/services/projectCommentService'
+import ValidationChecklist from '@/components/verifier/ValidationChecklist.vue'
+import { getSlaDays, projectAgeDays, isOverdue } from '@/services/verificationService'
 
 const { promptState, confirm, success, error: showErrorPrompt, handleConfirm, handleCancel, handleClose } = useModernPrompt()
 
@@ -386,8 +402,21 @@ const activeProject = computed(() =>
   displayedProjects.value.find((project) => project.id === activeProjectId.value) || null,
 )
 
+const slaDays = ref(5)
+
+// SLA helpers for the queue (age + overdue flag).
+function ageDays(project) {
+  return projectAgeDays(project)
+}
+function projectOverdue(project) {
+  return isOverdue(project, slaDays.value)
+}
+
 onMounted(() => {
   loadPendingProjects()
+  getSlaDays().then((d) => {
+    slaDays.value = d
+  })
 })
 
 watch(
@@ -1112,6 +1141,30 @@ async function openVerificationModal(project, newStatus) {
 .project-list-title {
   flex: 1;
   font-size: 0.95rem;
+}
+
+.project-list-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.sla-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sla-badge.overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .status-badge {
