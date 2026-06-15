@@ -495,6 +495,47 @@ serve(async (req) => {
     // recorded a payment_intent; settle it atomically (decrement + ownership +
     // ledger) via the RPC. This is the source of truth, not the callback page.
     if (paymentIntentId) {
+      // Subscription intents activate a plan instead of settling a purchase.
+      // The plan + user come from the stored intent (authoritative), not the
+      // webhook metadata.
+      const { data: intentRow } = await supabase
+        .from('payment_intents')
+        .select('purpose, user_id, status, metadata')
+        .eq('id', paymentIntentId)
+        .single()
+
+      if (intentRow?.purpose === 'subscription') {
+        if (intentRow.status === 'paid') {
+          // Idempotent: already activated by a prior delivery of this event.
+          await markEventProcessed(supabase, eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Subscription already active' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        const planKey = intentRow.metadata?.plan
+        const { data: newExpiry, error: subErr } = await supabase.rpc('activate_subscription', {
+          p_user_id: intentRow.user_id,
+          p_plan: planKey,
+        })
+        if (subErr) {
+          // Leave the event unprocessed so PayMongo retries.
+          throw new Error(`activate_subscription failed: ${subErr.message}`)
+        }
+
+        await supabase
+          .from('payment_intents')
+          .update({ status: 'paid', provider_payment_id: paymentId, updated_at: new Date().toISOString() })
+          .eq('id', paymentIntentId)
+
+        await markEventProcessed(supabase, eventId)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Subscription activated', plan: planKey, expiresAt: newExpiry }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
       const { data: txnId, error: rpcError } = await supabase.rpc('process_marketplace_purchase', {
         p_payment_intent_id: paymentIntentId,
         p_provider_payment_id: paymentId,
