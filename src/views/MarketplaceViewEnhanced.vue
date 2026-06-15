@@ -213,6 +213,17 @@
                         Purchase
                       </UiButton>
                       <UiButton
+                        v-if="!isSoldOut(listing)"
+                        variant="outline"
+                        size="sm"
+                        :title="inCart(listing) ? 'In cart' : 'Add to cart'"
+                        @click.stop="addListingToCart(listing)"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                          {{ inCart(listing) ? 'shopping_cart_checkout' : 'add_shopping_cart' }}
+                        </span>
+                      </UiButton>
+                      <UiButton
                         v-if="isUserAdmin"
                         variant="danger"
                         size="sm"
@@ -305,6 +316,17 @@
                         @click.stop="openPurchaseModal(listing)"
                       >
                         Purchase
+                      </UiButton>
+                      <UiButton
+                        v-if="!isSoldOut(listing)"
+                        variant="outline"
+                        size="sm"
+                        :title="inCart(listing) ? 'In cart' : 'Add to cart'"
+                        @click.stop="addListingToCart(listing)"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                          {{ inCart(listing) ? 'shopping_cart_checkout' : 'add_shopping_cart' }}
+                        </span>
                       </UiButton>
                       <UiButton
                         v-if="isUserAdmin"
@@ -515,6 +537,7 @@ import {
   removeFromWatchlist,
 } from '@/services/watchlistService'
 import WatchButton from '@/components/ui/WatchButton.vue'
+import { useCartStore } from '@/store/cartStore'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import UiButton from '@/components/ui/Button.vue'
 import Pagination from '@/components/ui/Pagination.vue'
@@ -546,6 +569,8 @@ const isUserAdmin = computed(() => {
   })
   return adminStatus
 })
+
+const cart = useCartStore()
 
 // State
 const listings = ref([])
@@ -1096,6 +1121,13 @@ async function loadWatchlist() {
 
 function isWatched(listing) {
   return watchedIds.value.has(listing.listing_id)
+}
+
+function addListingToCart(listing) {
+  cart.addItem(listing, 1)
+}
+function inCart(listing) {
+  return cart.has(listing.listing_id)
 }
 
 async function toggleWatch(listing) {

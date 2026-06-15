@@ -6,6 +6,8 @@ import { processPaymentCallback } from '@/services/paymongoService'
 import { realPaymentService } from '@/services/realPaymentService'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
+import { useCartStore } from '@/store/cartStore'
+import { CART_CHECKOUT_ACTIVE, CART_PENDING_LISTING } from '@/constants/cart'
 
 const {
   promptState,
@@ -19,6 +21,7 @@ const {
 const router = useRouter()
 const route = useRoute()
 const store = useUserStore()
+const cart = useCartStore()
 
 const loading = ref(true)
 const success = ref(false)
@@ -75,6 +78,24 @@ onMounted(async () => {
     if (result.success) {
       success.value = true
       paymentDetails.value = result.payment
+
+      // Sequential cart checkout: remove the item just paid for and, if more
+      // remain, send the buyer back to the cart to continue.
+      if (localStorage.getItem(CART_CHECKOUT_ACTIVE) === '1') {
+        const pending = localStorage.getItem(CART_PENDING_LISTING)
+        if (pending) cart.removeItem(pending)
+        localStorage.removeItem(CART_PENDING_LISTING)
+        if (cart.items.length > 0) {
+          await showSuccess({
+            title: 'Item purchased',
+            message: `Payment received. ${cart.items.length} item(s) left in your cart.`,
+            confirmText: 'Continue checkout',
+          })
+          router.push('/cart')
+          return
+        }
+        localStorage.removeItem(CART_CHECKOUT_ACTIVE)
+      }
 
       // Check if this was a wallet top-up or marketplace purchase
       const topUpSession = localStorage.getItem('wallet_topup_session')

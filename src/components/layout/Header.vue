@@ -321,6 +321,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
+import { useCartStore } from '@/store/cartStore'
 import { getRoleDisplayName } from '@/constants/roles'
 import { getUserInitials } from '@/services/profileService'
 import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
@@ -333,6 +334,7 @@ import {
 
 const route = useRoute()
 const userStore = useUserStore()
+const cartStore = useCartStore()
 const isKycVerified = computed(() => Number(userStore.profile?.kyc_level) >= 2)
 
 const mobileMenuOpen = ref(false)
@@ -373,6 +375,10 @@ const navItems = computed(() => {
     // Wallet, Receipts, Certificates and KYC live in the profile dropdown
     // (see accountLinks) to keep the top nav uncluttered for buyers.
     items.push({ path: '/watchlist', label: 'Saved' })
+    items.push({
+      path: '/cart',
+      label: cartStore.count > 0 ? `Cart (${cartStore.count})` : 'Cart',
+    })
     items.push({ path: '/carbon-calculator', label: 'Carbon Calculator' })
   }
 

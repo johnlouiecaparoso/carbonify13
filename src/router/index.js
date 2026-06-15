@@ -160,6 +160,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/cart',
+      name: 'cart',
+      component: () => import('@/views/CartView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/kyc',
       name: 'kyc',
       component: () => import('@/views/KycView.vue'),
