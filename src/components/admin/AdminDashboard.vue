@@ -56,6 +56,14 @@
             <h3>KYC Review</h3>
             <p>Approve identity verification applications</p>
           </router-link>
+
+          <router-link to="/admin/config" class="admin-tool-card">
+            <div class="tool-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">tune</span>
+            </div>
+            <h3>System Configuration</h3>
+            <p>Platform fee, KYC tiers, and emission factors</p>
+          </router-link>
         </div>
       </div>
 
