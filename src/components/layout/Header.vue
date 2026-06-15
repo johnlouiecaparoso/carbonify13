@@ -372,6 +372,7 @@ const navItems = computed(() => {
   if (!hideFinanceAndCertificateNav) {
     // Wallet, Receipts, Certificates and KYC live in the profile dropdown
     // (see accountLinks) to keep the top nav uncluttered for buyers.
+    items.push({ path: '/watchlist', label: 'Saved' })
     items.push({ path: '/carbon-calculator', label: 'Carbon Calculator' })
   }
 

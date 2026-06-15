@@ -127,6 +127,11 @@
                   @click="viewProject(listing)"
                 >
                   <div v-if="isSoldOut(listing)" class="sold-out-badge">Not available</div>
+                  <WatchButton
+                    class="grid-watch"
+                    :watched="isWatched(listing)"
+                    @toggle="toggleWatch(listing)"
+                  />
                   <div class="project-grid-image">
                     <img
                       v-if="listing.project_image"
@@ -280,6 +285,10 @@
                       <span v-else>{{ formatNumber(listing.available_quantity) }} credits left</span>
                     </div>
                     <div class="project-actions-buttons" @click.stop>
+                      <WatchButton
+                        :watched="isWatched(listing)"
+                        @toggle="toggleWatch(listing)"
+                      />
                       <UiButton
                         v-if="isSoldOut(listing)"
                         variant="secondary"
@@ -500,6 +509,12 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getMarketplaceListings, getMarketplaceStats } from '@/services/marketplaceService'
 import { projectService } from '@/services/projectService'
+import {
+  getMyWatchlistIds,
+  addToWatchlist,
+  removeFromWatchlist,
+} from '@/services/watchlistService'
+import WatchButton from '@/components/ui/WatchButton.vue'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import UiButton from '@/components/ui/Button.vue'
 import Pagination from '@/components/ui/Pagination.vue'
@@ -534,6 +549,7 @@ const isUserAdmin = computed(() => {
 
 // State
 const listings = ref([])
+const watchedIds = ref(new Set())
 const loading = ref(false)
 const errorMessage = ref('')
 const marketplaceStats = ref({
@@ -1065,6 +1081,46 @@ async function adminDeleteListing(listing) {
 }
 
 // Lifecycle
+// ── Watchlist ──────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  if (!userStore.isAuthenticated) {
+    watchedIds.value = new Set()
+    return
+  }
+  try {
+    watchedIds.value = await getMyWatchlistIds()
+  } catch (err) {
+    console.warn('Failed to load watchlist:', err?.message)
+  }
+}
+
+function isWatched(listing) {
+  return watchedIds.value.has(listing.listing_id)
+}
+
+async function toggleWatch(listing) {
+  if (!userStore.isAuthenticated) {
+    router.push({ name: 'login', query: { returnTo: '/marketplace' } })
+    return
+  }
+  const id = listing.listing_id
+  const next = new Set(watchedIds.value)
+  try {
+    if (next.has(id)) {
+      next.delete(id)
+      watchedIds.value = next // optimistic
+      await removeFromWatchlist(id)
+    } else {
+      next.add(id)
+      watchedIds.value = next
+      await addToWatchlist({ listingId: id, projectId: listing.project_id })
+    }
+  } catch (err) {
+    console.error('Watchlist toggle failed:', err?.message)
+    await loadWatchlist() // resync on failure
+  }
+}
+
 onMounted(() => {
   // Debug: Log admin status when component mounts
   console.log('🔍 [Marketplace] Component mounted - Admin status:', {
@@ -1076,6 +1132,7 @@ onMounted(() => {
   })
 
   loadMarketplaceData()
+  loadWatchlist()
 
   marketplaceRefreshTimer.value = setInterval(() => {
     loadMarketplaceData(true)
@@ -1254,6 +1311,13 @@ onUnmounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+.grid-watch {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 5;
 }
 
 .project-grid-card {

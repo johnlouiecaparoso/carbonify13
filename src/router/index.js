@@ -154,6 +154,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/watchlist',
+      name: 'watchlist',
+      component: () => import('@/views/WatchlistView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/kyc',
       name: 'kyc',
       component: () => import('@/views/KycView.vue'),
