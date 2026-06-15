@@ -119,8 +119,18 @@
 
         <!-- City ESG -->
         <section v-else-if="activeTab === 'esg'" class="panel">
-          <h2>City ESG Summary</h2>
-          <p class="panel-sub">Aggregated environmental performance across all saved records.</p>
+          <div class="esg-header">
+            <div>
+              <h2>City ESG Summary</h2>
+              <p class="panel-sub">Aggregated environmental performance across all saved records.</p>
+            </div>
+            <div class="esg-export" v-if="esg.recordCount > 0">
+              <button class="btn btn-sm btn-outline" @click="exportCsv">Export CSV</button>
+              <button class="btn btn-sm btn-primary" :disabled="exporting" @click="exportPdf">
+                {{ exporting ? 'Generating…' : 'Export PDF' }}
+              </button>
+            </div>
+          </div>
           <div class="esg-grid">
             <div class="esg-card">
               <span>Total waste generated</span>
@@ -147,6 +157,12 @@
               <strong>{{ esg.recordCount }}</strong>
             </div>
           </div>
+
+          <div v-if="esg.recordCount > 0" class="esg-trend">
+            <h3 class="trend-title">Emissions Trend by Period</h3>
+            <PortfolioChart :data="trendChartData" :options="trendChartOptions" />
+          </div>
+          <p v-else class="muted">Save emissions records to see the city ESG summary and trend.</p>
         </section>
 
         <!-- Endorsements -->
@@ -192,7 +208,13 @@ import {
   deleteEmissionsRecord,
   buildEsgSummary,
 } from '@/services/lguService'
+import {
+  emissionsTrendChartData,
+  exportLguEsgCsv,
+  exportLguEsgPdf,
+} from '@/services/lguReportService'
 import { getCommunityProjects, endorseProject } from '@/services/endorsementService'
+import PortfolioChart from '@/components/charts/PortfolioChart.vue'
 
 const userStore = useUserStore()
 
@@ -222,6 +244,38 @@ const result = computed(() => computeWasteEmissions(calc.wasteGenerated, calc.wa
 const records = ref([])
 const loadingRecords = ref(false)
 const esg = computed(() => buildEsgSummary(records.value))
+const exporting = ref(false)
+
+const trendChartData = computed(() => emissionsTrendChartData(records.value))
+const trendChartOptions = {
+  plugins: { title: { display: false } },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: { callback: (value) => `${Number(value).toLocaleString()} t` },
+    },
+  },
+}
+
+function reportMeta() {
+  // Prefer the municipality from the most recent record; fall back to the form.
+  return { municipality: records.value[0]?.municipality || calc.municipality || 'LGU' }
+}
+
+function exportCsv() {
+  exportLguEsgCsv(records.value, reportMeta())
+}
+
+async function exportPdf() {
+  exporting.value = true
+  try {
+    await exportLguEsgPdf(records.value, reportMeta())
+  } catch (err) {
+    console.error('LGU ESG PDF export failed:', err)
+  } finally {
+    exporting.value = false
+  }
+}
 
 const communityProjects = ref([])
 const loadingProjects = ref(false)
@@ -443,11 +497,33 @@ loadRecords()
 }
 
 .results,
+.esg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.esg-export {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .esg-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1rem;
   margin-bottom: 1.25rem;
+}
+
+.esg-trend {
+  margin-top: 1rem;
+}
+
+.trend-title {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
 }
 
 .result-card,
