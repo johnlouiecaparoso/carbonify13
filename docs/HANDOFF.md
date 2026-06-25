@@ -47,6 +47,16 @@ Two tracks are in flight:
   Now reads `data.attributes.type` and accepts `checkout_session.payment.paid`; also fixed `sessionId`/`amount`
   extraction. **Code fixed; not yet deployed (see blocker).**
 
+### Verifier workflow — Phase 4 (this cycle, committed)
+- ✅ **Developer ↔ verifier comment thread** — was already built; unblocked by the applied `project_comments`
+  migration. Added **comment notifications** ([notificationService.js](../src/services/notificationService.js))
+  so the other party is alerted via the bell (reviewer→owner, owner→reviewers, internal notes→reviewers only).
+- ✅ **Verifier price input** — the verifier now sets the price per credit at validation
+  ([ProjectApprovalPanel.vue](../src/components/admin/ProjectApprovalPanel.vue)); persisted to
+  `projects.credit_price` (blank falls back to the category default). Completes the submit-project change.
+
+> Commits: `f39cf51` (rebrand + fixes + comment notifications); verifier price input committed after.
+
 ---
 
 ## 2. 🔴 Active blocker (dashboard-resolvable, blocks only the money-path test)
@@ -80,12 +90,13 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard |
 | **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
+| **4 — Developer ↔ Verifier (partial)** | ✅ two-way comment thread + notifications; verifier sets price per credit at validation |
 
 ### ❌ Not yet implemented
 | Phase | Highlights |
 |---|---|
 | **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration, `local\|supplier` flag, full project-detail page, ESG/offset export, real SDG filter |
-| **4 — Developer ↔ Verifier Workflow** | edit/resubmit, two-way comment thread, scored checklist/rubric, verifier task queue + SLA, MRV reminders |
+| **4 — Developer ↔ Verifier Workflow** (partial — see above) | ⏳ remaining: edit/resubmit after revision, scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
 | **5 — Admin & Compliance** | system-config UI, admin finance console, AML screening, **DPA data export/delete tooling**, BIR/VAT invoices, audit-log search |
 | **7 — Scale & Security** | **public searchable registry**, pentest before live keys, pooling/indexes, backups/PITR, observability |
 | **8 — Mobile / PWA** | installable PWA, mobile views, web push |
@@ -103,15 +114,16 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 
 ### B. Unblocked — can be done right now (no Supabase-admin needed)
-- **Commit this branch** — the rebrand + fixes are uncommitted working changes.
-- **Verifier price input** (pairs with the submit-project change): let the verifier *enter* the price per
-  credit at approval instead of it being auto-derived from category.
-- **Phase 4 — developer↔verifier comment thread** (the `project_comments` migration is already applied).
+- ✅ **Committed** the rebrand + fixes (`f39cf51`).
+- ✅ **Developer↔verifier comment thread + notifications** (Phase 4).
+- ✅ **Verifier price input** at validation (Phase 4).
 - **Phase 5 — DPA tooling** (data export / account-delete request) — required by the privacy policy we shipped.
 - **`local | supplier` listing flag** (Phase 3 groundwork) — pure schema + UI label, no payments needed.
+- **Edit & resubmit after "needs revision"** (Phase 4) — completes the revision loop the comment thread started.
 - **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
 
-> Recommended order: **commit → verifier price input → developer↔verifier comments.** These move the product
+> Next recommended: **DPA tooling** (compliance — fulfils the privacy policy we shipped) or the
+> **edit/resubmit loop** (completes Phase 4). These move the product
 > forward while the money-path test waits on the dashboard step.
 
 ---

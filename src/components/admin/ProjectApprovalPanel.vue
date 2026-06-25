@@ -180,6 +180,32 @@
 
         <ValidationChecklist :key="activeProject.id" :project-id="activeProject.id" />
 
+        <!-- Verifier sets the price per credit (developers no longer provide it). -->
+        <div
+          v-if="['submitted', 'pending', 'in_review'].includes(activeProject.status)"
+          class="detail-section"
+        >
+          <h4>
+            <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+            <span>Price per Credit</span>
+          </h4>
+          <div class="verifier-price-row">
+            <span class="verifier-price-prefix">₱</span>
+            <input
+              v-model.number="verifierPrice"
+              type="number"
+              min="0.01"
+              step="0.01"
+              class="verifier-price-input"
+              placeholder="e.g. 250.00"
+            />
+          </div>
+          <p class="verifier-price-hint">
+            You set the price (PHP) buyers pay per carbon credit — it is saved when you
+            <strong>Validate</strong> the project. Leave blank to use the category default.
+          </p>
+        </div>
+
         <div class="detail-actions">
           <button
             v-if="['submitted', 'pending'].includes(activeProject.status)"
@@ -403,6 +429,13 @@ const activeProject = computed(() =>
 )
 
 const slaDays = ref(5)
+const verifierPrice = ref('')
+
+// Pre-fill the price box with any existing value when the verifier switches
+// projects, so they can confirm or adjust it.
+watch(activeProject, (proj) => {
+  verifierPrice.value = proj?.credit_price ?? ''
+})
 
 // SLA helpers for the queue (age + overdue flag).
 function ageDays(project) {
@@ -739,6 +772,20 @@ async function openVerificationModal(project, newStatus) {
   processing.value = true
 
   try {
+    // Persist the verifier-set price before validation so the listing/mint uses
+    // it. A blank box falls back to the category default in projectApprovalService.
+    if (newStatus === 'validated' || newStatus === 'approved') {
+      const price = Number(verifierPrice.value)
+      if (Number.isFinite(price) && price > 0) {
+        try {
+          await projectService.updateProject(project.id, { credit_price: price })
+          project.credit_price = price
+        } catch (priceErr) {
+          console.warn('Could not save verifier price (continuing):', priceErr?.message)
+        }
+      }
+    }
+
     const result = await projectApprovalService.updateProjectStatus(project.id, newStatus, verifierNotes)
     console.log('Project status updated:', result)
 
@@ -1315,6 +1362,39 @@ async function openVerificationModal(project, newStatus) {
 
 .submitted-doc-list li {
   margin-bottom: 0.35rem;
+}
+
+.verifier-price-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 2px solid var(--carbonify-border, #d1e7dd);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+}
+
+.verifier-price-row:focus-within {
+  border-color: var(--primary-color, #069e2d);
+}
+
+.verifier-price-prefix {
+  font-weight: 700;
+  color: #6b7280;
+}
+
+.verifier-price-input {
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  width: 8rem;
+  background: transparent;
+}
+
+.verifier-price-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #6b7280);
 }
 
 .detail-actions {
