@@ -237,12 +237,12 @@
           </button>
 
           <button
-            v-if="userStore.isAdmin"
+            v-if="userStore.isAdmin || userStore.isVerifier"
             class="action-btn danger"
             type="button"
             @click="deleteProject(activeProject.id)"
             :disabled="processing"
-            title="Delete project permanently (Admin only)"
+            title="Delete project permanently"
           >
             <span class="material-symbols-outlined" aria-hidden="true">delete_forever</span>
             <span>Delete Project</span>
@@ -491,11 +491,21 @@ async function deleteProject(projectId) {
     return
   }
 
-  // Check if user is admin
-  if (!userStore.isAdmin) {
+  // Admins and verifiers may delete projects. Verifiers cannot delete a
+  // validated project (enforced by RLS) — the attempt will surface an error.
+  if (!userStore.isAdmin && !userStore.isVerifier) {
     await showErrorPrompt({
       title: 'Access Denied',
-      message: 'Only administrators can delete projects.',
+      message: 'Only administrators and verifiers can delete projects.',
+      confirmText: 'OK',
+    })
+    return
+  }
+
+  if (userStore.isVerifier && !userStore.isAdmin && project.status === 'validated') {
+    await showErrorPrompt({
+      title: 'Cannot Delete',
+      message: 'Validated projects have issued credits and can only be removed by an administrator.',
       confirmText: 'OK',
     })
     return
@@ -784,7 +794,7 @@ async function openVerificationModal(project, newStatus) {
 .panel-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--ecolink-border, #e5e7eb);
+  border-bottom: 1px solid var(--carbonify-border, #e5e7eb);
 }
 
 .decision-card {
@@ -837,14 +847,14 @@ async function openVerificationModal(project, newStatus) {
 
 .panel-header h2 {
   margin: 0 0 8px 0;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
   font-size: 26px;
   font-weight: 700;
 }
 
 .panel-header p {
   margin: 0;
-  color: var(--ecolink-muted, #6b7280);
+  color: var(--carbonify-muted, #6b7280);
 }
 
 .filter-tabs {
@@ -856,13 +866,13 @@ async function openVerificationModal(project, newStatus) {
 
 .filter-tab {
   padding: 0.55rem 1.1rem;
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
   background: white;
   border-radius: 999px;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
   transition: all 0.2s ease;
 }
 
@@ -883,7 +893,7 @@ async function openVerificationModal(project, newStatus) {
 .no-projects {
   text-align: center;
   padding: 48px 24px;
-  color: var(--ecolink-muted, #6b7280);
+  color: var(--carbonify-muted, #6b7280);
 }
 
 .spinner {
@@ -1102,8 +1112,8 @@ async function openVerificationModal(project, newStatus) {
 .project-list {
   display: flex;
   flex-direction: column;
-  background: var(--ecolink-surface, #ffffff);
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  background: var(--carbonify-surface, #ffffff);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
   border-radius: 16px;
   overflow: hidden;
   max-height: calc(100vh - 260px);
@@ -1121,12 +1131,12 @@ async function openVerificationModal(project, newStatus) {
   text-align: left;
   cursor: pointer;
   font-weight: 600;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
   transition: background 0.15s ease;
 }
 
 .project-list-item + .project-list-item {
-  border-top: 1px solid var(--ecolink-border, #e5e7eb);
+  border-top: 1px solid var(--carbonify-border, #e5e7eb);
 }
 
 .project-list-item:hover {
@@ -1201,8 +1211,8 @@ async function openVerificationModal(project, newStatus) {
 
 .project-detail {
   position: relative;
-  background: var(--ecolink-surface, #ffffff);
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  background: var(--carbonify-surface, #ffffff);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
   border-radius: 16px;
   padding: 24px;
   display: flex;
@@ -1240,14 +1250,14 @@ async function openVerificationModal(project, newStatus) {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 700;
-  color: var(--ecolink-text, #0f172a);
+  color: var(--carbonify-text, #0f172a);
 }
 
 .detail-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 20px;
-  color: var(--ecolink-muted, #6b7280);
+  color: var(--carbonify-muted, #6b7280);
   font-size: 0.95rem;
 }
 
@@ -1274,7 +1284,7 @@ async function openVerificationModal(project, newStatus) {
   gap: 0.45rem;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
 }
 
 .detail-section h4 .material-symbols-outlined {
@@ -1284,7 +1294,7 @@ async function openVerificationModal(project, newStatus) {
 
 .detail-section p {
   margin: 0;
-  color: var(--ecolink-text, #374151);
+  color: var(--carbonify-text, #374151);
   line-height: 1.6;
 }
 
@@ -1295,7 +1305,7 @@ async function openVerificationModal(project, newStatus) {
 .submitted-image {
   max-width: min(100%, 420px);
   border-radius: 10px;
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
 }
 
 .submitted-doc-list {
@@ -1312,7 +1322,7 @@ async function openVerificationModal(project, newStatus) {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: auto;
-  border-top: 1px solid var(--ecolink-border, #e5e7eb);
+  border-top: 1px solid var(--carbonify-border, #e5e7eb);
   background: #ffffff;
   padding: 12px 0 0;
 }
@@ -1361,8 +1371,8 @@ async function openVerificationModal(project, newStatus) {
 
 .action-btn.outline {
   background: transparent;
-  border-color: var(--ecolink-border, #e5e7eb);
-  color: var(--ecolink-text, #111827);
+  border-color: var(--carbonify-border, #e5e7eb);
+  color: var(--carbonify-text, #111827);
 }
 
 .action-btn.outline:hover:not(:disabled) {
@@ -1408,7 +1418,7 @@ async function openVerificationModal(project, newStatus) {
   .project-list-item,
   .project-list-item + .project-list-item {
     border-top: none;
-    border-right: 1px solid var(--ecolink-border, #e5e7eb);
+    border-right: 1px solid var(--carbonify-border, #e5e7eb);
     min-width: 220px;
   }
 
@@ -1437,7 +1447,7 @@ async function openVerificationModal(project, newStatus) {
   .project-list-item,
   .project-list-item + .project-list-item {
     border-right: none;
-    border-top: 1px solid var(--ecolink-border, #e5e7eb);
+    border-top: 1px solid var(--carbonify-border, #e5e7eb);
   }
 
   .detail-actions {

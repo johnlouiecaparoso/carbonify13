@@ -94,7 +94,7 @@ export async function createCheckoutSession(sessionData) {
     const detailedDescription =
       purchaseMetadata.quantity && purchaseMetadata.price_per_credit
         ? `${quantity} credit${quantity > 1 ? 's' : ''} @ ₱${pricePerCredit.toFixed(2)} each from ${projectTitle}`
-        : description || 'EcoLink Credit Purchase'
+        : description || 'Carbonify Credit Purchase'
 
     // Create line items - show actual quantity and per-credit price if available
     const lineItems =
@@ -109,7 +109,7 @@ export async function createCheckoutSession(sessionData) {
           ]
         : [
             {
-              name: description || 'EcoLink Carbon Credits',
+              name: description || 'Carbonify Carbon Credits',
               quantity: 1,
               amount: Math.round(amount * 100), // Total amount in centavos
               currency: 'PHP',

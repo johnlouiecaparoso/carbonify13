@@ -100,7 +100,7 @@ const router = useRouter()
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem 0;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .back-btn {
@@ -138,13 +138,13 @@ const router = useRouter()
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .page-subtitle {
   margin: 0;
   font-size: 1rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .header-actions {
@@ -165,8 +165,8 @@ const router = useRouter()
 }
 
 .stat-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   padding: 1.5rem;
   display: flex;
@@ -182,7 +182,7 @@ const router = useRouter()
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ecolink-primary-50);
+  background: var(--carbonify-primary-50);
   border-radius: 8px;
 }
 
@@ -194,7 +194,7 @@ const router = useRouter()
   margin: 0 0 0.5rem 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -203,12 +203,12 @@ const router = useRouter()
   margin: 0;
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .users-table-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--shadow-md);
@@ -219,15 +219,15 @@ const router = useRouter()
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem;
-  background: var(--ecolink-primary-50);
-  border-bottom: 1px solid var(--ecolink-primary-200);
+  background: var(--carbonify-primary-50);
+  border-bottom: 1px solid var(--carbonify-primary-200);
 }
 
 .table-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-primary-700);
+  color: var(--carbonify-primary-700);
 }
 
 .table-actions {
@@ -238,20 +238,20 @@ const router = useRouter()
 
 .search-input {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 6px;
-  background: var(--ecolink-surface);
-  color: var(--ecolink-text);
+  background: var(--carbonify-surface);
+  color: var(--carbonify-text);
   font-size: 0.875rem;
   min-width: 200px;
 }
 
 .filter-select {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 6px;
-  background: var(--ecolink-surface);
-  color: var(--ecolink-text);
+  background: var(--carbonify-surface);
+  color: var(--carbonify-text);
   font-size: 0.875rem;
 }
 
@@ -274,12 +274,12 @@ const router = useRouter()
   margin: 0 0 1rem 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .placeholder-content p {
   margin: 0 0 1.5rem 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 1rem;
 }
 
@@ -287,7 +287,7 @@ const router = useRouter()
   text-align: left;
   max-width: 500px;
   margin: 0 auto;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.875rem;
 }
 

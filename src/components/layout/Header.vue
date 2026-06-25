@@ -26,13 +26,11 @@
         <!-- Right Section: Logo -->
         <div class="mobile-right-section">
           <router-link to="/" class="mobile-logo">
-            <div class="mobile-logo-container">
-              <img
-                src="/src/assets/images/ecolink-logo.png"
-                alt="EcoLink Logo"
-                class="mobile-logo-image"
-              />
-            </div>
+            <img
+              src="/carbonify-logo.png"
+              alt="Carbonify"
+              class="brand-wordmark brand-wordmark--mobile"
+            />
           </router-link>
         </div>
       </div>
@@ -41,15 +39,11 @@
       <div class="desktop-header-layout">
         <!-- Logo -->
         <router-link to="/" class="logo desktop-logo">
-          <div class="logo-container">
-            <div class="logo-image-container">
-              <img
-                src="/src/assets/images/ecolink-logo.png"
-                alt="EcoLink Logo"
-                class="logo-image"
-              />
-            </div>
-          </div>
+          <img
+            src="/carbonify-logo.png"
+            alt="Carbonify"
+            class="brand-wordmark"
+          />
         </router-link>
 
         <!-- Desktop Navigation -->
@@ -194,12 +188,12 @@
               "
             >
               <img
-                src="/src/assets/images/ecolink-logo.png"
-                alt="EcoLink Logo"
+                src="/carbonify-logo.png"
+                alt="Carbonify"
                 style="
-                  width: 40px !important;
-                  height: 40px !important;
-                  border-radius: 50% !important;
+                  height: 26px !important;
+                  width: auto !important;
+                  border-radius: 0 !important;
                 "
               />
               <h3
@@ -210,7 +204,7 @@
                   font-weight: 600 !important;
                 "
               >
-                EcoLink
+                Carbonify
               </h3>
             </div>
             <button
@@ -364,6 +358,11 @@ const navItems = computed(() => {
 
   const items = [...baseItems]
 
+  // About lives in the profile dropdown (accountLinks) for every signed-in role,
+  // so drop it from the top nav here. Guests (handled above) keep it in the nav.
+  const aboutIndex = items.findIndex((item) => item.path === '/about')
+  if (aboutIndex !== -1) items.splice(aboutIndex, 1)
+
   // Project developers access the map from their profile dropdown instead.
   if (!userStore.isProjectDeveloper) {
     items.push({ path: '/map', label: 'Project Map' })
@@ -373,13 +372,9 @@ const navItems = computed(() => {
     userStore.isAdmin || userStore.isVerifier || userStore.isProjectDeveloper
 
   if (!hideFinanceAndCertificateNav) {
-    // Wallet, Receipts, Certificates and KYC live in the profile dropdown
-    // (see accountLinks) to keep the top nav uncluttered for buyers.
-    items.push({ path: '/watchlist', label: 'Saved' })
-    items.push({
-      path: '/cart',
-      label: cartStore.count > 0 ? `Cart (${cartStore.count})` : 'Cart',
-    })
+    // Saved, Cart, Wallet, Receipts, Certificates and KYC all live in the profile
+    // dropdown (see accountLinks) to keep the top nav uncluttered for buyers.
+    // Only the Carbon Calculator stays in the top nav.
     items.push({ path: '/carbon-calculator', label: 'Carbon Calculator' })
   }
 
@@ -410,25 +405,38 @@ const navItems = computed(() => {
 const accountLinks = computed(() => {
   if (!userStore.isAuthenticated) return []
 
+  // About sits in the profile dropdown for every signed-in role.
+  const aboutLink = { path: '/about', label: 'About' }
+
   // Project developers: map + monitoring tucked under the profile menu.
   if (userStore.isProjectDeveloper) {
     return [
       { path: '/map', label: 'Project Map' },
       { path: '/monitoring', label: 'Monitoring (MRV)' },
+      aboutLink,
     ]
   }
 
-  // Buyers / general users: their finance & certificate pages.
+  // Buyers / general users: account pages ordered by importance. KYC gates
+  // transacting, so it leads; the relocated About, Saved and Cart sit beneath it
+  // alongside the existing wallet, receipts and certificate pages.
   if (!(userStore.isAdmin || userStore.isVerifier)) {
     return [
+      { path: '/kyc', label: 'KYC Verification' },
       { path: '/wallet', label: 'Wallet' },
+      {
+        path: '/cart',
+        label: cartStore.count > 0 ? `Cart (${cartStore.count})` : 'Cart',
+      },
+      { path: '/watchlist', label: 'Saved' },
       { path: '/receipts', label: 'Receipts' },
       { path: '/certificates', label: 'Certificates' },
-      { path: '/kyc', label: 'KYC Verification' },
+      aboutLink,
     ]
   }
 
-  return []
+  // Admins / verifiers: About under the profile menu.
+  return [aboutLink]
 })
 
 const showAccountLinks = computed(() => accountLinks.value.length > 0)
@@ -729,6 +737,20 @@ watch(
   gap: 0.5rem;
   text-decoration: none;
   color: var(--text-primary);
+}
+
+/* Carbonify wordmark logo */
+.brand-wordmark {
+  height: 2.25rem;
+  width: auto;
+  display: block;
+  margin: 0;
+  padding: 0.5rem 1rem;
+}
+
+.brand-wordmark--mobile {
+  height: 1.9rem;
+  padding: 0.25rem 0;
 }
 
 .logo-container {

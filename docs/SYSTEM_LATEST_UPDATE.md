@@ -1,4 +1,8 @@
-# Ecolink — Latest System Update, Gaps & Constraints
+# Carbonify — Latest System Update, Gaps & Constraints
+
+> ⚠️ **Newer state available:** for the current status (2026-06-25 — Carbonify rebrand, UX fixes, and
+> money-path verification progress) see **[HANDOFF.md](HANDOFF.md)**. This file remains the detailed
+> reference for the Phase 0–2 architecture and the sequencing constraints below.
 
 > **Snapshot date:** 2026-06-13
 > **Current branch:** `phase-2-seller-payouts` (stacked: `phase-0-stabilize` → `phase-1-money-foundation` → `phase-2-seller-payouts`)

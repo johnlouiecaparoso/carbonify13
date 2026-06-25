@@ -1,4 +1,4 @@
-# EcoLink — Production Readiness & Roadmap TODO
+# Carbonify — Production Readiness & Roadmap TODO
 
 > Created 2026-06-15 from the system analysis (deployment readiness, scalability/feasibility, and feature gaps).
 > Plan only — no code yet. Check items off as they're completed.

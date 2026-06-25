@@ -48,7 +48,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 const testAccounts = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    email: 'admin@ecolink.test',
+    email: 'admin@carbonify.test',
     password: 'admin123',
     name: 'Admin User',
     role: 'admin',
@@ -56,7 +56,7 @@ const testAccounts = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    email: 'verifier@ecolink.test',
+    email: 'verifier@carbonify.test',
     password: 'verifier123',
     name: 'Verifier User',
     role: 'verifier',
@@ -64,7 +64,7 @@ const testAccounts = [
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
-    email: 'user@ecolink.test',
+    email: 'user@carbonify.test',
     password: 'user123',
     name: 'General User',
     role: 'general_user',
@@ -72,7 +72,7 @@ const testAccounts = [
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
-    email: 'developer@ecolink.test',
+    email: 'developer@carbonify.test',
     password: 'developer123',
     name: 'Project Developer',
     role: 'project_developer',

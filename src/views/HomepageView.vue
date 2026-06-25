@@ -20,7 +20,7 @@
         <!-- Role Applications CTA -->
         <div v-if="!store.isAuthenticated" class="role-apply">
           <div class="role-apply__content">
-            <h3 class="role-apply__title">Join EcoLink as a Specialist</h3>
+            <h3 class="role-apply__title">Join Carbonify as a Specialist</h3>
             <p class="role-apply__description">
               Apply to become a project developer or verifier and help scale trusted climate solutions.
             </p>
@@ -117,7 +117,7 @@
     <section class="how-it-works-section">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title">How EcoLink Works</h2>
+          <h2 class="section-title">How Carbonify Works</h2>
           <p class="section-description">Simple steps to make a positive climate impact</p>
         </div>
 
@@ -171,7 +171,7 @@
           <h3 class="social-title">Follow Us</h3>
           <div class="social-icons">
             <a
-              href="https://facebook.com/ecolink"
+              href="https://facebook.com/carbonify"
               target="_blank"
               class="social-icon facebook"
               aria-label="Facebook"
@@ -183,7 +183,7 @@
               </svg>
             </a>
             <a
-              href="https://twitter.com/ecolink"
+              href="https://twitter.com/carbonify"
               target="_blank"
               class="social-icon twitter"
               aria-label="Twitter"
@@ -195,7 +195,7 @@
               </svg>
             </a>
             <a
-              href="https://linkedin.com/company/ecolink"
+              href="https://linkedin.com/company/carbonify"
               target="_blank"
               class="social-icon linkedin"
               aria-label="LinkedIn"
@@ -207,7 +207,7 @@
               </svg>
             </a>
             <a
-              href="https://instagram.com/ecolink"
+              href="https://instagram.com/carbonify"
               target="_blank"
               class="social-icon instagram"
               aria-label="Instagram"

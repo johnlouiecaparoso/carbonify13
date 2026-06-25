@@ -8,6 +8,7 @@
  */
 import { getSupabase } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
+import { notifyProjectComment } from '@/services/notificationService'
 
 /**
  * List comments on a project, oldest first. RLS already filters out internal
@@ -69,5 +70,27 @@ export async function addProjectComment(projectId, body, opts = {}) {
     .single()
 
   if (error) throw new Error(error.message || 'Failed to post comment')
+
+  // Notify the other party so the conversation is actually seen. Best-effort:
+  // never fail a posted comment because a notification couldn't be created.
+  try {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, title')
+      .eq('id', projectId)
+      .single()
+    if (project) {
+      await notifyProjectComment({
+        project,
+        authorId: userId,
+        authorRole: opts.authorRole,
+        body: trimmed,
+        isInternal: !!opts.isInternal,
+      })
+    }
+  } catch (notifyError) {
+    console.warn('Comment posted but notification failed:', notifyError?.message)
+  }
+
   return data
 }

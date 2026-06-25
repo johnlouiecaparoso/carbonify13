@@ -77,7 +77,7 @@ onMounted(() => {
   <div class="email-preferences">
     <div class="preferences-header">
       <h2>Email Notification Preferences</h2>
-      <p>Choose which email notifications you'd like to receive from EcoLink.</p>
+      <p>Choose which email notifications you'd like to receive from Carbonify.</p>
     </div>
 
     <!-- Loading State -->
@@ -236,12 +236,12 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .preferences-header p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 1.1rem;
 }
 
@@ -259,8 +259,8 @@ onMounted(() => {
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--ecolink-border);
-  border-top: 3px solid var(--ecolink-primary);
+  border: 3px solid var(--carbonify-border);
+  border-top: 3px solid var(--carbonify-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -285,8 +285,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--ecolink-success-bg);
-  color: var(--ecolink-success);
+  background: var(--carbonify-success-bg);
+  color: var(--carbonify-success);
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 24px;
@@ -298,8 +298,8 @@ onMounted(() => {
 
 /* Preferences Form */
 .preferences-form {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   padding: 24px;
 }
@@ -316,12 +316,12 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .section-description {
   margin: 0 0 20px 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.9rem;
 }
 
@@ -337,8 +337,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
 }
 
@@ -346,12 +346,12 @@ onMounted(() => {
   margin: 0 0 4px 0;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .preference-info p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.875rem;
   line-height: 1.4;
 }
@@ -377,7 +377,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--ecolink-border);
+  background-color: var(--carbonify-border);
   transition: 0.2s;
   border-radius: 24px;
 }
@@ -395,7 +395,7 @@ onMounted(() => {
 }
 
 input:checked + .toggle-slider {
-  background-color: var(--ecolink-primary);
+  background-color: var(--carbonify-primary);
 }
 
 input:checked + .toggle-slider:before {
@@ -419,16 +419,16 @@ input:disabled + .toggle-slider {
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .frequency-option:hover {
-  background: var(--ecolink-primary-50);
-  border-color: var(--ecolink-primary);
+  background: var(--carbonify-primary-50);
+  border-color: var(--carbonify-primary);
 }
 
 .frequency-option input[type='radio'] {
@@ -442,12 +442,12 @@ input:disabled + .toggle-slider {
 }
 
 .radio-label strong {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 0.9rem;
 }
 
 .radio-label small {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.8rem;
 }
 
@@ -457,7 +457,7 @@ input:disabled + .toggle-slider {
   gap: 12px;
   justify-content: flex-end;
   padding-top: 24px;
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 /* Responsive Design */

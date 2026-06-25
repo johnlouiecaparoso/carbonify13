@@ -87,7 +87,7 @@ const CSV_COLUMNS = [
 export function exportLguEsgCsv(records = [], { municipality = 'lgu' } = {}) {
   const csv = toCsv(records, CSV_COLUMNS)
   const safe = String(municipality || 'lgu').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
-  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `ecolink-lgu-esg-${safe}.csv`)
+  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `carbonify-lgu-esg-${safe}.csv`)
 }
 
 /** Download a formatted city ESG PDF (summary + per-period table). */
@@ -99,7 +99,7 @@ export async function exportLguEsgPdf(records = [], { municipality = '' } = {}) 
   const fmt = (n) => (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
 
   doc.setFontSize(18)
-  doc.text('EcoLink — City ESG Report', 14, 20)
+  doc.text('Carbonify — City ESG Report', 14, 20)
   doc.setFontSize(10)
   doc.text(`Local Government Unit: ${municipality || '—'}`, 14, 28)
 
@@ -141,5 +141,5 @@ export async function exportLguEsgPdf(records = [], { municipality = '' } = {}) 
   }
 
   const safe = String(municipality || 'lgu').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
-  doc.save(`ecolink-lgu-esg-${safe}.pdf`)
+  doc.save(`carbonify-lgu-esg-${safe}.pdf`)
 }

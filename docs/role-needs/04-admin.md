@@ -1,4 +1,4 @@
-# If I am an Admin — What I Need from Ecolink
+# If I am an Admin — What I Need from Carbonify
 
 **Who I am:** The platform owner/operator (DENR/CCC or system owner) managing users, overseeing trading and credit issuance, ensuring compliance and integrity. My success = I can run the platform safely, see everything, intervene when needed, and produce reports/evidence.
 

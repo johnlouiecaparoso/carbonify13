@@ -136,7 +136,7 @@ export class RealPaymentService {
       // Include purchase metadata (quantity, price_per_credit, etc.) for checkout display
       const checkoutSession = await createCheckoutSession({
         amount: paymentData.amount,
-        description: paymentData.description || 'EcoLink Credit Purchase',
+        description: paymentData.description || 'Carbonify Credit Purchase',
         paymentMethodTypes: ['gcash'],
         billing,
         metadata: {
@@ -235,7 +235,7 @@ export class RealPaymentService {
       // Include purchase metadata (quantity, price_per_credit, etc.) for checkout display
       const checkoutSession = await createCheckoutSession({
         amount: paymentData.amount,
-        description: paymentData.description || 'EcoLink Credit Purchase',
+        description: paymentData.description || 'Carbonify Credit Purchase',
         paymentMethodTypes: ['card', 'gcash', 'paymaya'], // Allow all methods, user chooses
         billing,
         metadata: {
@@ -333,7 +333,7 @@ export class RealPaymentService {
       // Include purchase metadata (quantity, price_per_credit, etc.) for checkout display
       const checkoutSession = await createCheckoutSession({
         amount: paymentData.amount,
-        description: paymentData.description || 'EcoLink Credit Purchase',
+        description: paymentData.description || 'Carbonify Credit Purchase',
         paymentMethodTypes: ['paymaya'],
         billing,
         metadata: {

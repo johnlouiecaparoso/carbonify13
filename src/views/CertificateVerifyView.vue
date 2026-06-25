@@ -7,7 +7,7 @@
           <div class="header-text">
             <h1 class="page-title">Certificate Verification</h1>
             <p class="page-description">
-              Confirm that an EcoLink carbon credit certificate is genuine
+              Confirm that an Carbonify carbon credit certificate is genuine
             </p>
           </div>
         </div>
@@ -68,7 +68,7 @@
               <p>
                 {{
                   result.integrityValid
-                    ? 'This certificate exists in the EcoLink registry and its contents have not been altered.'
+                    ? 'This certificate exists in the Carbonify registry and its contents have not been altered.'
                     : 'This certificate exists in the registry, but a tamper-evident signature could not be confirmed.'
                 }}
               </p>
@@ -113,7 +113,7 @@
               </div>
               <div class="detail-row">
                 <span class="detail-label">Standard</span>
-                <span class="detail-value">{{ cert.verification_standard || 'EcoLink Standard' }}</span>
+                <span class="detail-value">{{ cert.verification_standard || 'Carbonify Standard' }}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Issued</span>
@@ -147,7 +147,7 @@
           <span class="material-symbols-outlined state-icon">qr_code_scanner</span>
           <h3>Verify a certificate</h3>
           <p>
-            Enter a certificate number above, or scan the QR code printed on an EcoLink
+            Enter a certificate number above, or scan the QR code printed on an Carbonify
             certificate, to confirm its authenticity.
           </p>
         </div>
@@ -177,7 +177,7 @@ async function generateQr(value) {
   if (!value) return
   try {
     const QRCode = (await import('qrcode')).default
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ecolink.com'
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://carbonify.com'
     qrDataUrl.value = await QRCode.toDataURL(`${origin}/verify/${value}`, { margin: 1, width: 220 })
   } catch (err) {
     console.warn('Could not generate QR code:', err?.message)

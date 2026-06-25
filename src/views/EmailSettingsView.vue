@@ -31,12 +31,12 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
 <style scoped>
 .email-settings-view {
   min-height: 100vh;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
 }
 
 .page-header {
-  background: var(--ecolink-surface);
-  border-bottom: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border-bottom: 1px solid var(--carbonify-border);
   padding: 2rem 0;
 }
 
@@ -55,17 +55,17 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: none;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 6px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   text-decoration: none;
   font-size: 0.9rem;
   transition: all 0.2s;
 }
 
 .back-btn:hover {
-  background: var(--ecolink-bg);
-  border-color: var(--ecolink-primary);
+  background: var(--carbonify-bg);
+  border-color: var(--carbonify-primary);
 }
 
 .back-icon {
@@ -80,12 +80,12 @@ import EmailPreferences from '@/components/EmailPreferences.vue'
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .page-description {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 1.1rem;
 }
 

@@ -96,7 +96,7 @@ export async function exportEsgReportCsv(userId, deps) {
     { key: 'credits', header: 'Credits' },
     { key: 'tco2e', header: 'tCO2e' },
   ])
-  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `ecolink-esg-report-${userId}.csv`)
+  triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `carbonify-esg-report-${userId}.csv`)
   return data
 }
 
@@ -107,7 +107,7 @@ export async function exportEsgReportPdf(userId, deps) {
   const doc = new jsPDF()
 
   doc.setFontSize(18)
-  doc.text('EcoLink — ESG / Carbon Offset Report', 14, 20)
+  doc.text('Carbonify — ESG / Carbon Offset Report', 14, 20)
   doc.setFontSize(10)
   doc.text(`Account: ${userId}`, 14, 28)
 
@@ -137,6 +137,6 @@ export async function exportEsgReportPdf(userId, deps) {
     y += 7
   })
 
-  doc.save(`ecolink-esg-report-${userId}.pdf`)
+  doc.save(`carbonify-esg-report-${userId}.pdf`)
   return data
 }

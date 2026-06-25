@@ -1226,11 +1226,11 @@ export default {
 
 .admin-toggle-label .material-symbols-outlined {
   font-size: 1.3rem;
-  color: var(--ecolink-red-500);
+  color: var(--carbonify-red-500);
 }
 
 .admin-btn {
-  background: var(--ecolink-orange-500);
+  background: var(--carbonify-orange-500);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -1242,17 +1242,17 @@ export default {
 }
 
 .admin-btn:hover {
-  background: var(--ecolink-orange-600);
+  background: var(--carbonify-orange-600);
   transform: translateY(-1px);
 }
 
 .admin-btn.active {
-  background: var(--ecolink-red-500);
-  box-shadow: 0 0 0 2px var(--ecolink-red-200);
+  background: var(--carbonify-red-500);
+  box-shadow: 0 0 0 2px var(--carbonify-red-200);
 }
 
 .danger-btn {
-  background: var(--ecolink-red-500);
+  background: var(--carbonify-red-500);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -1264,13 +1264,13 @@ export default {
 }
 
 .danger-btn:hover {
-  background: var(--ecolink-red-600);
+  background: var(--carbonify-red-600);
   transform: translateY(-1px);
 }
 
 .admin-bulk-controls {
-  background: var(--ecolink-red-50);
-  border: 1px solid var(--ecolink-red-200);
+  background: var(--carbonify-red-50);
+  border: 1px solid var(--carbonify-red-200);
   border-radius: var(--radius-lg);
   padding: 16px;
   margin-bottom: 24px;
@@ -1297,12 +1297,12 @@ export default {
 
 .bulk-btn:hover {
   background: var(--bg-secondary);
-  border-color: var(--ecolink-blue-300);
+  border-color: var(--carbonify-blue-300);
 }
 
 .selection-count {
   font-weight: 600;
-  color: var(--ecolink-red-600);
+  color: var(--carbonify-red-600);
   font-size: 14px;
 }
 
@@ -1316,7 +1316,7 @@ export default {
   background: rgba(255, 255, 255, 0.95);
   padding: 8px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--ecolink-red-300);
+  border: 1px solid var(--carbonify-red-300);
   z-index: 10;
 }
 
@@ -1329,18 +1329,18 @@ export default {
 .admin-label {
   font-size: 12px;
   font-weight: 500;
-  color: var(--ecolink-red-600);
+  color: var(--carbonify-red-600);
   cursor: pointer;
 }
 
 .project-card.admin-selected {
-  border: 2px solid var(--ecolink-red-400);
-  background: var(--ecolink-red-50);
-  box-shadow: 0 0 0 1px var(--ecolink-red-200);
+  border: 2px solid var(--carbonify-red-400);
+  background: var(--carbonify-red-50);
+  box-shadow: 0 0 0 1px var(--carbonify-red-200);
 }
 
 .project-card.admin-selected .project-title {
-  color: var(--ecolink-red-700);
+  color: var(--carbonify-red-700);
 }
 
 /* Projects Grid */

@@ -3,7 +3,7 @@
     <!-- Hero -->
     <section class="about-hero">
       <div class="container">
-        <h1 class="hero-title">About EcoLink</h1>
+        <h1 class="hero-title">About Carbonify</h1>
         <p class="hero-tagline">
           A carbon-credit marketplace connecting project developers, verifiers, buyers, and local
           governments — so verified climate impact can be funded, traded, and retired with trust.
@@ -16,7 +16,7 @@
       <section class="about-section">
         <h2>Our Mission</h2>
         <p>
-          EcoLink makes high-integrity carbon credits accessible. Real projects are submitted,
+          Carbonify makes high-integrity carbon credits accessible. Real projects are submitted,
           independently validated, and only then issued as credits that buyers can purchase and
           retire — each backed by a verifiable certificate. We bring transparency to a market that
           badly needs it.

@@ -1,15 +1,15 @@
-# PowerShell script to create favicon files from EcoLink logo
+# PowerShell script to create favicon files from Carbonify logo
 # This script copies the logo to the public folder with different names
 # 
 # Usage: .\scripts\create-favicons.ps1
 
-$sourceLogo = "src\assets\images\ecolink-logo.png"
+$sourceLogo = "src\assets\images\carbonify-logo.png"
 $publicDir = "public"
 
 # Check if source logo exists
 if (-not (Test-Path $sourceLogo)) {
     Write-Host "Source logo not found: $sourceLogo" -ForegroundColor Red
-    Write-Host "Please ensure the logo exists at: src/assets/images/ecolink-logo.png" -ForegroundColor Yellow
+    Write-Host "Please ensure the logo exists at: src/assets/images/carbonify-logo.png" -ForegroundColor Yellow
     exit 1
 }
 

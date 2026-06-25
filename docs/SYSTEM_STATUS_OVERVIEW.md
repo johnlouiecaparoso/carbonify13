@@ -1,8 +1,8 @@
-# Ecolink — System Status Overview (Implemented vs. Not Implemented)
+# Carbonify — System Status Overview (Implemented vs. Not Implemented)
 
-> **What this is:** A single, plain-language summary of **everything that is built** and **everything that is not yet built** in Ecolink, compiled from all the analysis docs in this folder.
+> **What this is:** A single, plain-language summary of **everything that is built** and **everything that is not yet built** in Carbonify, compiled from all the analysis docs in this folder.
 > **Compiled:** 2026-06-06 · **Last updated:** 2026-06-13 (Phases 0–2 of the roadmap now code-complete)
-> **Sources:** `ECOLINK_SYSTEM_ANALYSIS.md`, `IMPLEMENTATION_TASKLIST.md`, `CARBONIFY_BOARD_UPDATED.md`, `SYSTEM_GUIDE.md`, `PAYMENTS_ARCHITECTURE.md`, `REAL_WORLD_GOLIVE_PLAYBOOK.md`, `VENDOR_SCORECARD_AND_TECH_DESIGN.md`, `CONSOLE_ERRORS_AFTER_PAYMENT.md`, `handoff.md`, `DEFERRED_BACKLOG.md`
+> **Sources:** `CARBONIFY_SYSTEM_ANALYSIS.md`, `IMPLEMENTATION_TASKLIST.md`, `CARBONIFY_BOARD_UPDATED.md`, `SYSTEM_GUIDE.md`, `PAYMENTS_ARCHITECTURE.md`, `REAL_WORLD_GOLIVE_PLAYBOOK.md`, `VENDOR_SCORECARD_AND_TECH_DESIGN.md`, `CONSOLE_ERRORS_AFTER_PAYMENT.md`, `handoff.md`, `DEFERRED_BACKLOG.md`
 
 **Legend:** ✅ Implemented · 🟡 Partial (started but incomplete) · 🆕 Code-complete this cycle, runtime verification pending · ❌ Not implemented · ⏳ Future / institutional (beyond software alone)
 
@@ -12,7 +12,7 @@
 
 ## 1. The One-Paragraph Summary
 
-Ecolink is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The **core product is built and works end-to-end**: users register, projects get submitted and verified, credits are issued with tamper-evident certificates, and buyers can purchase them through a real payment gateway. The system has **6 user roles, MFA, KYC, a full MRV module, and LGU climate tools** — it has done and *exceeded* the original 14-week MVP plan. As of **2026-06-13**, the **production money foundation is now built in code** (roadmap Phases 0–2): payment amounts are server-authoritative, the webhook is signature-verified and idempotent, a double-entry ledger + escrow back every purchase, and sellers can request KYB-gated payouts — though **none of this has run end-to-end at runtime yet** (sandbox verification is the immediate next step). **What remains is mostly "real credits + trust" and "institutional/legal" work**: there's no mobile app, and the credits are still simulated rather than tied to a real registry (Verra/Gold Standard).
+Carbonify is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The **core product is built and works end-to-end**: users register, projects get submitted and verified, credits are issued with tamper-evident certificates, and buyers can purchase them through a real payment gateway. The system has **6 user roles, MFA, KYC, a full MRV module, and LGU climate tools** — it has done and *exceeded* the original 14-week MVP plan. As of **2026-06-13**, the **production money foundation is now built in code** (roadmap Phases 0–2): payment amounts are server-authoritative, the webhook is signature-verified and idempotent, a double-entry ledger + escrow back every purchase, and sellers can request KYB-gated payouts — though **none of this has run end-to-end at runtime yet** (sandbox verification is the immediate next step). **What remains is mostly "real credits + trust" and "institutional/legal" work**: there's no mobile app, and the credits are still simulated rather than tied to a real registry (Verra/Gold Standard).
 
 | How it's measured | Score | Meaning |
 |---|---|---|
@@ -253,14 +253,14 @@ Ecolink is a **Vue 3 + Supabase** carbon-credit registry and marketplace. The **
 
 ## 8. The Honest Bottom Line
 
-- **As an academic capstone:** Ecolink is **excellent and largely feature-complete** (8.7/10). It demonstrates the full carbon-credit lifecycle with real, credible software mechanics — and in *digital MRV* it's arguably ahead of where many real registries were until recently.
+- **As an academic capstone:** Carbonify is **excellent and largely feature-complete** (8.7/10). It demonstrates the full carbon-credit lifecycle with real, credible software mechanics — and in *digital MRV* it's arguably ahead of where many real registries were until recently.
 - **As a real, live platform:** the remaining work is **~40% software, ~60% business/legal** (per the go-live playbook). Two of the biggest software gaps — **money safety and seller payouts — are now closed in code** (Phases 0–2, pending sandbox verification). The remaining software gaps (real-credit API, public registry, admin finance/compliance tooling) are buildable. The institutional gaps (accredited VVBs, approved methodologies, national-registry interoperability, BSP/AMLA/DPA/BIR compliance) need **partners, lawyers, and accreditation — not just code.**
 - **Fastest path to "real":** plug into an existing credit-supplier API (Carbonmark/Cloverly/Patch) for real verified credits + a licensed PH PSP (PayMongo/Xendit/EMI) for real money — rather than trying to become a registry from scratch.
 
 ---
 
 ## Reference Docs (in this folder)
-- `ECOLINK_SYSTEM_ANALYSIS.md` — full system analysis vs. SRD + market benchmark
+- `CARBONIFY_SYSTEM_ANALYSIS.md` — full system analysis vs. SRD + market benchmark
 - `IMPLEMENTATION_TASKLIST.md` — detailed prioritized backlog
 - `CARBONIFY_BOARD_UPDATED.md` — original 14-week MVP plan vs. actual status
 - `SYSTEM_GUIDE.md` — architecture & how the code is put together

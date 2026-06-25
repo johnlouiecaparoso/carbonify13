@@ -225,7 +225,7 @@ export async function submitRoleApplication(application) {
 
         if (signInError || !signInData?.user?.id) {
           throw new Error(
-            'This email already has an EcoLink account. Please log in first, or use the correct password for that account before applying.',
+            'This email already has an Carbonify account. Please log in first, or use the correct password for that account before applying.',
           )
         }
 

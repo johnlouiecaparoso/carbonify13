@@ -123,7 +123,7 @@
                 <span class="feed-time">5 hours ago</span>
               </div>
               <div class="feed-text">
-                Our company has achieved carbon neutrality! Thanks to EcoLink for helping us offset
+                Our company has achieved carbon neutrality! Thanks to Carbonify for helping us offset
                 5,000 tons of CO₂.
               </div>
               <div class="feed-actions">

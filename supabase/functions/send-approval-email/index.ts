@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: payload.from || 'EcoLink <notifications@resend.dev>',
+        from: payload.from || 'Carbonify <notifications@resend.dev>',
         to,
         subject: payload.subject,
         html: payload.html,

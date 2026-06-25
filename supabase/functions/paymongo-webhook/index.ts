@@ -413,7 +413,7 @@ serve(async (req) => {
 
     console.log('ðŸ“¥ Webhook received:', {
       type: webhookData.type,
-      event: webhookData.data?.attributes?.event,
+      event: webhookData.data?.attributes?.type ?? webhookData.data?.attributes?.event,
     })
 
     // Verify webhook signature (HMAC-SHA256) with replay protection.
@@ -427,9 +427,16 @@ serve(async (req) => {
       })
     }
 
-    // Only process 'checkout.payment.paid' events
-    const eventType = webhookData.data?.attributes?.event
-    if (eventType !== 'checkout.payment.paid') {
+    // PayMongo nests the event name at data.attributes.type (e.g.
+    // 'checkout_session.payment.paid'); some older docs call it
+    // 'checkout.payment.paid'. Accept the known paid-event names so a webhook
+    // registered either way still settles; anything else is acknowledged + ignored.
+    const eventType = webhookData.data?.attributes?.type ?? webhookData.data?.attributes?.event
+    if (![
+      'checkout_session.payment.paid',
+      'checkout.payment.paid',
+      'payment.paid',
+    ].includes(eventType)) {
       console.log('â„¹ï¸ Ignoring event type:', eventType)
       return new Response(JSON.stringify({ message: 'Event ignored' }), {
         status: 200,
@@ -437,15 +444,20 @@ serve(async (req) => {
       })
     }
 
-    // Extract payment data
-    const paymentData = webhookData.data?.attributes?.data
-    const paymentId = paymentData?.id
-    const sessionId = webhookData.data?.attributes?.data?.attributes?.checkout_session?.id
-    const amount = paymentData?.attributes?.amount / 100 // Convert from cents
-    const metadata = paymentData?.attributes?.metadata || {}
+    // The event resource is the checkout_session; the settled payment lives in
+    // its `payments` array. Fall back to the resource itself if PayMongo ever
+    // delivers a bare payment object.
+    const resource = webhookData.data?.attributes?.data
+    const resourceAttrs = resource?.attributes ?? {}
+    const payment = resourceAttrs.payments?.[0] ?? resource
+    const sessionId = resource?.id // cs_... checkout session id (used as payment_reference)
+    const paymentId = payment?.id ?? sessionId // pay_... provider payment reference
+    const amount = Number(payment?.attributes?.amount ?? resourceAttrs.amount ?? 0) / 100
+    // Metadata (incl. payment_intent_id) is set on the checkout session at creation.
+    const metadata = resourceAttrs.metadata ?? payment?.attributes?.metadata ?? {}
 
-    if (!paymentId || !amount) {
-      throw new Error('Missing payment data')
+    if (!paymentId) {
+      throw new Error('Missing payment id in webhook payload')
     }
 
     // Initialize Supabase client with service role (bypasses RLS)

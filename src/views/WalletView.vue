@@ -150,7 +150,7 @@ onMounted(() => {
       <div class="page-header">
         <div class="container">
           <h1 class="page-title">My Wallet</h1>
-          <p class="page-description">Manage your EcoLink wallet and transactions</p>
+          <p class="page-description">Manage your Carbonify wallet and transactions</p>
         </div>
       </div>
     </header>
@@ -351,8 +351,8 @@ onMounted(() => {
 /* Error and Loading States */
 .error-card,
 .loading-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 40px;
   text-align: center;
@@ -378,15 +378,15 @@ onMounted(() => {
 
 .error-message {
   font-size: 16px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin-bottom: 20px;
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid var(--ecolink-border);
-  border-top: 4px solid var(--ecolink-primary-500);
+  border: 4px solid var(--carbonify-border);
+  border-top: 4px solid var(--carbonify-primary-500);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -402,14 +402,14 @@ onMounted(() => {
 }
 
 .loading-text {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 16px;
 }
 
 /* Transactions Section */
 .transactions-section {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 24px;
   box-shadow: var(--shadow-md);
@@ -427,7 +427,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .empty-transactions {
@@ -454,12 +454,12 @@ onMounted(() => {
 
 .empty-transactions h3 {
   margin: 0 0 8px 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .empty-transactions p {
   margin: 0 0 20px 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 /* Transaction List */
@@ -494,15 +494,15 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   transition: all 120ms ease;
 }
 
 .transaction-item:hover {
-  background: var(--ecolink-primary-50);
-  border-color: var(--ecolink-primary-200);
+  background: var(--carbonify-primary-50);
+  border-color: var(--carbonify-primary-200);
 }
 
 .transaction-icon {
@@ -511,7 +511,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: 50%;
 }
 
@@ -525,7 +525,7 @@ onMounted(() => {
 
 .transaction-description {
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin-bottom: 4px;
 }
 
@@ -533,7 +533,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .transaction-status {
@@ -547,7 +547,7 @@ onMounted(() => {
 }
 
 .amount-topup {
-  color: var(--ecolink-primary-600);
+  color: var(--carbonify-primary-600);
 }
 
 .amount-withdrawal {

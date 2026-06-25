@@ -198,7 +198,7 @@ async function testProjectCreation(supabase) {
 }
 
 async function main() {
-  console.log('🚀 EcoLink Supabase Integration Test')
+  console.log('🚀 Carbonify Supabase Integration Test')
   console.log('=====================================\n')
 
   try {

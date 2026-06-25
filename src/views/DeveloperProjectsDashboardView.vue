@@ -102,6 +102,14 @@
                 >
                   {{ resubmittingId === project.id ? 'Resubmitting…' : 'Resubmit for review' }}
                 </button>
+                <button
+                  class="resubmit-btn danger"
+                  type="button"
+                  :disabled="deletingId === project.id"
+                  @click="removeProject(project)"
+                >
+                  {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+                </button>
               </div>
             </div>
 
@@ -111,6 +119,25 @@
             >
               <h4>Verifier Notes</h4>
               <p>{{ project.verification_notes }}</p>
+            </div>
+
+            <!-- Edit / delete for submissions still pending review (the
+                 needs_revision card has its own action row above). -->
+            <div
+              v-if="canManage(project) && project.status !== 'needs_revision'"
+              class="project-actions"
+            >
+              <button class="action-link" type="button" @click="goToEdit(project)">
+                Edit
+              </button>
+              <button
+                class="action-link danger"
+                type="button"
+                :disabled="deletingId === project.id"
+                @click="removeProject(project)"
+              >
+                {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+              </button>
             </div>
 
             <!-- Conversation with the verifier (always available so threads persist
@@ -138,8 +165,14 @@ const errorMessage = ref('')
 const projects = ref([])
 const activeFilter = ref('all')
 const resubmittingId = ref(null)
+const deletingId = ref(null)
 
 const has = (project, ...statuses) => statuses.includes(project.status)
+
+// Statuses where the owner may still edit/delete their submission. Mirrors the
+// projects RLS policies and OWNER_EDITABLE_STATUSES in projectService.
+const OWNER_EDITABLE_STATUSES = ['draft', 'pending', 'submitted', 'needs_revision']
+const canManage = (project) => OWNER_EDITABLE_STATUSES.includes(project.status)
 
 const stats = computed(() => ({
   total: projects.value.length,
@@ -205,6 +238,26 @@ function goToEdit(project) {
   // Best-effort: open the submission form for this project. The form reads an
   // optional id query when editing an existing draft.
   router.push({ path: '/submit-project', query: { id: project.id } })
+}
+
+async function removeProject(project) {
+  if (deletingId.value) return
+  const confirmed = window.confirm(
+    `Delete "${project.title}"? This permanently removes the submission and cannot be undone.`,
+  )
+  if (!confirmed) return
+
+  deletingId.value = project.id
+  errorMessage.value = ''
+  try {
+    await projectService.deleteProject(project.id)
+    projects.value = projects.value.filter((p) => p.id !== project.id)
+  } catch (error) {
+    console.error('Delete failed:', error)
+    errorMessage.value = error.message || 'Failed to delete project.'
+  } finally {
+    deletingId.value = null
+  }
 }
 
 async function resubmit(project) {
@@ -484,7 +537,39 @@ onMounted(() => {
   color: #fff;
 }
 
+.resubmit-btn.danger {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
 .resubmit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.project-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.action-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #069e2d;
+  cursor: pointer;
+}
+
+.action-link.danger {
+  color: #dc2626;
+}
+
+.action-link:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

@@ -57,15 +57,15 @@ function getRoleDisplayName(role) {
 function getRoleColor(role) {
   switch (role) {
     case ROLES.SUPER_ADMIN:
-      return 'var(--ecolink-purple-500)'
+      return 'var(--carbonify-purple-500)'
     case ROLES.ADMIN:
-      return 'var(--ecolink-red-500)'
+      return 'var(--carbonify-red-500)'
     case ROLES.VERIFIER:
-      return 'var(--ecolink-blue-500)'
+      return 'var(--carbonify-blue-500)'
     case ROLES.USER:
-      return 'var(--ecolink-gray-500)'
+      return 'var(--carbonify-gray-500)'
     default:
-      return 'var(--ecolink-gray-500)'
+      return 'var(--carbonify-gray-500)'
   }
 }
 
@@ -197,12 +197,12 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .header p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 16px;
 }
 
@@ -210,7 +210,7 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   margin-bottom: 32px;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .tab {
@@ -221,19 +221,19 @@ onMounted(() => {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .tab:hover {
-  color: var(--ecolink-text);
-  background: var(--ecolink-bg);
+  color: var(--carbonify-text);
+  background: var(--carbonify-bg);
 }
 
 .tab.active {
-  color: var(--ecolink-primary);
-  border-bottom-color: var(--ecolink-primary);
+  color: var(--carbonify-primary);
+  border-bottom-color: var(--carbonify-primary);
 }
 
 .tab-icon {
@@ -255,8 +255,8 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 24px;
 }
@@ -265,18 +265,18 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .loading,
 .error {
   text-align: center;
   padding: 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .error {
-  color: var(--ecolink-error);
+  color: var(--carbonify-error);
 }
 
 .role-stats {
@@ -299,17 +299,17 @@ onMounted(() => {
 
 .role-name {
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .role-count {
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .role-bar {
   height: 8px;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -330,17 +330,17 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .action-btn:hover {
-  background: var(--ecolink-primary-50);
-  border-color: var(--ecolink-primary);
+  background: var(--carbonify-primary-50);
+  border-color: var(--carbonify-primary);
 }
 
 .action-icon {
@@ -360,7 +360,7 @@ onMounted(() => {
 }
 
 .status-label {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .status-value {
@@ -368,13 +368,13 @@ onMounted(() => {
 }
 
 .status-value.success {
-  color: var(--ecolink-success);
+  color: var(--carbonify-success);
 }
 
 .placeholder {
   text-align: center;
   padding: 60px 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .placeholder-icon {
@@ -386,7 +386,7 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .placeholder p {

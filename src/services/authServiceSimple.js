@@ -1,11 +1,11 @@
 // Simplified auth service for testing
 export async function loginWithEmail({ email, password }) {
   // Mock login for testing
-  if (email === 'demo@ecolink.io' && password === 'demo123') {
+  if (email === 'demo@carbonify.io' && password === 'demo123') {
     return {
       user: {
         id: 'demo-user-id',
-        email: 'demo@ecolink.io',
+        email: 'demo@carbonify.io',
         name: 'Demo User'
       },
       session: {

@@ -469,6 +469,12 @@ loadRecords()
   margin-bottom: 1rem;
 }
 
+/* Grid already spaces fields via `gap`; drop the extra per-field margin so
+   rows aren't doubly spaced. */
+.form-grid .form-group {
+  margin-bottom: 0;
+}
+
 .form-label {
   display: block;
   font-weight: 600;
@@ -479,6 +485,7 @@ loadRecords()
 .form-input,
 .form-textarea {
   width: 100%;
+  box-sizing: border-box;
   padding: 0.6rem 0.85rem;
   border: 2px solid var(--border-color, #d1e7dd);
   border-radius: 0.5rem;

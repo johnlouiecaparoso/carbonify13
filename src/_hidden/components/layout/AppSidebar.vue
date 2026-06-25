@@ -2,7 +2,7 @@
   <aside class="app-sidebar">
     <div class="sidebar-brand">
       <div class="brand-badge"><span class="brand-initials">EC</span></div>
-      <div class="brand-text">EcoLink</div>
+      <div class="brand-text">Carbonify</div>
     </div>
 
     <nav class="sidebar-nav">

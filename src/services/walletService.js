@@ -342,7 +342,7 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
     const paymentData = {
       amount: amount,
       currency: 'PHP',
-      description: `EcoLink Wallet Top-up`,
+      description: `Carbonify Wallet Top-up`,
       userId: userId, // Required by payment service - must be at top level
       metadata: {
         walletAccountId: walletAccount.id,

@@ -1,4 +1,26 @@
 # Supabase project config (optional overrides).
+#
+# Auth email rate limit. The built-in Supabase SMTP is hard-capped at ~2 emails/
+# hour — raising email_sent above that REQUIRES a custom SMTP provider configured
+# in the Dashboard (Authentication > Emails > SMTP Settings) or [auth.email.smtp]
+# below. After editing, push to the hosted project with:
+#   supabase config push
+[auth.rate_limit]
+# Max emails (signup confirmations, magic links, recovery, etc.) sent per hour.
+email_sent = 30
+
+# Email auth provider.
+#
+# enable_confirmations = false turns OFF the "Confirm email" requirement. Users
+# (including existing accounts that never confirmed) can sign in immediately
+# without clicking a verification link. This was enabled because the built-in
+# SMTP cap meant confirmation emails often never arrived, leaving real accounts
+# locked out with a 400 "Email not confirmed" at /auth/v1/token. Trade-off:
+# signups are no longer email-verified. Re-enable (set true) once a custom SMTP
+# provider is configured so confirmation emails reliably deliver.
+[auth.email]
+enable_confirmations = false
+
 # JWT verification must be OFF for paymongo-checkout so the browser's
 # CORS preflight (OPTIONS) request can succeed without an Authorization header.
 #

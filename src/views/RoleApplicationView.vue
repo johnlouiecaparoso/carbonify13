@@ -18,7 +18,7 @@ const ROLE_DETAILS = {
   [ROLE_APPLICATION_ROLES.PROJECT_DEVELOPER]: {
     title: 'Project Developer',
     summary:
-      'Launch, manage, and list high-quality climate projects. Share project documentation and coordinate verification with EcoLink.',
+      'Launch, manage, and list high-quality climate projects. Share project documentation and coordinate verification with Carbonify.',
     highlights: [
       'Create and manage carbon credit projects',
       'Access developer tools and analytics',
@@ -28,7 +28,7 @@ const ROLE_DETAILS = {
   [ROLE_APPLICATION_ROLES.VERIFIER]: {
     title: 'Verifier',
     summary:
-      'Review project documentation, validate carbon claims, and help ensure project integrity across the EcoLink marketplace.',
+      'Review project documentation, validate carbon claims, and help ensure project integrity across the Carbonify marketplace.',
     highlights: [
       'Review project submissions and supporting evidence',
       'Provide verification feedback and recommendations',
@@ -609,7 +609,7 @@ async function handleSubmit() {
     if (error.code === ROLE_APPLICATION_ERRORS.SUPABASE_NOT_INITIALIZED) {
       supabaseUnavailable.value = true
       errorMessage.value =
-        'Our database is not available right now. Please try again after the team connects EcoLink to Supabase.'
+        'Our database is not available right now. Please try again after the team connects Carbonify to Supabase.'
     } else if (error.code === ROLE_APPLICATION_ERRORS.DUPLICATE_PENDING) {
       duplicatePending.value = true
       errorMessage.value =
@@ -631,7 +631,7 @@ function goBackHome() {
   <div class="role-application">
     <section class="role-application__hero">
       <div class="hero__container">
-        <h1 class="hero__title">Apply to become an EcoLink specialist</h1>
+        <h1 class="hero__title">Apply to become an Carbonify specialist</h1>
         <p class="hero__subtitle">
           Help us build a trusted carbon marketplace. Submit your credentials to join as a project
           developer or verifier. Our admin team reviews every request.
@@ -670,11 +670,11 @@ function goBackHome() {
               {{ selectedRoleDetails?.title }} application
             </h2>
             <p class="application-form__subtitle">
-              Provide enough detail for the EcoLink admin team to verify your experience. We will
+              Provide enough detail for the Carbonify admin team to verify your experience. We will
               follow up by email with next steps.
             </p>
             <p v-if="!userStore.isAuthenticated" class="application-form__notice">
-              You can submit an application before creating an EcoLink account. Signing up later will
+              You can submit an application before creating an Carbonify account. Signing up later will
               help us match your request automatically.
             </p>
           </header>
@@ -683,7 +683,7 @@ function goBackHome() {
             <div class="application-success__icon">✅</div>
             <h3 class="application-success__title">Application received</h3>
             <p class="application-success__message">
-              Thank you for applying to become an EcoLink {{ selectedRoleDetails?.title.toLowerCase()
+              Thank you for applying to become an Carbonify {{ selectedRoleDetails?.title.toLowerCase()
               }}. Our admin team will review your submission and reach out at
               <strong>{{ submittedApplication?.email }}</strong>.
             </p>

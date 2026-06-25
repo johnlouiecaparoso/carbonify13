@@ -156,7 +156,7 @@ async function handleSubmit() {
         <input
           id="email"
           type="email"
-          placeholder="you@ecolink.io"
+          placeholder="you@carbonify.io"
           v-model="email"
           :class="['form-input', { 'input-error': emailError }]"
           @blur="validateEmail"

@@ -25,8 +25,8 @@ const label = computed(
 )
 const title = computed(() =>
   props.type === 'kyb'
-    ? 'Business verified by EcoLink (KYB)'
-    : 'Identity verified by EcoLink (KYC)',
+    ? 'Business verified by Carbonify (KYB)'
+    : 'Identity verified by Carbonify (KYC)',
 )
 </script>
 

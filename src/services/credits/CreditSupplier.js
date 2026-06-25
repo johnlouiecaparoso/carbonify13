@@ -2,7 +2,7 @@
  * CreditSupplier — the single interface every carbon-credit supply backend
  * implements (Phase 3).
  *
- * Today Ecolink's credits are minted internally ("local"). To make credits
+ * Today Carbonify's credits are minted internally ("local"). To make credits
  * *real* (or clearly labeled), a purchase can instead place an order with an
  * external registry/supplier (Verra/Gold Standard via Carbonmark, Cloverly,
  * Patch, …) and retire it on the buyer's behalf, so the certificate carries a

@@ -3,6 +3,12 @@ import { getCurrentUserId } from '@/utils/authHelper'
 import { notifyProjectSubmitted } from '@/services/emailService'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 
+// Statuses a project developer may still edit or delete their own submission in
+// (i.e. before it is validated/minted or under active verifier review). Must
+// stay in sync with the projects RLS policies
+// (supabase/migrations/20260624000000_projects_rls_owner_and_staff.sql).
+const OWNER_EDITABLE_STATUSES = ['draft', 'pending', 'submitted', 'needs_revision']
+
 export class ProjectService {
   constructor() {
     // Don't initialize supabase in constructor to avoid timing issues
@@ -219,10 +225,11 @@ export class ProjectService {
     }
 
     try {
-      // First check if project exists and is pending
+      // First check if project exists and is still editable by its owner.
+      // Admins/verifiers bypass the status gate (they fetch any project).
       const project = await this.getProject(projectId, { includeAll: isAdmin })
-      if (project.status !== 'pending') {
-        throw new Error('Only pending projects can be updated')
+      if (!isAdmin && !OWNER_EDITABLE_STATUSES.includes(project.status)) {
+        throw new Error('This project can no longer be edited once it is under review or validated.')
       }
 
       const { data, error } = await this.supabase
@@ -261,10 +268,11 @@ export class ProjectService {
       // First check if project exists
       const project = await this.getProject(projectId)
 
-      // For non-admin users, only allow deletion of pending projects
-      if (!isAdmin && project.status !== 'pending') {
+      // For non-admin users, only allow deletion of their own pre-validation
+      // submissions (draft/pending/submitted/needs_revision).
+      if (!isAdmin && !OWNER_EDITABLE_STATUSES.includes(project.status)) {
         throw new Error(
-          'Only pending projects can be deleted. Contact an administrator for approved/rejected projects.',
+          'Only projects that are still pending review can be deleted. Contact an administrator for approved/rejected projects.',
         )
       }
 

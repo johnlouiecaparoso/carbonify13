@@ -1,4 +1,4 @@
-# Ecolink — Master Implementation Task List
+# Carbonify — Master Implementation Task List
 
 **Purpose:** one place showing **what's already built** and **what still needs building**, prioritized.
 **Updated:** June 2026
@@ -149,12 +149,12 @@
 | **M6 — Scale & transparency** | Production hardening | B7 public registry, DR/backups, B1 oversell hardening; observability |
 | **M7 — Future** | Institutional depth | B8 blockchain, Article 6, VVB, methodologies (mostly business/legal) |
 
-> **Single most impactful next step:** **M1 (money foundation) + seller payouts** — today developers cannot get paid and admins cannot see money, which blocks Ecolink from being a real marketplace. Everything else builds cleanly on that base.
+> **Single most impactful next step:** **M1 (money foundation) + seller payouts** — today developers cannot get paid and admins cannot see money, which blocks Carbonify from being a real marketplace. Everything else builds cleanly on that base.
 
 ---
 
 ## Reference docs
-- Platform analysis + market benchmark → [`ECOLINK_SYSTEM_ANALYSIS.md`](ECOLINK_SYSTEM_ANALYSIS.md)
+- Platform analysis + market benchmark → [`CARBONIFY_SYSTEM_ANALYSIS.md`](CARBONIFY_SYSTEM_ANALYSIS.md)
 - Payments architecture → [`PAYMENTS_ARCHITECTURE.md`](PAYMENTS_ARCHITECTURE.md)
 - Real‑world go‑live → [`REAL_WORLD_GOLIVE_PLAYBOOK.md`](REAL_WORLD_GOLIVE_PLAYBOOK.md)
 - Vendor scorecard + tech design → [`VENDOR_SCORECARD_AND_TECH_DESIGN.md`](VENDOR_SCORECARD_AND_TECH_DESIGN.md)

@@ -1,4 +1,4 @@
-# Ecolink — Real‑Money Payments & Wallet Architecture (Brainstorm / Plan)
+# Carbonify — Real‑Money Payments & Wallet Architecture (Brainstorm / Plan)
 
 **Model chosen:** Partner‑custodied wallet · **Target:** Production‑scale (many users, automated payouts, full compliance)
 **Prepared:** June 2026 · **Status:** Planning only — no code yet.
@@ -9,14 +9,14 @@
 
 ## 1. What "partner‑custodied wallet" means here
 
-You keep the **wallet experience** (balance, top‑up, history, payouts) in Ecolink, but a **licensed partner legally holds the funds** and is the regulated entity. Ecolink is the *application/orchestration layer*; it never custodies cash float itself.
+You keep the **wallet experience** (balance, top‑up, history, payouts) in Carbonify, but a **licensed partner legally holds the funds** and is the regulated entity. Carbonify is the *application/orchestration layer*; it never custodies cash float itself.
 
 Two common ways partners implement this:
 
-- **Virtual accounts (VA) per user** — the partner issues each user a unique account number; money paid in is tracked by the partner against that VA; Ecolink mirrors the balance.
-- **Sub‑ledger / sub‑accounts (BaaS/EMI)** — the partner runs a white‑label wallet sub‑ledger; each Ecolink user is a sub‑account; the partner holds the pooled trust funds.
+- **Virtual accounts (VA) per user** — the partner issues each user a unique account number; money paid in is tracked by the partner against that VA; Carbonify mirrors the balance.
+- **Sub‑ledger / sub‑accounts (BaaS/EMI)** — the partner runs a white‑label wallet sub‑ledger; each Carbonify user is a sub‑account; the partner holds the pooled trust funds.
 
-**Ecolink's job:** identity (KYC/KYB), orchestration (initiate collections/payouts), a **mirror ledger** for reconciliation, escrow logic for marketplace trades, fees, receipts, and UX. **The partner's job:** custody, settlement, and the regulated money movement.
+**Carbonify's job:** identity (KYC/KYB), orchestration (initiate collections/payouts), a **mirror ledger** for reconciliation, escrow logic for marketplace trades, fees, receipts, and UX. **The partner's job:** custody, settlement, and the regulated money movement.
 
 ---
 
@@ -145,7 +145,7 @@ All financial tables: **server‑write‑only** via service role; RLS lets a use
 
 | Area | What's needed | Who owns |
 |---|---|---|
-| **BSP** | Partner is the licensed EMI/PSP custodian. Assess whether Ecolink needs **OPS registration** given its role. | Lawyer + partner |
+| **BSP** | Partner is the licensed EMI/PSP custodian. Assess whether Carbonify needs **OPS registration** given its role. | Lawyer + partner |
 | **AMLA** | Customer Due Diligence (CDD/EDD), sanctions/PEP screening, transaction monitoring, **STR/CTR reporting**, recordkeeping. | Compliance officer |
 | **Data Privacy Act (RA 10173)** | Consent, **data‑subject access/export/delete**, privacy notice, breach notification, DPO. | DPO + eng |
 | **BIR / tax** | Official receipts, VAT, withholding on payouts, books of account. | Accountant |

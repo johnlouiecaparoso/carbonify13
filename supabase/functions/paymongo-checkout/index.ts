@@ -251,10 +251,10 @@ async function createSubscriptionCheckout(body: any) {
         send_email_receipt: false,
         show_description: true,
         show_line_items: true,
-        description: `EcoLink ${plan.name} plan — ${plan.period_days} days`,
+        description: `Carbonify ${plan.name} plan — ${plan.period_days} days`,
         line_items: [
           {
-            name: `EcoLink ${plan.name} (${plan.period_days} days)`,
+            name: `Carbonify ${plan.name} (${plan.period_days} days)`,
             quantity: 1,
             amount: Math.round(priceMinor), // centavos
             currency,

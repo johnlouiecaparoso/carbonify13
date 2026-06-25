@@ -1,4 +1,4 @@
-# Ecolink — Vendor Evaluation Scorecard + Technical Design (Track A, provider‑agnostic)
+# Carbonify — Vendor Evaluation Scorecard + Technical Design (Track A, provider‑agnostic)
 
 **Prepared:** June 2026 · **Status:** Planning only — no code. Build starts after vendors are scored and this design is approved.
 **Decisions locked:** Track A (aggregator) first · provider‑agnostic abstraction with a **mock supplier/PSP** so nothing is committed before contracts.

@@ -1,5 +1,5 @@
 /**
- * Script to create favicon files from EcoLink logo
+ * Script to create favicon files from Carbonify logo
  * This script copies and resizes the logo to create favicon files
  * 
  * Usage: node scripts/create-favicons.js
@@ -19,7 +19,7 @@ try {
   console.log('   Install sharp for better image resizing: npm install sharp --save-dev')
 }
 
-const sourceLogo = path.join(__dirname, '../src/assets/images/ecolink-logo.png')
+const sourceLogo = path.join(__dirname, '../src/assets/images/carbonify-logo.png')
 const publicDir = path.join(__dirname, '../public')
 
 // Favicon sizes to create
@@ -34,7 +34,7 @@ async function createFavicons() {
     // Check if source logo exists
     if (!fs.existsSync(sourceLogo)) {
       console.error(`❌ Source logo not found: ${sourceLogo}`)
-      console.error('   Please ensure the logo exists at: src/assets/images/ecolink-logo.png')
+      console.error('   Please ensure the logo exists at: src/assets/images/carbonify-logo.png')
       process.exit(1)
     }
 

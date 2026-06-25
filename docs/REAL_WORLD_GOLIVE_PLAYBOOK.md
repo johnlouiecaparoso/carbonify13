@@ -1,4 +1,4 @@
-# Ecolink — Real‑World Go‑Live Playbook (Real Projects + Real Money)
+# Carbonify — Real‑World Go‑Live Playbook (Real Projects + Real Money)
 
 **Prepared:** June 2026 · **Status:** Strategy + actionable plan. Sandbox code can start now; live money/projects need the business/legal steps below.
 
@@ -29,7 +29,7 @@ There are **two tracks**. Most successful platforms run **A now for revenue, B i
 
 The unlock: **carbon‑credit supplier APIs** let you embed discovery, purchase, and **retirement of real, registry‑verified credits** *without becoming a registry yourself.*
 
-| Provider | What it gives Ecolink | Why it fits |
+| Provider | What it gives Carbonify | Why it fits |
 |---|---|---|
 | **Carbonmark API** | Programmatic **discovery, pricing, orders, and retirements** of real credits; built specifically to embed carbon buying/retiring into your app. ([docs](https://docs.carbonmark.com/)) | Cleanest "drop‑in real credits + retirement" for a software product. |
 | **Cloverly** | API‑first marketplace + **verified project catalog**; also "Catalyst" software for developers (inventory, sales). ([cloverly.com](https://cloverly.com/)) | Good catalog + developer‑side tooling if you later host sellers. |
@@ -55,15 +55,15 @@ The unlock: **carbon‑credit supplier APIs** let you embed discovery, purchase,
 
 This is exactly what your **MRV module, validation workflow, project scoring, and LGU endorsements** were built for. RE, cookstove, reforestation, and waste‑methane projects are **already registered from the Philippines** under Verra/Gold Standard, so the path is proven. ([mtstonegate](https://www.mtstonegate.com/post/why-the-philippines-is-southeast-asia-next-carbon-market-hotspot))
 
-**The real‑world lifecycle (what Ecolink helps developers do):**
+**The real‑world lifecycle (what Carbonify helps developers do):**
 1. **Account** on a registry (Verra/Gold Standard). ([Verra registry](https://verra.org/registry/overview/))
-2. **PDD** (Project Design Document) under an **approved methodology**. ← Ecolink already collects PDD + baseline + additionality + leakage + safeguards.
-3. **Validation** by an accredited **VVB** (independent third party). ← Ecolink's verifier role becomes "VVB liaison," not the VVB itself.
-4. **Monitoring** → **Verification** (periodic VVB audits). ← Ecolink's **MRV module** produces the monitoring reports/evidence the VVB reviews.
+2. **PDD** (Project Design Document) under an **approved methodology**. ← Carbonify already collects PDD + baseline + additionality + leakage + safeguards.
+3. **Validation** by an accredited **VVB** (independent third party). ← Carbonify's verifier role becomes "VVB liaison," not the VVB itself.
+4. **Monitoring** → **Verification** (periodic VVB audits). ← Carbonify's **MRV module** produces the monitoring reports/evidence the VVB reviews.
 5. **Issuance** of serialized credits on the registry.
-6. **Listing/sale** — back in Ecolink's marketplace (now as registry‑issued credits).
+6. **Listing/sale** — back in Carbonify's marketplace (now as registry‑issued credits).
 
-**Where Ecolink adds value in Track B (and earns trust):**
+**Where Carbonify adds value in Track B (and earns trust):**
 - Pre‑registration project management, document vault, MRV data capture, LGU **host endorsements**, feasibility/risk scoring, and a developer dashboard — i.e., the **"project preparation + MRV software"** layer (like Cloverly Catalyst), feeding into Verra/GS.
 - Gold Standard suits **community/social** PH projects; Verra suits **forestry/energy/industrial**. Pick per project type. ([AQUILA](https://aquila.is/2025/verra-vs-gold-standard-which-certification-is-right-for-your-project/))
 

@@ -198,7 +198,7 @@ onMounted(async () => {
             }
 
             // Create credit_purchases record
-            // Note: Schema matches complete-ecolink-setup.sql - no currency or payment_reference columns
+            // Note: Schema matches complete-carbonify-setup.sql - no currency or payment_reference columns
             const purchaseDataToInsert = {
               listing_id: purchaseData.listingId,
               buyer_id: store.session.user.id,

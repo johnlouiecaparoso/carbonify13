@@ -84,7 +84,7 @@ async function handleSubmit() {
   <div class="register-form-container">
     <div class="register-header">
       <h2 class="register-title">Create your account</h2>
-      <p class="register-subtitle">Get started with EcoLink in minutes.</p>
+      <p class="register-subtitle">Get started with Carbonify in minutes.</p>
     </div>
     <form class="form-grid" @submit.prevent="handleSubmit">
       <!-- Full Name Input -->

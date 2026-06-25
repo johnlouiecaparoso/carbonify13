@@ -1,6 +1,6 @@
-# Ecolink — Role‑by‑Role Needs & Gaps
+# Carbonify — Role‑by‑Role Needs & Gaps
 
-These documents describe, **from each user role's point of view**, what they want from Ecolink, what the system **already provides**, and **what's still lacking** — written so a developer can pick up each gap and implement it.
+These documents describe, **from each user role's point of view**, what they want from Carbonify, what the system **already provides**, and **what's still lacking** — written so a developer can pick up each gap and implement it.
 
 | Role | Doc | "If I am…" |
 |---|---|---|
@@ -17,4 +17,4 @@ These documents describe, **from each user role's point of view**, what they wan
 **Priority legend:** 🔴 High (blocks core value / trust) · 🟠 Medium (expected, improves adoption) · 🟢 Low (nice‑to‑have / future)
 **Effort legend:** S (small) · M (medium) · L (large/with external dependency)
 
-> Cross‑reference: platform‑wide gaps and market benchmark live in [`../ECOLINK_SYSTEM_ANALYSIS.md`](../ECOLINK_SYSTEM_ANALYSIS.md); real‑money/real‑project path in [`../REAL_WORLD_GOLIVE_PLAYBOOK.md`](../REAL_WORLD_GOLIVE_PLAYBOOK.md).
+> Cross‑reference: platform‑wide gaps and market benchmark live in [`../CARBONIFY_SYSTEM_ANALYSIS.md`](../CARBONIFY_SYSTEM_ANALYSIS.md); real‑money/real‑project path in [`../REAL_WORLD_GOLIVE_PLAYBOOK.md`](../REAL_WORLD_GOLIVE_PLAYBOOK.md).

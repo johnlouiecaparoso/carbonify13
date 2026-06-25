@@ -7,7 +7,7 @@ import { getProfile } from '@/services/profileService'
 const router = useRouter()
 const store = useUserStore()
 
-const user = ref({ name: 'EcoLink User', email: 'user@ecolink.io' })
+const user = ref({ name: 'Carbonify User', email: 'user@carbonify.io' })
 
 // Metrics data
 const metrics = ref([
@@ -189,8 +189,8 @@ async function loadUserProfile() {
   try {
     const profile = await getProfile(store.session.user.id)
     if (profile) {
-      user.value.name = profile.full_name || 'EcoLink User'
-      user.value.email = store.session.user.email || 'user@ecolink.io'
+      user.value.name = profile.full_name || 'Carbonify User'
+      user.value.email = store.session.user.email || 'user@carbonify.io'
     }
   } catch (error) {
     console.error('Error loading profile:', error)
@@ -220,7 +220,7 @@ onMounted(async () => {
             <div class="circle circle-2"></div>
           </div>
         </div>
-        <div class="brand-text">EcoLink</div>
+        <div class="brand-text">Carbonify</div>
       </div>
 
       <nav class="sidebar-nav">
@@ -704,7 +704,7 @@ onMounted(async () => {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--ecolink-gray-400);
+  color: var(--carbonify-gray-400);
   font-size: 1rem;
   z-index: 1;
 }

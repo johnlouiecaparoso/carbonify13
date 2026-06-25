@@ -8,7 +8,7 @@ import { getProfile } from '@/services/profileService'
 const router = useRouter()
 const store = useUserStore()
 
-const user = ref({ name: 'EcoLink User', email: 'user@ecolink.io' })
+const user = ref({ name: 'Carbonify User', email: 'user@carbonify.io' })
 
 // Back navigation functionality
 const showBackButton = ref(false)
@@ -80,8 +80,8 @@ async function loadUserProfile() {
   try {
     userProfile.value = await getProfile(store.session.user.id)
     if (userProfile.value) {
-      user.value.name = userProfile.value.full_name || 'EcoLink User'
-      user.value.email = store.session.user.email || 'user@ecolink.io'
+      user.value.name = userProfile.value.full_name || 'Carbonify User'
+      user.value.email = store.session.user.email || 'user@carbonify.io'
     }
   } catch (error) {
     console.error('Error loading profile:', error)
@@ -173,7 +173,7 @@ onMounted(async () => {
             <div class="circle circle-2"></div>
           </div>
         </div>
-        <div class="brand-text">EcoLink</div>
+        <div class="brand-text">Carbonify</div>
       </div>
 
       <nav class="sidebar-nav">
@@ -276,7 +276,7 @@ onMounted(async () => {
 
       <!-- Dashboard Content -->
       <div class="dashboard-content">
-        <h1>Welcome to EcoLink Dashboard</h1>
+        <h1>Welcome to Carbonify Dashboard</h1>
         <p>Manage your carbon credits, projects, and transactions.</p>
         <div class="dashboard-stats">
           <div class="stat-card">

@@ -10,7 +10,7 @@ test.describe('Wallet Functionality', () => {
     await expect(page).toHaveURL(/\/login/)
 
     // The wallet page requires authentication, so we should be redirected to login
-    await expect(page.locator('h1')).toContainText('ECOLINK')
+    await expect(page.locator('h1')).toContainText('CARBONIFY')
   })
 
   test('should have top-up functionality', async ({ page }) => {

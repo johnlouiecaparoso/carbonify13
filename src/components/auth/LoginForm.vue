@@ -231,8 +231,9 @@ async function handleSubmit() {
     await finishLogin()
   } catch (err) {
     const msg = String(err?.message || '')
-    if (/email_not_confirmed|confirm your email/i.test(msg)) {
-      errorMessage.value = 'Please confirm your email before logging in.'
+    if (/email[_\s]not[_\s]confirmed|confirm your email|email not confirmed/i.test(msg)) {
+      errorMessage.value =
+        'Your email address has not been confirmed yet. Please check your inbox for the confirmation link, or ask an admin to verify your account.'
     } else if (/cannot sign in until it is approved|account is .* and cannot sign in/i.test(msg)) {
       errorMessage.value = msg
     } else if (/Invalid login credentials|invalid/i.test(msg)) {
@@ -252,7 +253,7 @@ async function handleSubmit() {
   <div class="login-form-container">
     <div class="login-header">
       <h2 class="login-title">Welcome back</h2>
-      <p class="login-subtitle">Sign in to access your EcoLink dashboard.</p>
+      <p class="login-subtitle">Sign in to access your Carbonify dashboard.</p>
     </div>
     <!-- MFA step (shown after password if 2FA is enabled) -->
     <form v-if="mfaRequired" class="form-grid" @submit.prevent="verifyMfa">

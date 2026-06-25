@@ -1,6 +1,6 @@
-# Ecolink — Implementation Roadmap & Timeline
+# Carbonify — Implementation Roadmap & Timeline
 
-> **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Ecolink scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
+> **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Carbonify scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
 > **Compiled:** 2026-06-06 · **Progress updated:** 2026-06-13
 >
 > **📍 Progress (2026-06-13):** **Phases 0, 1, and 2 are code-complete and locally green** (ESLint 0, 47 unit tests, build ✓; financial schema applied live) — see `handoff.md`. They are **not yet runtime-verified**: no sandbox purchase or payout has executed. **Next:** the Phase 1/2 sandbox verification checkpoint, then **Phase 3**. Per-phase status is marked inline below.
@@ -79,7 +79,7 @@
 
 > **Status:** Branch `phase-2-seller-payouts` (current). All tasks built: `escrow_holds` hold/release, `PayoutProvider`/Mock, `payout_requests` state machine + dead-letter, `payoutService.js` + `process-payouts` worker behind `Withdraw.vue`, seller KYB (`kyb_applications`, payouts gated), refund/dispute via compensating ledger entries, `SellerEarningsView.vue` at `/sales` + listing management. **Not yet runtime-verified** — the "Done when" gate (KYB seller sees earnings → withdraws → sandbox disbursement reconciles; refund reverses cleanly) needs a **sandbox payout run**.
 
-**Goal:** Developers can actually cash out. Without this Ecolink is not a real marketplace.
+**Goal:** Developers can actually cash out. Without this Carbonify is not a real marketplace.
 
 **Tasks**
 - **Escrow** hold/release for trades (`escrow_holds` state machine: held → released/refunded). (Wk 7)

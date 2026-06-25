@@ -1,4 +1,4 @@
-# 🧭 Carbonify / Ecolink — Updated Development Board
+# 🧭 Carbonify / Carbonify — Updated Development Board
 
 > **Updated:** 2026-06-05
 > **Source:** Reconciled against the original `Carbonify_Notion_Template.md` and the original `Carbonify_Development_Plan.pdf`.
@@ -8,7 +8,7 @@
 
 ## 📋 Overview
 
-The original plan targeted a **14-week, 7-sprint MVP** for a Philippine carbon-credit registry + marketplace ("Carbonify"). The product is now implemented as **Ecolink** — a Vue 3 + Supabase single-page app. Most of the original MVP scope is **done and exceeded** (full MRV module, verifier-gated issuance, tamper-evident QR certificates, KYC, 6 user roles, real payment gateway). The remaining work is no longer "build the MVP" — it is **production-hardening money flows, institutional compliance, and a mobile app.**
+The original plan targeted a **14-week, 7-sprint MVP** for a Philippine carbon-credit registry + marketplace ("Carbonify"). The product is now implemented as **Carbonify** — a Vue 3 + Supabase single-page app. Most of the original MVP scope is **done and exceeded** (full MRV module, verifier-gated issuance, tamper-evident QR certificates, KYC, 6 user roles, real payment gateway). The remaining work is no longer "build the MVP" — it is **production-hardening money flows, institutional compliance, and a mobile app.**
 
 ### ⚠️ Key deviations from the original plan
 | Plan said | Built instead | Note |
@@ -194,7 +194,7 @@ The 14-week MVP is effectively complete on web. The next phases move from "proto
 ---
 
 ## 📎 Reference Documents (in `docs/`)
-- `ECOLINK_SYSTEM_ANALYSIS.md` — full system analysis vs. SRD
+- `CARBONIFY_SYSTEM_ANALYSIS.md` — full system analysis vs. SRD
 - `IMPLEMENTATION_TASKLIST.md` — detailed prioritized backlog
 - `PAYMENTS_ARCHITECTURE.md` — target payment/ledger architecture
 - `REAL_WORLD_GOLIVE_PLAYBOOK.md` — go-live playbook

@@ -4,7 +4,7 @@
       <div class="container">
         <h1 class="page-title">Identity Verification (KYC)</h1>
         <p class="page-description">
-          Verify your identity to buy and trade carbon credits on EcoLink.
+          Verify your identity to buy and trade carbon credits on Carbonify.
         </p>
       </div>
     </div>

@@ -32,7 +32,7 @@ function runCommand(command, description) {
 }
 
 async function main() {
-  log('🧪 Starting EcoLink Test Suite', 'bold')
+  log('🧪 Starting Carbonify Test Suite', 'bold')
   log('================================', 'bold')
 
   const results = {

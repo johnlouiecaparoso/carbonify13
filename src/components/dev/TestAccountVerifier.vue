@@ -35,7 +35,7 @@
             <span class="material-symbols-outlined" aria-hidden="true">crown</span>
             Admin
           </span>
-          <span class="account-email">admin@ecolink.test</span>
+          <span class="account-email">admin@carbonify.test</span>
           <span class="account-password">admin123</span>
         </div>
         <div class="account-item">
@@ -43,7 +43,7 @@
             <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
             Verifier
           </span>
-          <span class="account-email">verifier@ecolink.test</span>
+          <span class="account-email">verifier@carbonify.test</span>
           <span class="account-password">verifier123</span>
         </div>
         <div class="account-item">
@@ -51,7 +51,7 @@
             <span class="material-symbols-outlined" aria-hidden="true">person</span>
             User
           </span>
-          <span class="account-email">user@ecolink.test</span>
+          <span class="account-email">user@carbonify.test</span>
           <span class="account-password">user123</span>
         </div>
       </div>

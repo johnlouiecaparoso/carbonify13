@@ -160,19 +160,19 @@ export async function createSampleUsers() {
     const sampleUsers = [
       {
         full_name: 'Demo Project Developer',
-        email: 'developer@ecolink.io',
+        email: 'developer@carbonify.io',
         role: 'project_developer',
         kyc_level: 'verified',
       },
       {
         full_name: 'Demo Verifier',
-        email: 'verifier@ecolink.io',
+        email: 'verifier@carbonify.io',
         role: 'verifier',
         kyc_level: 'verified',
       },
       {
         full_name: 'Demo Buyer',
-        email: 'buyer@ecolink.io',
+        email: 'buyer@carbonify.io',
         role: 'buyer_investor',
         kyc_level: 'verified',
       },

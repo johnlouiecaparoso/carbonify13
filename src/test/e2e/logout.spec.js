@@ -9,7 +9,7 @@ test.describe('Logout Functionality', () => {
     await expect(page).toHaveURL(/\/login/)
 
     // Check that login page loads correctly
-    await expect(page.locator('h1')).toContainText('ECOLINK')
+    await expect(page.locator('h1')).toContainText('CARBONIFY')
 
     // Check that login form is visible
     const loginForm = page.locator('form, input, button')

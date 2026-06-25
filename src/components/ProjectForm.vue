@@ -42,7 +42,8 @@ const formData = ref({
   expected_impact: '',
   project_image: null, // Add project image field
   estimated_credits: '', // Add estimated credits field
-  credit_price: '', // Add credit price field
+  // credit_price is intentionally omitted — the verifier sets the price per
+  // credit after reviewing the submitted project.
   start_date: '',
   end_date: '',
   host_entity: '',
@@ -171,12 +172,6 @@ const validationRules = {
     max: 1000000,
     message: 'Estimated credits must be between 1 and 1,000,000',
   },
-  credit_price: {
-    required: true,
-    min: 0.01,
-    max: 100000,
-    message: 'Credit price must be between ₱0.01 and ₱100,000',
-  },
 }
 
 // File upload configuration
@@ -277,7 +272,6 @@ const isFormValid = computed(() => {
       location: formData.value.location,
       expected_impact: formData.value.expected_impact,
       estimated_credits: formData.value.estimated_credits,
-      credit_price: formData.value.credit_price,
       project_image: formData.value.project_image ? 'File uploaded' : null
     })))
     
@@ -397,7 +391,6 @@ function resetForm() {
     expected_impact: '',
     project_image: null,
     estimated_credits: '',
-    credit_price: '',
   }
   uploadedFiles.value = []
   fileUploadError.value = ''
@@ -680,7 +673,6 @@ async function handleSubmit() {
       end_date: formData.value.end_date,
       host_entity: formData.value.host_entity,
       estimated_credits: formData.value.estimated_credits,
-      credit_price: formData.value.credit_price,
       capex: formData.value.capex,
       opex: formData.value.opex,
       carbon_yield_projection: formData.value.carbon_yield_projection,
@@ -1219,27 +1211,14 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="credit-card">
+          <div class="credit-card credit-card--note">
             <div class="credit-card-header">
-              <span class="material-symbols-outlined credit-card-icon" aria-hidden="true">payments</span>
-              <span class="credit-card-title">Price per Credit *</span>
-            </div>
-            <div class="credit-field">
-              <div class="prefix">₱</div>
-              <UiInput
-                type="number"
-                min="0.01"
-                step="0.01"
-                v-model.number="formData.credit_price"
-                placeholder="0.00"
-                :error="errors.credit_price"
-                @input="clearFieldError('credit_price')"
-              />
-              <div class="field-hint">Min: ₱0.01</div>
+              <span class="material-symbols-outlined credit-card-icon" aria-hidden="true">verified_user</span>
+              <span class="credit-card-title">Price per Credit</span>
             </div>
             <div class="help-card">
-              <span class="material-symbols-outlined help-icon" aria-hidden="true">lightbulb</span>
-              <span>Set your price per carbon credit in Philippine Pesos</span>
+              <span class="material-symbols-outlined help-icon" aria-hidden="true">info</span>
+              <span>The price per carbon credit is set by the verifier after they review and validate your project.</span>
             </div>
           </div>
         </div>
@@ -1408,7 +1387,7 @@ onMounted(() => {
 }
 
 .form-select.error {
-  border-color: var(--ecolink-error);
+  border-color: var(--carbonify-error);
 }
 
 .form-textarea {
@@ -1432,12 +1411,12 @@ onMounted(() => {
 }
 
 .form-textarea.error {
-  border-color: var(--ecolink-error);
+  border-color: var(--carbonify-error);
 }
 
 .field-error {
   margin-top: 4px;
-  color: var(--ecolink-error);
+  color: var(--carbonify-error);
   font-size: 12px;
   font-weight: 500;
 }
@@ -1450,8 +1429,8 @@ onMounted(() => {
 }
 
 .error-message {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px 16px;
   border-radius: var(--radius);
   margin-bottom: 20px;
@@ -1459,8 +1438,8 @@ onMounted(() => {
 }
 
 .success-message {
-  background: var(--ecolink-success-bg);
-  color: var(--ecolink-success);
+  background: var(--carbonify-success-bg);
+  color: var(--carbonify-success);
   padding: 12px 16px;
   border-radius: var(--radius);
   margin-bottom: 20px;
@@ -1565,8 +1544,8 @@ onMounted(() => {
 .file-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -1653,8 +1632,8 @@ onMounted(() => {
 }
 
 .remove-file-btn:hover {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
 }
 
 .remove-file-btn:disabled {
@@ -1776,8 +1755,8 @@ onMounted(() => {
 .image-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -2197,8 +2176,8 @@ onMounted(() => {
 }
 
 .remove-file:hover {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
 }
 
 .remove-file:disabled {

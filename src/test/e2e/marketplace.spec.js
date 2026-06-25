@@ -175,7 +175,7 @@ test.describe('Marketplace Flow', () => {
     await page.evaluate(() => {
       localStorage.setItem('supabase.auth.token', 'mock-token')
       localStorage.setItem(
-        'sb-ecolink-auth-token',
+        'sb-carbonify-auth-token',
         JSON.stringify({
           access_token: 'mock-token',
           user: { id: 'test-user', email: 'test@example.com' },
@@ -210,7 +210,7 @@ test.describe('Marketplace Flow', () => {
     await page.evaluate(() => {
       localStorage.setItem('supabase.auth.token', 'mock-token')
       localStorage.setItem(
-        'sb-ecolink-auth-token',
+        'sb-carbonify-auth-token',
         JSON.stringify({
           access_token: 'mock-token',
           user: { id: 'test-user', email: 'test@example.com' },

@@ -168,7 +168,7 @@ onMounted(() => {
 }
 
 .header h2 {
-  color: var(--ecolink-primary, #069e2d);
+  color: var(--carbonify-primary, #069e2d);
   margin-bottom: 8px;
 }
 
@@ -181,7 +181,7 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border: 4px solid #e2e8f0;
-  border-top: 4px solid var(--ecolink-primary, #069e2d);
+  border-top: 4px solid var(--carbonify-primary, #069e2d);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -231,7 +231,7 @@ onMounted(() => {
 }
 
 .project-header h3 {
-  color: var(--ecolink-primary, #069e2d);
+  color: var(--carbonify-primary, #069e2d);
   margin: 0;
   flex: 1;
 }
@@ -304,7 +304,7 @@ onMounted(() => {
 
 .approval-notes textarea:focus {
   outline: none;
-  border-color: var(--ecolink-primary, #069e2d);
+  border-color: var(--carbonify-primary, #069e2d);
 }
 
 .approval-buttons {
@@ -312,7 +312,7 @@ onMounted(() => {
 }
 
 .btn-approve {
-  background: var(--ecolink-primary, #069e2d);
+  background: var(--carbonify-primary, #069e2d);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -323,7 +323,7 @@ onMounted(() => {
 }
 
 .btn-approve:hover:not(:disabled) {
-  background: var(--ecolink-primary-hover, #058e3f);
+  background: var(--carbonify-primary-hover, #058e3f);
   transform: translateY(-1px);
 }
 
@@ -356,7 +356,7 @@ onMounted(() => {
 }
 
 .help-section h3 {
-  color: var(--ecolink-primary, #069e2d);
+  color: var(--carbonify-primary, #069e2d);
   margin-bottom: 16px;
 }
 

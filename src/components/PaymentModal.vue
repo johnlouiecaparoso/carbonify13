@@ -417,7 +417,7 @@ watch(
 }
 
 .modal-content {
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: 12px;
   max-width: 500px;
   width: 100%;
@@ -431,28 +431,28 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .modal-close {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   cursor: pointer;
   padding: 0.25rem;
   line-height: 1;
 }
 
 .modal-close:hover {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .modal-body {
@@ -461,8 +461,8 @@ watch(
 
 /* Payment Summary */
 .payment-summary {
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -472,7 +472,7 @@ watch(
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .summary-item {
@@ -480,7 +480,7 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .summary-item:last-child {
@@ -490,8 +490,8 @@ watch(
 .summary-item.total {
   font-weight: 600;
   font-size: 1.1rem;
-  color: var(--ecolink-primary);
-  border-top: 2px solid var(--ecolink-primary);
+  color: var(--carbonify-primary);
+  border-top: 2px solid var(--carbonify-primary);
   margin-top: 0.5rem;
   padding-top: 0.5rem;
 }
@@ -501,8 +501,8 @@ watch(
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 1.5rem;
@@ -527,25 +527,25 @@ watch(
 
 .form-group label {
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 0.9rem;
 }
 
 .form-select {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
-  background: var(--ecolink-bg);
-  color: var(--ecolink-text);
+  background: var(--carbonify-bg);
+  color: var(--carbonify-text);
   font-size: 16px;
   transition: border-color 0.2s;
 }
 
 .form-select:focus {
   outline: none;
-  border-color: var(--ecolink-primary);
-  box-shadow: 0 0 0 3px var(--ecolink-primary-50);
+  border-color: var(--carbonify-primary);
+  box-shadow: 0 0 0 3px var(--carbonify-primary-50);
 }
 
 .form-actions {
@@ -564,25 +564,25 @@ watch(
 .processing-header {
   text-align: center;
   padding: 1rem;
-  background: var(--ecolink-primary-50);
+  background: var(--carbonify-primary-50);
   border-radius: 8px;
 }
 
 .processing-header h3 {
   margin: 0 0 0.5rem 0;
-  color: var(--ecolink-primary);
+  color: var(--carbonify-primary);
   font-size: 1.2rem;
 }
 
 .processing-header p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.9rem;
 }
 
 .payment-provider {
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
   padding: 1.5rem;
 }
@@ -593,13 +593,13 @@ watch(
 
 .provider-info h4 {
   margin: 0 0 0.5rem 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 1.1rem;
 }
 
 .provider-info p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.9rem;
 }
 
@@ -615,7 +615,7 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .detail-item:last-child {

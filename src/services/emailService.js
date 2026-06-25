@@ -361,7 +361,7 @@ async function sendEmailViaFunction(payload) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 12000)
   const requestBody = {
-    from: 'EcoLink <notifications@resend.dev>',
+    from: 'Carbonify <notifications@resend.dev>',
     ...payload,
   }
 
@@ -423,29 +423,29 @@ export async function sendRoleApplicationApprovalEmail(details) {
         : 'Specialist'
 
   const origin =
-    (typeof window !== 'undefined' && window.location?.origin) || 'https://app.ecolink.dev'
+    (typeof window !== 'undefined' && window.location?.origin) || 'https://app.carbonify.dev'
 
   const loginLink = `${origin}/login`
   const signUpLink = `${origin}/register?role=${encodeURIComponent(role || '')}&email=${encodeURIComponent(email)}`
 
   const html = `
-    <p>Hi ${applicantName || 'EcoLink Specialist'},</p>
-    <p>Your EcoLink account for the <strong>${roleLabel}</strong> role has been verified and approved.</p>
+    <p>Hi ${applicantName || 'Carbonify Specialist'},</p>
+    <p>Your Carbonify account for the <strong>${roleLabel}</strong> role has been verified and approved.</p>
     ${
       hasAccount
         ? `<p>You can now sign in and access your dashboard here:<br/><a href="${loginLink}">${loginLink}</a></p>`
-        : `<p>To get started, create your EcoLink account using this link:<br/><a href="${signUpLink}">${signUpLink}</a></p>`
+        : `<p>To get started, create your Carbonify account using this link:<br/><a href="${signUpLink}">${signUpLink}</a></p>`
     }
     <p>Verification date: ${approvedAt instanceof Date ? approvedAt.toLocaleString() : approvedAt}</p>
-    <p>If you believe this was sent in error, please contact the EcoLink support team.</p>
-    <p>— The EcoLink Team</p>
+    <p>If you believe this was sent in error, please contact the Carbonify support team.</p>
+    <p>— The Carbonify Team</p>
   `
 
   const result = await sendEmailViaFunction({
     to: email,
     subject: `Your ${roleLabel} account has been verified`,
     html,
-    from: 'EcoLink <notifications@resend.dev>',
+    from: 'Carbonify <notifications@resend.dev>',
   })
 
   return {
@@ -479,7 +479,7 @@ export async function sendRoleApplicationRejectionEmail(details) {
         : 'Specialist'
 
   const origin =
-    (typeof window !== 'undefined' && window.location?.origin) || 'https://app.ecolink.dev'
+    (typeof window !== 'undefined' && window.location?.origin) || 'https://app.carbonify.dev'
 
   const applyAgainLink = `${origin}/apply?role=${encodeURIComponent(role || '')}`
   const noteSection = String(notes || '').trim()
@@ -487,22 +487,22 @@ export async function sendRoleApplicationRejectionEmail(details) {
     : ''
 
   const html = `
-    <p>Hi ${applicantName || 'EcoLink Applicant'},</p>
-    <p>Thank you for applying for the <strong>${roleLabel}</strong> role on EcoLink.</p>
+    <p>Hi ${applicantName || 'Carbonify Applicant'},</p>
+    <p>Thank you for applying for the <strong>${roleLabel}</strong> role on Carbonify.</p>
     <p>After review, your application was <strong>not approved</strong> at this time.</p>
     ${noteSection}
     <p>You may submit a stronger application after updating your details and supporting information:</p>
     <p><a href="${applyAgainLink}">${applyAgainLink}</a></p>
     <p>Decision date: ${rejectedAt instanceof Date ? rejectedAt.toLocaleString() : rejectedAt}</p>
-    <p>If you need clarification, please contact the EcoLink support team.</p>
-    <p>— The EcoLink Team</p>
+    <p>If you need clarification, please contact the Carbonify support team.</p>
+    <p>— The Carbonify Team</p>
   `
 
   const result = await sendEmailViaFunction({
     to: email,
     subject: `Update on your ${roleLabel} application`,
     html,
-    from: 'EcoLink <notifications@resend.dev>',
+    from: 'Carbonify <notifications@resend.dev>',
   })
 
   return {

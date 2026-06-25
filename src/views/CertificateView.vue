@@ -707,10 +707,10 @@ Purchase Date & Time: ${formatDate(purchaseDateTime)}
 Certificate Issued: ${formatDate(certificate.issued_at || certificate.timestamp)}
 
 ═══════════════════════════════════════════════════════════
-This certificate is issued by EcoLink and verifies the 
+This certificate is issued by Carbonify and verifies the 
 ownership/retirement of carbon credits.
 
-For verification, visit: https://ecolink.com/verify
+For verification, visit: https://carbonify.com/verify
 ═══════════════════════════════════════════════════════════
       `.trim()
       

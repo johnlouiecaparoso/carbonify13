@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Supabase Setup Script for EcoLink
+ * Supabase Setup Script for Carbonify
  * This script helps you set up Supabase integration
  */
 
@@ -233,7 +233,7 @@ async function runDatabaseSetup() {
 }
 
 async function main() {
-  log(`${colors.bright}${colors.cyan}🚀 EcoLink Supabase Setup Script${colors.reset}`)
+  log(`${colors.bright}${colors.cyan}🚀 Carbonify Supabase Setup Script${colors.reset}`)
   log(`${colors.cyan}================================${colors.reset}`)
 
   try {

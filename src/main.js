@@ -30,7 +30,7 @@ if (typeof window !== 'undefined') {
     if ('caches' in window) {
       caches.keys().then((names) => {
         names.forEach((name) => {
-          if (name.includes('ecolink')) {
+          if (name.includes('carbonify')) {
             caches.delete(name)
           }
         })
