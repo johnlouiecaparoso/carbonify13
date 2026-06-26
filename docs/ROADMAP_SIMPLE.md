@@ -41,7 +41,9 @@ Make listings believable.
   developer, timeline & location, map, documents, co-benefits, listings).
 - ✅ `local | supplier` label + marketplace filter (done 2026-06-26 — badge on cards,
   detail page, and purchase modal; "All / Local / Registry" filter).
-- ⏳ Still to do: offset/ESG export · real SDG filter · real registry/supplier integration.
+- ✅ ESG / offset report export (done 2026-06-26 — "ESG report (PDF)" + CSV buttons on the
+  Credit Portfolio page, backed by the existing esgReportService).
+- ⏳ Still to do: real SDG filter · real registry/supplier integration.
 
 ---
 

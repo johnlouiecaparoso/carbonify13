@@ -10,7 +10,28 @@
               Manage your carbon credit portfolio and track your environmental impact
             </p>
           </div>
+          <div class="header-actions">
+            <button
+              class="btn btn-export"
+              :disabled="exporting"
+              title="Download your offset/ESG report as a PDF"
+              @click="downloadEsg('pdf')"
+            >
+              {{ exporting === 'pdf' ? 'Preparing…' : 'ESG report (PDF)' }}
+            </button>
+            <button
+              class="btn btn-export outline"
+              :disabled="exporting"
+              title="Download your offset/ESG report as a CSV"
+              @click="downloadEsg('csv')"
+            >
+              {{ exporting === 'csv' ? 'Preparing…' : 'CSV' }}
+            </button>
+          </div>
         </div>
+        <p v-if="exportMessage" class="export-message" :class="{ error: exportError }">
+          {{ exportMessage }}
+        </p>
       </div>
     </div>
 
@@ -257,6 +278,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { creditOwnershipService } from '@/services/creditOwnershipService'
+import { exportEsgReportCsv, exportEsgReportPdf } from '@/services/esgReportService'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -271,6 +293,40 @@ const creditStats = ref({
 })
 const loading = ref(false)
 const error = ref('')
+
+// ESG / offset report export
+const exporting = ref('') // '' | 'pdf' | 'csv'
+const exportMessage = ref('')
+const exportError = ref(false)
+
+async function downloadEsg(format) {
+  const userId = userStore.session?.user?.id
+  if (!userId) {
+    exportError.value = true
+    exportMessage.value = 'Please sign in to download your report.'
+    return
+  }
+  if (exporting.value) return
+
+  exporting.value = format
+  exportMessage.value = ''
+  exportError.value = false
+  try {
+    const data =
+      format === 'pdf' ? await exportEsgReportPdf(userId) : await exportEsgReportCsv(userId)
+    const total = data?.totals?.totalCredits ?? 0
+    exportMessage.value =
+      total > 0
+        ? `Your ESG/offset report downloaded (${total} credit${total === 1 ? '' : 's'} covered).`
+        : 'Report downloaded — you have no credits to disclose yet.'
+  } catch (e) {
+    console.error('ESG export failed:', e)
+    exportError.value = true
+    exportMessage.value = e?.message || 'Could not generate your report. Please try again.'
+  } finally {
+    exporting.value = ''
+  }
+}
 
 // Computed
 const portfolioValue = computed(() => {
@@ -416,7 +472,46 @@ onMounted(() => {
 .header-content {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.btn-export {
+  background: #ffffff;
+  color: #04773b;
+  border: 1px solid #ffffff;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-export.outline {
+  background: transparent;
+  color: #ffffff;
+}
+
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-message {
+  color: #ecfdf5;
+  font-size: 0.875rem;
+  margin: 0.75rem 0 0;
+}
+
+.export-message.error {
+  color: #fee2e2;
 }
 
 .page-title {
