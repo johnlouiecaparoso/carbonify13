@@ -1,26 +1,78 @@
 # Carbonify — Handoff (current state)
 
-> **Updated:** 2026-06-25 · **Branch:** `feature-user-onboarding-ux`
-> Supersedes the 2026-06-15 Phase-1 handoff. Pair with
-> [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md) (the executable next steps),
-> [PHASE1_VERIFICATION_RUNBOOK.md](PHASE1_VERIFICATION_RUNBOOK.md) (deep SQL), and
-> [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (the full roadmap).
+> **Updated:** 2026-06-26 · **Branch:** `feature-user-onboarding-ux`
+> Supersedes the 2026-06-25 handoff. Pair with [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md)
+> (plain-language roadmap), [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md)
+> (money-path steps), and [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (full roadmap).
 
 ## TL;DR
 
-Two tracks are in flight:
-1. **UX / branding polish** — done this cycle: full **EcoLink → Carbonify rebrand**, login/email-confirmation
-   fix, project-map fix, split legal policies, LGU form fix, and submit-project pricing moved to the verifier.
-2. **Money-path verification** (the #1 priority) — **in progress.** Migrations applied, functions deployed,
-   and a **critical webhook bug was found and fixed in code**. **Blocked** on one thing: the Supabase CLI
-   returns `403` for secret-management and the webhook re-deploy (account-role or deploy-throttle issue).
-   That blocker is **dashboard-resolvable** and does **not** block any other work.
+Phases 0–7 are now **code-complete**. The 2026-06-26 session shipped DPA tooling, the
+edit/resubmit loop, a buyer-facing project-detail page, `local|supplier` + SDG filters,
+ESG export, an admin finance console, provisional VAT invoices, a public carbon registry,
+and a **schema-drift catch-up** that brought the live DB back in sync. Build green, ESLint 0
+throughout (~22 commits this session).
+
+**The one thing left that delivers value is not code:** run the **money-path sandbox test**.
+It's blocked only on a **Supabase dashboard step** (set the PayMongo secrets + deploy the
+fixed `paymongo-webhook`). Everything else either depends on that test, on an external partner
+(real registry, AML data, PSP), or on ops/legal.
+
+> ⚠️ **Apply the pending migrations first** — see §0. The live DB had drifted behind the
+> migrations all session; the catch-up (`20260626000700`) + audit
+> ([diagnostics/schema_catchup_audit.sql](../supabase/diagnostics/schema_catchup_audit.sql))
+> resolve that. Run the audit anytime to confirm the schema is current (empty result = good).
 
 ---
 
-## 1. What changed this cycle (2026-06-25)
+## 0. Pending migrations — apply via SQL Editor (idempotent, safe to re-run)
 
-### Branding & UX (all merged on `feature-user-onboarding-ux`, build green)
+This session added migrations. Apply any not yet run, in this order (all use
+`IF NOT EXISTS` / `NOT VALID` / `on conflict do nothing`, so re-running is harmless):
+
+| # | Migration | Purpose |
+|---|---|---|
+| 1 | `20260626000700_schema_catchup.sql` | Ensures all drift-prone columns + the `credit_transactions→profiles` FKs + widened `projects` status constraint (supersedes the column-adds of 000100/000400). |
+| 2 | `20260607000200_supplier_orders.sql` | `supplier_orders` table (audit flagged it missing). |
+| 3 | `20260626000200_notify_project_submitted_trigger.sql` | Verifier bell on submit/resubmit. |
+| 4 | `20260626000300_backfill_validated_listings.sql` | Publishes validated projects to the marketplace + backfills. |
+| 5 | `20260626000500_fix_credit_pool_availability.sql` | Fixes the `credits_available` pool (false "sold out"). |
+| 6 | `20260626000600_admin_finance_console.sql` | Admin finance RPCs (`is_admin`-gated). |
+| 7 | `20260626000800_seed_tax_settings.sql` | Seeds VAT/company tax settings. |
+| 8 | `20260626000900_public_registry.sql` | Public registry RPCs (anon-granted). |
+| 9 | `20260626001000_performance_indexes.sql` | Hot-path indexes. |
+
+Already applied earlier this session: `20260626000000` (DPA), `20260626000100` (status
+constraint), `20260626000400` (marketplace reconcile). After applying, **re-run the audit**
+to confirm an empty result.
+
+---
+
+## 1. What changed
+
+### 2026-06-26 session — features shipped (build green, ESLint 0)
+| Area | What | Commit |
+|---|---|---|
+| Phase 5 | DPA tooling — self-service data export + account-deletion request + erasure worker | `3d14b5e` |
+| Phase 4 | Edit/resubmit-after-revision loop complete (queue re-entry, verifier bell, revision badge) | `d7d0055`, `95be6f3` |
+| Phase 3 | Full buyer-facing project-detail page (trust card, developer, map, docs, co-benefits) | `d993521` |
+| Phase 3 | `local\|supplier` provenance badge + marketplace filter | `977ce39` |
+| Phase 3 | ESG / offset report export (PDF + CSV) on the Credit Portfolio | `73f7c97` |
+| Phase 3 | SDG tagging (submit form) → display → marketplace filter, end-to-end | `1ab3785` |
+| Phase 5 | Admin finance console (sales/fees/payouts + book reconciliation, admin-gated RPCs) | `9790dc3` |
+| Phase 5 | Provisional VAT invoices (12% PH VAT, admin-configurable tax identity) | `742305e` |
+| Phase 7 | Public searchable carbon registry (`/registry`, anon-accessible) | `81792ac` |
+| Phase 7 | Hot-path DB indexes | `5683731` |
+| Nav/UX | Portfolio link in top nav; verifier panel scroll fix; misc | `87a5e84`, `b765b63` |
+| DB | Schema-drift fixes + consolidated **catch-up** migration + read-only audit | `a99ce91`, `80416b1`, `2e00a40`, `df62627`, `a378e6f`, `4991a64` |
+
+> Several "missing" roadmap items turned out to be **already built** (verification checklist,
+> SLA aging, audit-log search) — verified, not rebuilt. The recurring theme this session was
+> the live DB **lagging the migrations**; §0's catch-up + audit close that out.
+
+### 2026-06-25 cycle — Branding & UX (build green)
+- ✅ **Rebrand EcoLink → Carbonify** across ~105 files (app, views, services, config, docs, `index.html`,
+  `manifest.json`, edge functions). Internal storage keys + applied DB migrations intentionally preserved.
 - ✅ **Rebrand EcoLink → Carbonify** across ~105 files (app, views, services, config, docs, `index.html`,
   `manifest.json`, edge functions). Internal storage keys + applied DB migrations intentionally preserved.
 - ✅ **Logo** — new `public/carbonify-logo.png` wired into header, login, register, mobile menu, favicon, manifest.
@@ -106,8 +158,10 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard |
 | **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
-| **4 — Developer ↔ Verifier (partial)** | ✅ two-way comment thread + notifications; verifier sets price per credit at validation; **edit/resubmit-after-revision loop complete** (resubmit notifies reviewers in-app + revision badge) |
-| **5 — DPA tooling (partial)** | 🆕 self-service data export + account-deletion request (UI live); erasure worker code-complete, awaiting deploy |
+| **3 — Buyer Trust** | 🆕 project-detail page, `local\|supplier` badge + filter, ESG/offset export, SDG tagging + filter (real registry/supplier still pending a partner) |
+| **4 — Developer ↔ Verifier** | 🆕 comment thread + notifications, verifier sets price at validation, edit/resubmit-after-revision loop, validation checklist + SLA aging |
+| **5 — Admin & Compliance** | 🆕 DPA tooling (export/delete + erasure worker), admin finance console, provisional VAT invoices, audit-log search, system-config UI |
+| **7 — Scale (partial)** | 🆕 public searchable carbon registry, hot-path DB indexes |
 
 ### ❌ Not yet implemented
 | Phase | Highlights |
@@ -134,63 +188,47 @@ repeatedly surfaced as "missing column" 400s and broken PostgREST joins. Two new
 
 ## 4. Next steps
 
-### A. Blocked on the dashboard (the money-path test) — do when ready
-1. Set the 3 secrets (Dashboard).
-2. Deploy the fixed `paymongo-webhook` (Dashboard editor).
-3. Run the **sandbox purchase** (test card `4343 4343 4343 4345`) → `reconcile_financials()` must return 0 rows.
-4. Then: subscription, KYB-gated payout, cart + refund (all 0-drift).
-Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
+Feature work is essentially done (Phases 0–7 code-complete). What remains delivers value only
+via **you** or an **external dependency** — so the priority is now **validation, not building**.
 
-### B. Unblocked — can be done right now (no Supabase-admin needed)
-- ✅ **Committed** the rebrand + fixes (`f39cf51`).
-- ✅ **Developer↔verifier comment thread + notifications** (Phase 4).
-- ✅ **Verifier price input** at validation (Phase 4).
-- ✅ **Phase 5 — DPA tooling** (data export / account-delete request) — **done this cycle**
-  (apply migration `20260626000000` via SQL Editor; deploy `account-deletion` to enable erasure).
-- ✅ **`local | supplier` listing flag** (Phase 3 groundwork) — **done this cycle**: source
-  badge on marketplace cards, project-detail page, and purchase modal, plus an
-  "All / Local / Registry" marketplace filter. **Read-only for now** — every listing
-  defaults to `local`; there is no UI to mark a listing `supplier` yet (that arrives with
-  the real registry/supplier integration). Migration `20260607000100` already applied.
-- ✅ **Full project-detail page** (Phase 3) — **done this cycle** (hero, verification/trust
-  card, developer, timeline & location, map, documents, co-benefits, listings).
-  ⚠️ **Validated projects → marketplace:** a project appears in the marketplace only once it
-  has an active `credit_listing` → `project_credits` → project (status validated/approved),
-  created by `trg_activate_validated_project` on validation.
-  - **First apply `20260626000400` (schema reconcile)** — the live DB was missing columns the
-    marketplace query selects (`source`, `geo_coordinates`, scores, …) and the `watchlist`
-    table, so the listings query 400'd and showed **0 listings** regardless of validation. This
-    idempotently ensures every marketplace/watchlist column + table exists.
-  - **Then apply `20260626000300`** — re-installs `trg_activate_validated_project` (future
-    validations auto-list) and backfills existing validated/approved projects' listings.
-  Order matters: `400` adds the `credit_listings` columns the `300` backfill writes. Both are
-  idempotent (safe to re-run). After both, validating a project publishes it to the marketplace.
-- ✅ **Edit & resubmit after "needs revision"** (Phase 4) — **done this cycle** (resubmit
-  re-enters the verifier queue, notifies verifiers in-app, and shows a revision badge).
-  ⚠️ **Apply these migrations via SQL Editor** for the loop to work end-to-end:
-  - `20260626000100` — widens the stale `projects` status CHECK constraint (it predated
-    migrations and only allowed `pending/approved/rejected`, so Request Revision / validate /
-    resubmit failed with `projects_status_check`).
-  - `20260626000200` — `notify_project_submitted` trigger: notifies verifiers in-app on
-    submit/resubmit. Required because `system_notifications` RLS (`auth.uid() = user_id`)
-    blocks a developer from inserting notifications for verifiers, so the client-side
-    approach never rang the bell. The trigger runs SECURITY DEFINER and covers all paths.
-- **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
+### A. 🔴 The #1 thing — run the money-path sandbox test (your dashboard step)
+1. Apply the §0 pending migrations + run the schema audit (confirm empty).
+2. Set the 3 PayMongo secrets in the **Supabase Dashboard** (Edge Functions → Secrets):
+   `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `PAYOUT_WORKER_SECRET`.
+3. Deploy the fixed **`paymongo-webhook`** from the Dashboard function editor.
+4. Run the **sandbox purchase** (test card `4343 4343 4343 4345`) → then open the new
+   **Admin → Finance Console**: the sale should appear and reconciliation should read
+   "books balanced" (`reconcile_financials()` = 0 rows).
+5. Then: subscription, KYB-gated payout, cart + refund (all 0-drift).
+   Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
+   Also deploy the **`account-deletion`** edge function + set `ACCOUNT_DELETION_SECRET`
+   so DPA deletion requests can actually be processed.
 
-> Next recommended: a **scored verification checklist/rubric** (Phase 4) or **ESG / offset
-> export** (Phase 3). These move the product forward while the money-path test waits on the
-> dashboard step. (DPA tooling, edit/resubmit loop, project-detail page, and local|supplier
-> flag ✅ done this cycle.)
->
-> When the dashboard blocker clears, also deploy the **`account-deletion`** edge function and set
-> its `ACCOUNT_DELETION_SECRET` so deletion requests can actually be processed.
+### B. Capture the work
+- Branch is **58 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)
+  or merge. A ready PR body is in the session scratchpad; `gh` is installed but unauthenticated,
+  so push + `gh pr create` (or the web UI) is a manual step.
+
+### C. Remaining work — all needs you or an external party
+- **Real registry/supplier fulfillment** (Phase 3) — needs an external registry partner.
+- **AML screening** (Phase 5) — needs a real sanctions/PEP data source to be meaningful.
+- **Pentest · backups/PITR · connection pooling · observability** (Phase 7) — ops/infra + a
+  monitoring provider key.
+- **Mobile / PWA** (Phase 8) — codeable, but lower value than testing what exists.
+- **BIR accreditation · legal entity · PSP/EMI partner** (Phase 9) — business/legal.
+- **Favicon set** — generate square favicons from the logo (`scripts/create-favicons.js`).
 
 ---
 
 ## 5. Notes for whoever picks this up
-- Working changes are on `feature-user-onboarding-ux` and **not yet committed**.
-- The `'EcoLink Standard'` credit label still lives in the live DB mint function
-  ([migration 20260604010100](../supabase/migrations/20260604010100_decouple_issuance_mint_on_ver.sql)); existing
-  rows were updated by hand, but a new migration should `CREATE OR REPLACE` the function to emit `'Carbonify Standard'`.
+- All session work is **committed** on `feature-user-onboarding-ux` (build green, ESLint 0).
+- **Apply the §0 migrations** before testing; the schema had drifted behind all session.
+  Run [schema_catchup_audit.sql](../supabase/diagnostics/schema_catchup_audit.sql) anytime to
+  check (empty = current). As of the last audit only `supplier_orders` + 2 certificate columns
+  were missing — both covered by the §0 list.
+- VAT invoices are **provisional** (not BIR-accredited until the entity is registered).
+- The public registry, finance console, and DPA RPCs are **SECURITY DEFINER** and self-gate
+  (anon for the registry; `is_admin()` for finance; `auth.uid()` for DPA) — the underlying
+  tables stay RLS-protected.
 - PayMongo webhooks can't reach `localhost` — run the money-path test against the deployed app or a tunnel.
 - Don't use `supabase db push` here (known schema drift) — apply migrations via the SQL Editor.

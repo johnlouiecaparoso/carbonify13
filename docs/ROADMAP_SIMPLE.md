@@ -6,6 +6,13 @@
 ## The one-line goal
 Let a buyer pay for a carbon credit and have the money land safely — then make it trustworthy enough to go live.
 
+## Where we are (2026-06-26)
+Almost everything buildable is **done** — the verifier loop, buyer-trust features (detail page,
+provenance, ESG export, SDG filter), DPA tooling, admin finance console, VAT invoices, and a
+public registry all shipped this cycle. The big remaining item isn't code: **prove the money
+path** (#1 below). The rest needs an outside party (registry partner, sanctions data, PSP) or
+ops/legal work. Net: **stop building, start validating.**
+
 ---
 
 ## 🔴 RIGHT NOW (this week)
@@ -71,6 +78,8 @@ Installable app (PWA) · mobile views · legal entity, payment partner, accredit
 ## How to read this
 - 🔴 = do this week · 🟡 = do next · 🟢 = before going live
 - "You" = a dashboard/admin step only the owner can do.
-- Everything else is code I can build.
+- ✅ items are built & committed (runtime-untested until you test them).
 
-**My suggested order:** you unblock #1, I build #2 in parallel, then we do #3 → #4.
+**Suggested order now:** (1) apply the pending migrations (see HANDOFF §0), (2) run the
+money-path sandbox test, (3) open the PR / merge to `main`. Then the only feature work left
+needs an external partner or ops/legal — not more code.
