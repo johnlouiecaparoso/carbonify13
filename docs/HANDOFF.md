@@ -121,6 +121,17 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 
 ---
 
+### Schema drift — catch-up tooling (this cycle)
+The live DB predates the tracked migrations and has been applied piecemeal, which
+repeatedly surfaced as "missing column" 400s and broken PostgREST joins. Two new files:
+- [schema_catchup_audit.sql](../supabase/diagnostics/schema_catchup_audit.sql) — **read-only**;
+  run it in the SQL Editor to list every expected table/column/FK/function that is **missing**
+  on this DB. Empty result = fully current.
+- [20260626000700_schema_catchup.sql](../supabase/migrations/20260626000700_schema_catchup.sql) —
+  one **idempotent** migration that ensures all drift-prone columns + the credit_transactions→
+  profiles FKs + the widened status constraint. Apply it to fix the column/FK/join class of
+  drift in one shot. If the audit reports a missing **table**, apply that table's own migration.
+
 ## 4. Next steps
 
 ### A. Blocked on the dashboard (the money-path test) — do when ready
