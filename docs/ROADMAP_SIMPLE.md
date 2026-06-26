@@ -59,7 +59,9 @@ Make listings believable.
 - ⏳ Still to do: AML screening (needs a real sanctions data source to be meaningful).
 
 ### 6. Scale & security
-Public searchable registry · pentest before using live keys · backups · monitoring.
+- ✅ Public searchable registry (done 2026-06-26 — anyone can browse/verify issued &
+  retired credits at /registry, no login; anon-granted RPCs).
+- ⏳ Still to do: pentest before using live keys · backups · monitoring.
 
 ### 7. Mobile & business setup
 Installable app (PWA) · mobile views · legal entity, payment partner, accredited verifier.

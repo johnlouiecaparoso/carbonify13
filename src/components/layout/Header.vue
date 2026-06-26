@@ -349,6 +349,7 @@ const navItems = computed(() => {
   const baseItems = [
     { path: '/', label: 'Home' },
     { path: '/marketplace', label: 'Marketplace' },
+    { path: '/registry', label: 'Registry' },
     { path: '/about', label: 'About' },
   ]
 

@@ -65,6 +65,12 @@ const router = createRouter({
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
     },
     {
+      // Public carbon registry — anyone can browse/verify issued & retired credits.
+      path: '/registry',
+      name: 'registry',
+      component: () => import('@/views/RegistryView.vue'),
+    },
+    {
       path: '/map',
       name: 'projects-map',
       component: () => import('@/views/ProjectsMapView.vue'),
@@ -343,7 +349,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
   // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password']
+  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry']
   if (publicRoutes.includes(to.name)) {
     console.log('✅ Public route, allowing access')
     next()
