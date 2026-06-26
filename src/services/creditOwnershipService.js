@@ -75,6 +75,8 @@ export class CreditOwnershipService {
           image_type: record.projects?.image_type,
           quantity: record.quantity,
           ownership_type: record.ownership_type,
+          // Cost basis for portfolio P&L (undefined on schema versions without the column).
+          purchase_price: record.purchase_price,
           created_at: record.created_at,
           updated_at: record.updated_at,
           // Add status for frontend display

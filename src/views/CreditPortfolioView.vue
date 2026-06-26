@@ -116,8 +116,17 @@
                   </svg>
                 </div>
                 <div class="stat-content">
-                  <h3>${{ portfolioValue.toLocaleString() }}</h3>
+                  <h3>₱{{ portfolioValue.toLocaleString() }}</h3>
                   <p>Portfolio Value</p>
+                  <p
+                    v-if="marketPrice > 0 && pnl.pricedCredits > 0"
+                    class="pnl"
+                    :class="pnl.unrealizedPnl >= 0 ? 'up' : 'down'"
+                  >
+                    {{ pnl.unrealizedPnl >= 0 ? '▲' : '▼' }}
+                    ₱{{ Math.abs(pnl.unrealizedPnl).toLocaleString() }}
+                    ({{ pnl.unrealizedPnlPct >= 0 ? '+' : '' }}{{ pnl.unrealizedPnlPct }}%) vs market
+                  </p>
                 </div>
               </div>
             </div>
@@ -279,6 +288,8 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { creditOwnershipService } from '@/services/creditOwnershipService'
 import { exportEsgReportCsv, exportEsgReportPdf } from '@/services/esgReportService'
+import { getMarketStats } from '@/services/registryService'
+import { computePortfolioPnl } from '@/services/portfolioAnalytics'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -332,10 +343,13 @@ async function downloadEsg(format) {
 }
 
 // Computed
-const portfolioValue = computed(() => {
-  // Calculate portfolio value based on average credit price
-  return creditStats.value.total_owned * 25 // Assuming $25 per credit average
-})
+// Current market price per credit (avg of active listings), loaded with the portfolio.
+const marketPrice = ref(0)
+
+// Real position: cost basis vs current market value + unrealized P&L.
+const pnl = computed(() => computePortfolioPnl(creditPortfolio.value, marketPrice.value))
+
+const portfolioValue = computed(() => pnl.value.marketValue)
 
 const totalOwnedCredits = computed(() =>
   creditPortfolio.value.reduce((sum, record) => sum + (record.quantity || 0), 0),
@@ -406,12 +420,14 @@ async function loadPortfolio() {
   error.value = ''
 
   try {
-    const [portfolio, stats] = await Promise.all([
+    const [portfolio, stats, market] = await Promise.all([
       creditOwnershipService.getUserCreditPortfolio(userStore.session.user.id),
       creditOwnershipService.getUserCreditStats(userStore.session.user.id),
+      getMarketStats().catch(() => null),
     ])
 
     creditPortfolio.value = portfolio || []
+    marketPrice.value = Number(market?.avg_price) || 0
     creditStats.value = stats || {
       total_owned: 0,
       total_retired: 0,
@@ -603,6 +619,18 @@ onMounted(() => {
   font-size: 0.875rem;
   color: var(--text-muted, #718096);
   margin: 0;
+}
+
+.stat-content .pnl {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.stat-content .pnl.up {
+  color: #059669;
+}
+.stat-content .pnl.down {
+  color: #dc2626;
 }
 
 /* Holdings Section */
