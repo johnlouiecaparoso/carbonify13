@@ -70,9 +70,23 @@ to confirm an empty result.
 > SLA aging, audit-log search) — verified, not rebuilt. The recurring theme this session was
 > the live DB **lagging the migrations**; §0's catch-up + audit close that out.
 
+### 2026-06-26 — codeable-backlog sweep (no dashboard/partner needed, build green, ESLint 0)
+A pass to clear the items that could ship as pure code, with **zero new migrations**
+(every feature reuses existing columns/tables) — so nothing here is blocked on the
+dashboard or an external party:
+| Area | What | Notes |
+|---|---|---|
+| Phase 4 | **Weighted scored rubric** on the validation checklist (Inadequate/Adequate/Strong × per-item weight → overall score + band) | Score stored in the existing `verification_assessments.checklist` JSONB; `checked` kept in sync |
+| Phase 4 | **Project boundary map** — draw the location pin + boundary polygon at submit/edit | Writes `projects.geo_coordinates` + `projects.boundary` (cols already exist); detail view already rendered them. Also fixes a latent bug where **geo was never saved on create** |
+| Phase 4 | **MRV reporting reminders** — due/overdue banner on the Monitoring page + deduped bell notification | Derived from `projects` + `monitoring_reports` vs admin cadence `mrv_reporting_days` (default 365); no schema change |
+| Phase 8 | **Offline-capable service worker** — app-shell precache, network-first nav with offline fallback, stale-while-revalidate assets | Same-origin GET only; never caches Supabase/PayMongo/OSM |
+| Phase 8 | **Mobile polish** — wide tables (finance console, seller earnings, emission factors) now scroll + 640px breakpoints | No behavior change |
+
+> All five are **runtime-untested** (🆕) — they're committed and build-green but, like the
+> rest of the session, want a real click-through. None require the §0 migrations or the
+> dashboard blocker; they can be tested as soon as the app is running.
+
 ### 2026-06-25 cycle — Branding & UX (build green)
-- ✅ **Rebrand EcoLink → Carbonify** across ~105 files (app, views, services, config, docs, `index.html`,
-  `manifest.json`, edge functions). Internal storage keys + applied DB migrations intentionally preserved.
 - ✅ **Rebrand EcoLink → Carbonify** across ~105 files (app, views, services, config, docs, `index.html`,
   `manifest.json`, edge functions). Internal storage keys + applied DB migrations intentionally preserved.
 - ✅ **Logo** — new `public/carbonify-logo.png` wired into header, login, register, mobile menu, favicon, manifest.
@@ -159,18 +173,18 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
 | **3 — Buyer Trust** | 🆕 project-detail page, `local\|supplier` badge + filter, ESG/offset export, SDG tagging + filter (real registry/supplier still pending a partner) |
-| **4 — Developer ↔ Verifier** | 🆕 comment thread + notifications, verifier sets price at validation, edit/resubmit-after-revision loop, validation checklist + SLA aging |
+| **4 — Developer ↔ Verifier** | 🆕 comment thread + notifications, verifier sets price at validation, edit/resubmit-after-revision loop, **weighted scored rubric** 🆕, SLA aging, **project boundary map (draw + display)** 🆕, **MRV reporting reminders** 🆕 |
 | **5 — Admin & Compliance** | 🆕 DPA tooling (export/delete + erasure worker), admin finance console, provisional VAT invoices, audit-log search, system-config UI |
-| **7 — Scale (partial)** | 🆕 public searchable carbon registry, hot-path DB indexes |
+| **7 — Scale (partial)** | 🆕 public searchable carbon registry, hot-path DB indexes, **offline-capable PWA service worker** 🆕 |
 
 ### ❌ Not yet implemented
 | Phase | Highlights |
 |---|---|
 | **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration (needs external partner), ~~`local\|supplier` flag~~ (✅), ~~full project-detail page~~ (✅), ~~ESG/offset export~~ (✅), ~~real SDG filter~~ (✅ collect→display→filter this cycle) |
-| **4 — Developer ↔ Verifier Workflow** (partial — see above) | ✅ edit/resubmit-after-revision loop done. ⏳ remaining: scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
-| **5 — Admin & Compliance** | system-config UI, ~~admin finance console~~ (✅), AML screening, ~~DPA data export/delete tooling~~ (✅), ~~BIR/VAT invoices~~ (✅ provisional, this cycle), ~~audit-log search~~ (already built) |
+| **4 — Developer ↔ Verifier Workflow** (partial — see above) | ✅ edit/resubmit-after-revision loop, ~~scored checklist/rubric~~ (✅), ~~MRV reminders~~ (✅ in-app + bell), ~~methodology/boundary map~~ (✅ draw + display). ⏳ remaining: verifier task queue + SLA scoring depth |
+| **5 — Admin & Compliance** | ~~system-config UI~~ (✅ already built — fee %, KYC tier, emission factors), ~~admin finance console~~ (✅), AML screening, ~~DPA data export/delete tooling~~ (✅), ~~BIR/VAT invoices~~ (✅ provisional, this cycle), ~~audit-log search~~ (already built) |
 | **7 — Scale & Security** | ~~public searchable registry~~ (✅), ~~hot-path indexes~~ (✅ this cycle), pentest before live keys, connection pooling, backups/PITR, observability |
-| **8 — Mobile / PWA** | installable PWA, mobile views, web push |
+| **8 — Mobile / PWA** | ~~offline service worker~~ (✅), ~~mobile view polish (heavy tables)~~ (✅), installable PWA (manifest ✅), web push (⏳ needs deployed edge fn + VAPID keys) |
 | **9 — Business / Legal** 🏛️ | legal entity, PSP/EMI partner, AMLA/DPO/BIR, accredited VVB |
 
 ---
@@ -205,7 +219,7 @@ via **you** or an **external dependency** — so the priority is now **validatio
    so DPA deletion requests can actually be processed.
 
 ### B. Capture the work
-- Branch is **58 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)
+- Branch is **~67 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)
   or merge. A ready PR body is in the session scratchpad; `gh` is installed but unauthenticated,
   so push + `gh pr create` (or the web UI) is a manual step.
 

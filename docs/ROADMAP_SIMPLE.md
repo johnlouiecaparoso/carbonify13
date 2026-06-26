@@ -40,7 +40,11 @@ Our Privacy Policy already promises this, so the app must be able to do it.
 Developer fixes a rejected project and resubmits; verifier reviews again.
 - ✅ Edit & resubmit after "needs revision" (done 2026-06-26 — resubmit re-enters the
   queue, alerts verifiers, and shows a revision badge).
-- ⏳ Still to do: scored checklist · verifier task queue + SLA.
+- ✅ Scored rubric (done 2026-06-26 — verifiers rate each item Inadequate/Adequate/Strong
+  with weights; an overall weighted score + band shows in the review panel).
+- ✅ MRV reminders (done 2026-06-26 — validated projects show a due/overdue banner on the
+  Monitoring page and get a bell notification when a report is overdue).
+- ⏳ Still to do: verifier task queue depth (a fuller SLA-scored work queue).
 
 ### 4. Real credits & buyer trust
 Make listings believable.
@@ -52,6 +56,8 @@ Make listings believable.
   Credit Portfolio page, backed by the existing esgReportService).
 - ✅ SDG filter (done 2026-06-26 — developers tag UN SDGs at submission, shown as chips on the
   detail page, and buyers filter the marketplace by goal).
+- ✅ Project boundary map (done 2026-06-26 — developers click to drop the location pin and draw
+  the project boundary on a map at submission; the boundary shows on the detail page).
 - ⏳ Still to do: real registry/supplier integration (needs an external partner).
 
 ---
@@ -71,7 +77,12 @@ Make listings believable.
 - ⏳ Still to do: pentest before using live keys · backups · monitoring.
 
 ### 7. Mobile & business setup
-Installable app (PWA) · mobile views · legal entity, payment partner, accredited verifier.
+- ✅ Offline service worker (done 2026-06-26 — the app caches its shell and assets so it loads
+  offline; live data still needs a connection).
+- ✅ Mobile polish (done 2026-06-26 — the wide finance/earnings/config tables now scroll instead
+  of overflowing on phones).
+- ⏳ Still to do: installable-app niceties · web push (needs a deployed function + keys) ·
+  legal entity, payment partner, accredited verifier.
 
 ---
 
