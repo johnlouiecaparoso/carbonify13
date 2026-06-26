@@ -114,7 +114,7 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 |---|---|
 | **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration (needs external partner), ~~`local\|supplier` flag~~ (✅), ~~full project-detail page~~ (✅), ~~ESG/offset export~~ (✅), ~~real SDG filter~~ (✅ collect→display→filter this cycle) |
 | **4 — Developer ↔ Verifier Workflow** (partial — see above) | ✅ edit/resubmit-after-revision loop done. ⏳ remaining: scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
-| **5 — Admin & Compliance** | system-config UI, admin finance console, AML screening, ~~DPA data export/delete tooling~~ (✅ code-complete this cycle), BIR/VAT invoices, audit-log search |
+| **5 — Admin & Compliance** | system-config UI, ~~admin finance console~~ (✅ this cycle), AML screening, ~~DPA data export/delete tooling~~ (✅), BIR/VAT invoices, ~~audit-log search~~ (already built) |
 | **7 — Scale & Security** | **public searchable registry**, pentest before live keys, pooling/indexes, backups/PITR, observability |
 | **8 — Mobile / PWA** | installable PWA, mobile views, web push |
 | **9 — Business / Legal** 🏛️ | legal entity, PSP/EMI partner, AMLA/DPO/BIR, accredited VVB |

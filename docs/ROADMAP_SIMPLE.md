@@ -52,7 +52,9 @@ Make listings believable.
 ## 🟢 LATER (before public launch)
 
 ### 5. Admin & compliance
-Admin finance console · invoices (BIR/VAT) · AML screening · audit-log search.
+- ✅ Admin finance console (done 2026-06-26 — sales/fees/payouts + book reconciliation,
+  admin-gated RPCs). ✅ Audit-log search (already built).
+- ⏳ Still to do: invoices (BIR/VAT) · AML screening.
 
 ### 6. Scale & security
 Public searchable registry · pentest before using live keys · backups · monitoring.

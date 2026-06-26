@@ -41,6 +41,14 @@
             <p>Manage user accounts, roles, and permissions</p>
           </router-link>
 
+          <router-link to="/admin/finance" class="admin-tool-card">
+            <div class="tool-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">account_balance</span>
+            </div>
+            <h3>Finance Console</h3>
+            <p>Sales, fees, payouts, and book reconciliation</p>
+          </router-link>
+
           <router-link to="/admin/audit-logs" class="admin-tool-card">
             <div class="tool-icon" aria-hidden="true">
               <span class="material-symbols-outlined">assignment</span>

@@ -242,6 +242,15 @@ const router = createRouter({
     },
     { path: '/admin/tables', redirect: '/admin/database' },
     {
+      path: '/admin/finance',
+      name: 'admin-finance',
+      component: () => import('@/views/FinanceConsoleView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
       path: '/admin/audit-logs',
       name: 'admin-audit-logs',
       component: () => import('@/components/admin/AuditLogsView.vue'),
