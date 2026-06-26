@@ -110,39 +110,43 @@ onMounted(load)
       <!-- Recent sales -->
       <section class="panel">
         <h2>Recent sales</h2>
-        <table v-if="sales.length" class="data-table">
-          <thead>
-            <tr><th>Date</th><th>Credits</th><th>Unit</th><th>Total</th><th>Status</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="s in sales" :key="s.id">
-              <td>{{ shortDate(s.created_at) }}</td>
-              <td>{{ s.quantity }}</td>
-              <td>{{ peso(s.price_per_credit) }}</td>
-              <td>{{ peso(s.total_amount) }}</td>
-              <td><span class="badge" :class="s.status">{{ s.status }}</span></td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="sales.length" class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>Date</th><th>Credits</th><th>Unit</th><th>Total</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in sales" :key="s.id">
+                <td>{{ shortDate(s.created_at) }}</td>
+                <td>{{ s.quantity }}</td>
+                <td>{{ peso(s.price_per_credit) }}</td>
+                <td>{{ peso(s.total_amount) }}</td>
+                <td><span class="badge" :class="s.status">{{ s.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p v-else class="muted">No sales yet.</p>
       </section>
 
       <!-- Payout history -->
       <section class="panel">
         <h2>Withdrawals</h2>
-        <table v-if="payouts.length" class="data-table">
-          <thead>
-            <tr><th>Date</th><th>Amount</th><th>Status</th><th>Note</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in payouts" :key="p.id">
-              <td>{{ shortDate(p.created_at) }}</td>
-              <td>{{ peso(p.amount) }}</td>
-              <td><span class="badge" :class="p.status">{{ p.status }}</span></td>
-              <td class="muted small">{{ p.failure_reason || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="payouts.length" class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>Date</th><th>Amount</th><th>Status</th><th>Note</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in payouts" :key="p.id">
+                <td>{{ shortDate(p.created_at) }}</td>
+                <td>{{ peso(p.amount) }}</td>
+                <td><span class="badge" :class="p.status">{{ p.status }}</span></td>
+                <td class="muted small">{{ p.failure_reason || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p v-else class="muted">No withdrawals yet.</p>
       </section>
     </template>
@@ -226,6 +230,11 @@ onMounted(load)
   margin: 0 0 12px;
   font-size: 1.1rem;
 }
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -236,6 +245,7 @@ onMounted(load)
   padding: 8px 10px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 .badge {
   padding: 2px 8px;
@@ -277,5 +287,19 @@ onMounted(load)
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+}
+@media (max-width: 640px) {
+  .seller-earnings {
+    padding: 16px 12px;
+  }
+  .page-head h1 {
+    font-size: 1.35rem;
+  }
+  .cards {
+    grid-template-columns: 1fr;
+  }
+  .modal {
+    padding: 18px;
+  }
 }
 </style>

@@ -54,7 +54,8 @@
           <p v-if="factorMsg" class="msg" :class="factorMsg.type">{{ factorMsg.text }}</p>
 
           <div v-if="factors.length === 0" class="state-card">No emission factors found.</div>
-          <table v-else class="factor-table">
+          <div v-else class="table-scroll">
+          <table class="factor-table">
             <thead>
               <tr>
                 <th>Project type</th>
@@ -80,6 +81,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
       </template>
     </div>
@@ -252,6 +254,11 @@ onMounted(load)
   opacity: 0.6;
   cursor: not-allowed;
 }
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .factor-table {
   width: 100%;
   border-collapse: collapse;
@@ -288,5 +295,22 @@ onMounted(load)
 }
 .msg.error {
   color: #dc2626;
+}
+@media (max-width: 640px) {
+  .config-view {
+    padding: 1.25rem 0 3rem;
+  }
+  .page-title {
+    font-size: 1.45rem;
+  }
+  .config-card {
+    padding: 1.1rem;
+  }
+  .field-row label {
+    min-width: 0;
+  }
+  .factor-table {
+    white-space: nowrap;
+  }
 }
 </style>

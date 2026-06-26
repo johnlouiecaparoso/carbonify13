@@ -67,32 +67,34 @@
         </div>
         <div v-if="loading && !transactions.length" class="state">Loading…</div>
         <div v-else-if="!transactions.length" class="state">No transactions yet.</div>
-        <table v-else class="tx-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Buyer</th>
-              <th>Seller</th>
-              <th class="num">Qty</th>
-              <th class="num">Amount</th>
-              <th class="num">Fee</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="tx in transactions" :key="tx.id">
-              <td>{{ formatDate(tx.created_at) }}</td>
-              <td>{{ tx.buyer_name }}</td>
-              <td>{{ tx.seller_name }}</td>
-              <td class="num">{{ Number(tx.quantity).toLocaleString() }}</td>
-              <td class="num">{{ peso(tx.total_amount) }}</td>
-              <td class="num">{{ peso(tx.transaction_fee) }}</td>
-              <td>
-                <span class="status" :class="tx.status">{{ tx.status }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-else class="table-scroll">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Buyer</th>
+                <th>Seller</th>
+                <th class="num">Qty</th>
+                <th class="num">Amount</th>
+                <th class="num">Fee</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tx in transactions" :key="tx.id">
+                <td>{{ formatDate(tx.created_at) }}</td>
+                <td>{{ tx.buyer_name }}</td>
+                <td>{{ tx.seller_name }}</td>
+                <td class="num">{{ Number(tx.quantity).toLocaleString() }}</td>
+                <td class="num">{{ peso(tx.total_amount) }}</td>
+                <td class="num">{{ peso(tx.transaction_fee) }}</td>
+                <td>
+                  <span class="status" :class="tx.status">{{ tx.status }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   </div>
@@ -257,6 +259,11 @@ onMounted(refresh)
   margin: 0.5rem 0 0;
   padding-left: 1.25rem;
 }
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .tx-table {
   width: 100%;
   border-collapse: collapse;
@@ -310,5 +317,20 @@ onMounted(refresh)
   border: 1px solid #fecaca;
   border-radius: 8px;
   margin-bottom: 1rem;
+}
+@media (max-width: 640px) {
+  .container {
+    padding: 0 1rem;
+  }
+  .content {
+    padding: 1rem 1rem 2.5rem;
+  }
+  .page-title {
+    font-size: 1.5rem;
+  }
+  .tx-table {
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
 }
 </style>
