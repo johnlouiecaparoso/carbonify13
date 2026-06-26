@@ -485,23 +485,33 @@ onMounted(() => {
 .btn-export {
   background: #ffffff;
   color: #04773b;
-  border: 1px solid #ffffff;
-  padding: 0.6rem 1rem;
+  border: 2px solid #ffffff;
+  padding: 0.6rem 1.1rem;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: opacity 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.btn-export:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .btn-export.outline {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
+}
+
+.btn-export.outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .btn-export:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: progress;
 }
 
 .export-message {
