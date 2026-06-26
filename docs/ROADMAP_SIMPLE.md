@@ -62,6 +62,8 @@ Make listings believable.
   detail page, and buyers filter the marketplace by goal).
 - ✅ Project boundary map (done 2026-06-26 — developers click to drop the location pin and draw
   the project boundary on a map at submission; the boundary shows on the detail page).
+- ✅ Portfolio gain/loss (done 2026-06-26 — the Portfolio shows a real peso value plus an
+  up/down "vs market" figure instead of a placeholder).
 - ⏳ Still to do: real registry/supplier integration (needs an external partner).
 
 ---
@@ -76,9 +78,14 @@ Make listings believable.
 - ⏳ Still to do: AML screening (needs a real sanctions data source to be meaningful).
 
 ### 6. Scale & security
-- ✅ Public searchable registry (done 2026-06-26 — anyone can browse/verify issued &
-  retired credits at /registry, no login; anon-granted RPCs).
-- ⏳ Still to do: pentest before using live keys · backups · monitoring.
+- ✅ Public searchable registry (done 2026-06-26 — browse/verify issued & retired credits at
+  /registry, no login) + a public **/market dashboard** (supply, price range, retired vs issued).
+- ✅ Double-claim guard (done 2026-06-26 — a registry serial can't back two certificates, so a
+  non-retired credit can't be sold twice).
+- ✅ Speed & safety nets (done 2026-06-26 — composite database indexes, server-side paginated
+  purchase history, and a 114-test suite covering the money/feature logic).
+- ⏳ Still to do: pentest before using live keys · backups/PITR · connection pooling ·
+  error tracking (Sentry — needs a key) · monitoring.
 
 ### 7. Mobile & business setup
 - ✅ Offline service worker (done 2026-06-26 — the app caches its shell and assets so it loads

@@ -7,22 +7,26 @@
 
 ## TL;DR
 
-Phases 0–7 are now **code-complete**. The 2026-06-26 session shipped DPA tooling, the
-edit/resubmit loop, a buyer-facing project-detail page, `local|supplier` + SDG filters,
-ESG export, an admin finance console, provisional VAT invoices, a public carbon registry,
-and a **schema-drift catch-up** that brought the live DB back in sync. Build green, ESLint 0
-throughout (~22 commits this session).
+Phases 0–8 are **code-complete** and the **money path is proven** (purchase + subscription).
+The 2026-06-26 session shipped DPA tooling, the edit/resubmit loop, project-detail page,
+`local|supplier` + SDG filters, ESG export, finance console, VAT invoices, public registry,
+a schema-drift catch-up, then a **codeable-backlog sweep** (scored rubric, boundary map, MRV
+reminders, offline SW, mobile polish) and a **Phase 2–4 sweep** (payment-path tests → 114
+tests, composite indexes + paginated history, `/market` dashboard + double-claim guard, buyer
+portfolio P&L) and nav links. Build green, ESLint 0, 114 tests throughout (~75 commits ahead
+of `main`).
 
 > ✅ **2026-06-26 — THE CORE MONEY PATH IS PROVEN.** The §0 migrations were applied, the 3
 > PayMongo secrets were set, the **bug-fixed `paymongo-webhook` was deployed**, and a real
 > sandbox purchase (PayMongo test card on the Vercel preview) **settled cleanly** —
-> `reconcile_financials()` returns **0 rows** after the sale. The #1 blocker the rest of this
-> doc was built around is **cleared**. The registry + offline service worker were also verified
-> live in the same session.
+> `reconcile_financials()` returns **0 rows** after the sale, and **subscription** was verified
+> too (`/upgrade` → Pro flipped `profiles.plan`). The #1 blocker the rest of this doc was built
+> around is **cleared**. The registry, `/market` dashboard, and offline service worker were also
+> verified live in the same session.
 
-**What's left of the money path:** the **edges** — subscription, KYB-gated payout, and
-cart + refund (runbook Step E). Same setup, no new dashboard work; each must keep
-`reconcile_financials()` at 0 rows. After those, do the gated cutover and resume **Phase 3**.
+**What's left of the money path:** the last two **edges** — KYB-gated payout and cart + refund
+(runbook Step E; need a seller/admin test account). Same setup, no new dashboard work; each must
+keep `reconcile_financials()` at 0 rows. After those, do the gated cutover and resume **Phase 3**.
 Everything else depends on an external partner (real registry, AML data, PSP) or ops/legal.
 
 > ✅ **Migrations applied + audit clean** (2026-06-26). The live DB had drifted behind the
@@ -195,28 +199,33 @@ purchase (PayMongo test card `4343 4343 4343 4345`, on the Vercel **preview** de
 
 Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 partial · ❌ not started
 
-### ✅ / 🆕 Implemented (code-complete)
-| Phase | Status |
+### ✅ / 🆕 Implemented (as of 2026-06-26)
+| Phase / area | Status |
 |---|---|
 | **0 — Stabilize** | ✅ webhook conflict markers, 4 latent bugs, ESLint 0, live schema fixes |
-| **1 — Money Foundation** | ✅ **core path PROVEN 2026-06-26** (real sandbox purchase settled, `reconcile_financials()` = 0): provider abstraction, server-authoritative checkout, bug-fixed signed webhook, double-entry ledger, atomic purchase RPC, reconciliation. ⏳ edges (subscription) still to verify |
-| **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard — ⏳ runtime-verify payout + refund (runbook Step E) |
-| **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
-| **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
-| **3 — Buyer Trust** | 🆕 project-detail page, `local\|supplier` badge + filter, ESG/offset export, SDG tagging + filter (real registry/supplier still pending a partner) |
-| **4 — Developer ↔ Verifier** | 🆕 comment thread + notifications, verifier sets price at validation, edit/resubmit-after-revision loop, **weighted scored rubric** 🆕, SLA aging, **project boundary map (draw + display)** 🆕, **MRV reporting reminders** 🆕 |
+| **1 — Money Foundation** | ✅ **PROVEN** — real sandbox **purchase** settled (`reconcile_financials()` = 0) **and subscription** verified (`/upgrade` → Pro flipped `profiles.plan`). Provider abstraction, server-authoritative checkout, bug-fixed signed webhook, double-entry ledger, atomic purchase RPC, reconciliation |
+| **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard — ⏳ runtime-verify **payout + refund** (runbook Step E; needs a seller/admin test account) |
+| **Branding & UX** | ✅ Carbonify rebrand; login/map/policies/LGU/submit-project fixes; mobile polish on heavy tables |
+| **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist |
+| **3 — Buyer Trust** | 🆕 project-detail page, `local\|supplier` badge + filter, ESG/offset export, SDG tagging + filter, **project boundary map (draw + display)**, **buyer portfolio gain/loss vs market** — (real registry/supplier still pending a partner) |
+| **4 — Developer ↔ Verifier** | 🆕 comment thread + notifications, verifier sets price at validation, edit/resubmit-after-revision loop, **weighted scored rubric**, SLA aging, **MRV reporting reminders** |
 | **5 — Admin & Compliance** | 🆕 DPA tooling (export/delete + erasure worker), admin finance console, provisional VAT invoices, audit-log search, system-config UI |
-| **7 — Scale (partial)** | 🆕 public searchable carbon registry, hot-path DB indexes, **offline-capable PWA service worker** 🆕 |
+| **7 — Scale & Security** | 🆕 public searchable registry, **`/market` public dashboard**, hot-path + **composite indexes**, **server-side paginated purchase history**, **double-claim serial guard**, offline service worker, **payment-path test suite (114 tests)** |
+| **8 — Mobile / PWA** | 🆕 installable manifest, offline service worker, mobile view polish |
 
-### ❌ Not yet implemented
-| Phase | Highlights |
-|---|---|
-| **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration (needs external partner), ~~`local\|supplier` flag~~ (✅), ~~full project-detail page~~ (✅), ~~ESG/offset export~~ (✅), ~~real SDG filter~~ (✅ collect→display→filter this cycle) |
-| **4 — Developer ↔ Verifier Workflow** (partial — see above) | ✅ edit/resubmit-after-revision loop, ~~scored checklist/rubric~~ (✅), ~~MRV reminders~~ (✅ in-app + bell), ~~methodology/boundary map~~ (✅ draw + display). ⏳ remaining: verifier task queue + SLA scoring depth |
-| **5 — Admin & Compliance** | ~~system-config UI~~ (✅ already built — fee %, KYC tier, emission factors), ~~admin finance console~~ (✅), AML screening, ~~DPA data export/delete tooling~~ (✅), ~~BIR/VAT invoices~~ (✅ provisional, this cycle), ~~audit-log search~~ (already built) |
-| **7 — Scale & Security** | ~~public searchable registry~~ (✅), ~~hot-path indexes~~ (✅ this cycle), pentest before live keys, connection pooling, backups/PITR, observability |
-| **8 — Mobile / PWA** | ~~offline service worker~~ (✅), ~~mobile view polish (heavy tables)~~ (✅), installable PWA (manifest ✅), web push (⏳ needs deployed edge fn + VAPID keys) |
-| **9 — Business / Legal** 🏛️ | legal entity, PSP/EMI partner, AMLA/DPO/BIR, accredited VVB |
+> Money path = ✅ **proven for purchase + subscription**; ⏳ payout + refund edges still want a runtime click-through. Everything else marked 🆕 is committed + build-green but runtime-untested unless noted.
+
+### ❌ Not yet implemented (what's actually left)
+| Item | Phase | Blocked on |
+|---|---|---|
+| **Payout + refund edge tests** | 1/2 | you — a seller/admin test account (runbook Step E) |
+| **Real registry/supplier integration** | 3 | 🌐 external registry partner (Verra / Gold Standard / Carbonmark / Patch) |
+| **AML / sanctions screening** | 5 | 🌐 a sanctions/PEP data vendor |
+| **Error tracking (Sentry) + alerts** | 2 | you — a Sentry DSN; then codeable |
+| **Web push notifications** | 8 | you — a deployed edge fn + VAPID keys |
+| **Pentest · backups/PITR · connection pooling · observability** | 7 | ops/infra + a provider key |
+| **Legal entity · PSP/EMI · BIR/DPO · accredited VVB** | 9 🏛️ | business/legal |
+| **Codeable backlog** (no blocker) | — | seller per-project earnings/issuance history · saved-search/price alerts · permanence + structured additionality metadata · split large view files · marketplace/portfolio list pagination wiring · nav already done for `/market` + `/upgrade` |
 
 ---
 
@@ -233,8 +242,9 @@ repeatedly surfaced as "missing column" 400s and broken PostgREST joins. Two new
 
 ## 4. Next steps
 
-Feature work is essentially done (Phases 0–7 code-complete). What remains delivers value only
-via **you** or an **external dependency** — so the priority is now **validation, not building**.
+Feature work is essentially done (Phases 0–8 code-complete; money path proven for purchase +
+subscription). What remains delivers value mostly via **you** or an **external dependency** —
+the priority is **validation** plus a thin codeable backlog (see §3's "codeable backlog" row).
 
 ### A. ✅ The #1 thing — money-path sandbox test — DONE (2026-06-26)
 1. ✅ Applied the §0 migrations + ran the schema audit (clean).
@@ -243,8 +253,9 @@ via **you** or an **external dependency** — so the priority is now **validatio
 4. ✅ Ran the **sandbox purchase** (test card `4343 4343 4343 4345`) on the Vercel preview →
    **`reconcile_financials()` = 0 rows** (books balanced). Core money path **PROVEN**.
 
+5. ✅ **Subscription** also verified — `/upgrade` → Pro paid → `profiles.plan` = `pro`.
+
    **⏳ Remaining money-path edges** (same setup, no new deploy — runbook Step E):
-   - **Subscription:** `/upgrade` → Pro → pay → `profiles.plan` = `pro` with future `plan_expires_at`.
    - **KYB-gated payout:** approve seller KYB → Wallet → Withdraw → run `process-payouts` →
      `payout_requests`: requested → processing → settled.
    - **Cart + refund:** buy 2 listings, refund one → `reconcile_financials()` still 0 rows.
