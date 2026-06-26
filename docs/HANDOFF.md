@@ -112,7 +112,7 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 ### ❌ Not yet implemented
 | Phase | Highlights |
 |---|---|
-| **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration, `local\|supplier` flag, ~~full project-detail page~~ (🆕 buyer-trust detail page built this cycle), ESG/offset export, real SDG filter |
+| **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration, ~~`local\|supplier` flag~~ (✅ badge + marketplace filter wired), ~~full project-detail page~~ (🆕 buyer-trust detail page built this cycle), ESG/offset export, real SDG filter |
 | **4 — Developer ↔ Verifier Workflow** (partial — see above) | ✅ edit/resubmit-after-revision loop done. ⏳ remaining: scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
 | **5 — Admin & Compliance** | system-config UI, admin finance console, AML screening, ~~DPA data export/delete tooling~~ (✅ code-complete this cycle), BIR/VAT invoices, audit-log search |
 | **7 — Scale & Security** | **public searchable registry**, pentest before live keys, pooling/indexes, backups/PITR, observability |
@@ -136,14 +136,21 @@ Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 - ✅ **Verifier price input** at validation (Phase 4).
 - ✅ **Phase 5 — DPA tooling** (data export / account-delete request) — **done this cycle**
   (apply migration `20260626000000` via SQL Editor; deploy `account-deletion` to enable erasure).
-- **`local | supplier` listing flag** (Phase 3 groundwork) — pure schema + UI label, no payments needed.
+- ✅ **`local | supplier` listing flag** (Phase 3 groundwork) — **done this cycle**: source
+  badge on marketplace cards, project-detail page, and purchase modal, plus an
+  "All / Local / Registry" marketplace filter. **Read-only for now** — every listing
+  defaults to `local`; there is no UI to mark a listing `supplier` yet (that arrives with
+  the real registry/supplier integration). Migration `20260607000100` already applied.
+- ✅ **Full project-detail page** (Phase 3) — **done this cycle** (hero, verification/trust
+  card, developer, timeline & location, map, documents, co-benefits, listings).
 - ✅ **Edit & resubmit after "needs revision"** (Phase 4) — **done this cycle** (resubmit
   re-enters the verifier queue, notifies reviewers in-app, and shows a revision badge).
 - **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
 
-> Next recommended: the **`local | supplier` flag** (Phase 3 groundwork) or a **scored
-> verification checklist/rubric** (Phase 4). These move the product forward while the
-> money-path test waits on the dashboard step. (DPA tooling + edit/resubmit loop ✅ done this cycle.)
+> Next recommended: a **scored verification checklist/rubric** (Phase 4) or **ESG / offset
+> export** (Phase 3). These move the product forward while the money-path test waits on the
+> dashboard step. (DPA tooling, edit/resubmit loop, project-detail page, and local|supplier
+> flag ✅ done this cycle.)
 >
 > When the dashboard blocker clears, also deploy the **`account-deletion`** edge function and set
 > its `ACCOUNT_DELETION_SECRET` so deletion requests can actually be processed.

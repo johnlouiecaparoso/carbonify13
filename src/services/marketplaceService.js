@@ -223,6 +223,10 @@ function applyMarketplaceFilters(sourceListings = [], filters = {}) {
     filtered = filtered.filter((listing) => listing.category === criteria.category)
   }
 
+  if (criteria.source && criteria.source !== 'all') {
+    filtered = filtered.filter((listing) => (listing.source || 'local') === criteria.source)
+  }
+
   if (criteria.country) {
     const searchLocation = criteria.country.toLowerCase()
     filtered = filtered.filter((listing) =>

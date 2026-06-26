@@ -39,7 +39,9 @@ Developer fixes a rejected project and resubmits; verifier reviews again.
 Make listings believable.
 - ✅ Full project-detail page (done 2026-06-26 — hero image, verification/trust card,
   developer, timeline & location, map, documents, co-benefits, listings).
-- ⏳ Still to do: `local | supplier` label · offset/ESG export · real SDG filter.
+- ✅ `local | supplier` label + marketplace filter (done 2026-06-26 — badge on cards,
+  detail page, and purchase modal; "All / Local / Registry" filter).
+- ⏳ Still to do: offset/ESG export · real SDG filter · real registry/supplier integration.
 
 ---
 

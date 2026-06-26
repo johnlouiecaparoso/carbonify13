@@ -26,6 +26,11 @@
               {{ category }}
             </option>
           </select>
+          <select v-model="selectedSource" class="filter-select" aria-label="Filter by credit source">
+            <option value="all">All Sources</option>
+            <option value="local">Local</option>
+            <option value="supplier">Registry</option>
+          </select>
           <select
             v-model="availabilityFilter"
             class="filter-select"
@@ -403,6 +408,12 @@
                 <span class="material-symbols-outlined" aria-hidden="true">label</span>
                 <span>{{ selectedListing?.category }}</span>
               </div>
+              <div class="meta-item">
+                <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+                <span class="source-badge" :class="selectedListing?.source === 'supplier' ? 'supplier' : 'local'">
+                  {{ selectedListing?.source === 'supplier' ? 'Registry-backed' : 'Local credit' }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -584,6 +595,7 @@ const marketplaceStats = ref({
 })
 const searchQuery = ref('')
 const selectedCategory = ref('')
+const selectedSource = ref('all')
 const selectedCountry = ref('')
 const priceRange = ref({ min: '', max: '' })
 const sortBy = ref('name')
@@ -650,6 +662,11 @@ const filteredListings = computed(() => {
   // Apply category filter
   if (selectedCategory.value) {
     filtered = filtered.filter((listing) => listing.category === selectedCategory.value)
+  }
+
+  // Apply credit-source filter (local vs registry/supplier)
+  if (selectedSource.value && selectedSource.value !== 'all') {
+    filtered = filtered.filter((listing) => (listing.source || 'local') === selectedSource.value)
   }
 
   // Apply availability filter
@@ -796,6 +813,7 @@ async function loadMarketplaceData(forceRefresh = false) {
 function handleSearchReset() {
   searchQuery.value = ''
   selectedCategory.value = ''
+  selectedSource.value = 'all'
   selectedCountry.value = ''
   priceRange.value = { min: '', max: '' }
   availabilityFilter.value = 'all'
