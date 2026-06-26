@@ -6,6 +6,7 @@ import { projectWorkflowService } from '@/services/projectWorkflowService'
 import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
+import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
 
@@ -38,6 +39,7 @@ const formData = ref({
   category: '',
   location: '',
   geo_coordinates: '',
+  boundary: null, // GeoJSON polygon of the project boundary (optional)
   barangay: '',
   municipality: '',
   expected_impact: '',
@@ -668,6 +670,7 @@ async function handleSubmit() {
       category: formData.value.category,
       location: formData.value.location,
       geo_coordinates: formData.value.geo_coordinates,
+      boundary: formData.value.boundary || null,
       barangay: formData.value.barangay,
       municipality: formData.value.municipality,
       expected_impact: formData.value.expected_impact,
@@ -912,6 +915,8 @@ onMounted(() => {
       description: props.project.description || '',
       category: props.project.category || '',
       location: props.project.location || '',
+      geo_coordinates: props.project.geo_coordinates || '',
+      boundary: props.project.boundary || null,
       expected_impact: props.project.expected_impact || '',
       co_benefits: Array.isArray(props.project.co_benefits)
         ? props.project.co_benefits
@@ -1120,6 +1125,16 @@ onMounted(() => {
               @input="clearErrors"
             />
             <div v-if="errors.geo_coordinates" class="field-error">{{ errors.geo_coordinates }}</div>
+            <div class="field-help">
+              Click the map to set the location, or draw the project boundary.
+            </div>
+            <BoundaryMapPicker
+              v-model="formData.geo_coordinates"
+              :boundary="formData.boundary"
+              class="boundary-map-field"
+              @update:boundary="formData.boundary = $event"
+              @update:model-value="clearErrors"
+            />
           </div>
 
           <div class="form-group">

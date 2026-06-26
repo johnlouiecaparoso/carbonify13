@@ -86,6 +86,8 @@ export class ProjectService {
         expected_impact: projectData.expected_impact.trim(),
         status: 'pending',
         user_id: finalUserId,
+        ...(projectData.geo_coordinates && { geo_coordinates: projectData.geo_coordinates }),
+        ...(projectData.boundary && { boundary: projectData.boundary }),
         ...(Array.isArray(projectData.co_benefits) && projectData.co_benefits.length && {
           co_benefits: projectData.co_benefits,
         }),
@@ -116,15 +118,14 @@ export class ProjectService {
 
       let { data, error } = await this.supabase.from('projects').insert([insertData]).select().single()
 
-      if (
-        error &&
-        (error.message?.includes('supporting_documents') ||
-          error.details?.includes('supporting_documents') ||
-          error.hint?.includes('supporting_documents'))
-      ) {
+      // Schema-drift safety: drop any optional column missing on this DB and retry.
+      const driftCols = ['supporting_documents', 'boundary', 'geo_coordinates']
+      const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
+      if (error && driftCols.some((c) => blob.includes(c))) {
         const fallbackData = { ...insertData }
-        delete fallbackData.supporting_documents
-
+        driftCols.forEach((c) => {
+          if (blob.includes(c)) delete fallbackData[c]
+        })
         const retryResult = await this.supabase.from('projects').insert([fallbackData]).select().single()
         data = retryResult.data
         error = retryResult.error
