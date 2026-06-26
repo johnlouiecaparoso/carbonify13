@@ -87,6 +87,13 @@
           <span class="project-list-badges">
             <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
             <span
+              v-if="Number(project.revision_count) > 0"
+              class="revision-badge"
+              :title="`Resubmitted after revision — revision ${project.revision_count}`"
+            >
+              ↻ rev {{ project.revision_count }}
+            </span>
+            <span
               v-if="projectOverdue(project)"
               class="sla-badge overdue"
               :title="`Waiting ${ageDays(project)} days — over the ${slaDays}-day SLA`"
@@ -103,6 +110,13 @@
             <h3 class="detail-title">{{ activeProject.title }}</h3>
             <span :class="['status-badge', activeProject.status]">
               {{ getStatusLabel(activeProject.status) }}
+            </span>
+            <span
+              v-if="Number(activeProject.revision_count) > 0"
+              class="revision-badge"
+              :title="`This project was resubmitted after a revision request (revision ${activeProject.revision_count})`"
+            >
+              ↻ Resubmitted · rev {{ activeProject.revision_count }}
             </span>
           </header>
 
@@ -1254,6 +1268,19 @@ async function openVerificationModal(project, newStatus) {
 .status-badge.rejected {
   background: rgba(248, 113, 113, 0.2);
   color: #9f1239;
+}
+
+.revision-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+  white-space: nowrap;
 }
 
 .project-detail {

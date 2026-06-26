@@ -4,6 +4,7 @@ import { useUserStore } from '@/store/userStore'
 import { projectService } from '@/services/projectService'
 import { projectWorkflowService } from '@/services/projectWorkflowService'
 import { projectApprovalService } from '@/services/projectApprovalService'
+import { notifyProjectSubmittedForReview } from '@/services/notificationService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
@@ -850,6 +851,15 @@ async function handleSubmit() {
 
       // Don't set success message here - let the parent component handle it
       // success.value = 'Project submitted successfully! It will be reviewed by our verification team.'
+
+      // Alert reviewers in-app that a new project is waiting (best-effort).
+      if (submittedProject?.id) {
+        try {
+          await notifyProjectSubmittedForReview(submittedProject)
+        } catch (notifyError) {
+          console.warn('Could not notify reviewers of submission (non-critical):', notifyError?.message)
+        }
+      }
     }
 
     // Emit success event

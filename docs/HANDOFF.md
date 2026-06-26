@@ -106,14 +106,14 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard |
 | **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
-| **4 — Developer ↔ Verifier (partial)** | ✅ two-way comment thread + notifications; verifier sets price per credit at validation |
+| **4 — Developer ↔ Verifier (partial)** | ✅ two-way comment thread + notifications; verifier sets price per credit at validation; **edit/resubmit-after-revision loop complete** (resubmit notifies reviewers in-app + revision badge) |
 | **5 — DPA tooling (partial)** | 🆕 self-service data export + account-deletion request (UI live); erasure worker code-complete, awaiting deploy |
 
 ### ❌ Not yet implemented
 | Phase | Highlights |
 |---|---|
 | **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration, `local\|supplier` flag, full project-detail page, ESG/offset export, real SDG filter |
-| **4 — Developer ↔ Verifier Workflow** (partial — see above) | ⏳ remaining: edit/resubmit after revision, scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
+| **4 — Developer ↔ Verifier Workflow** (partial — see above) | ✅ edit/resubmit-after-revision loop done. ⏳ remaining: scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
 | **5 — Admin & Compliance** | system-config UI, admin finance console, AML screening, ~~DPA data export/delete tooling~~ (✅ code-complete this cycle), BIR/VAT invoices, audit-log search |
 | **7 — Scale & Security** | **public searchable registry**, pentest before live keys, pooling/indexes, backups/PITR, observability |
 | **8 — Mobile / PWA** | installable PWA, mobile views, web push |
@@ -137,12 +137,13 @@ Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 - ✅ **Phase 5 — DPA tooling** (data export / account-delete request) — **done this cycle**
   (apply migration `20260626000000` via SQL Editor; deploy `account-deletion` to enable erasure).
 - **`local | supplier` listing flag** (Phase 3 groundwork) — pure schema + UI label, no payments needed.
-- **Edit & resubmit after "needs revision"** (Phase 4) — completes the revision loop the comment thread started.
+- ✅ **Edit & resubmit after "needs revision"** (Phase 4) — **done this cycle** (resubmit
+  re-enters the verifier queue, notifies reviewers in-app, and shows a revision badge).
 - **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
 
-> Next recommended: the **edit/resubmit loop** (completes Phase 4) or the **`local | supplier`
-> flag** (Phase 3 groundwork). These move the product forward while the money-path test waits
-> on the dashboard step. (DPA tooling ✅ done this cycle.)
+> Next recommended: the **`local | supplier` flag** (Phase 3 groundwork) or a **scored
+> verification checklist/rubric** (Phase 4). These move the product forward while the
+> money-path test waits on the dashboard step. (DPA tooling + edit/resubmit loop ✅ done this cycle.)
 >
 > When the dashboard blocker clears, also deploy the **`account-deletion`** edge function and set
 > its `ACCOUNT_DELETION_SECRET` so deletion requests can actually be processed.

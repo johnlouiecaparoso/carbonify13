@@ -1,6 +1,7 @@
 import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
 import { notifyProjectSubmitted } from '@/services/emailService'
+import { notifyProjectSubmittedForReview } from '@/services/notificationService'
 
 const PROJECT_WORKFLOW_STATUS = {
   DRAFT: 'draft',
@@ -167,9 +168,9 @@ export class ProjectApprovalService {
 
   /**
    * Developer action: resubmit a project that a verifier sent back for revision.
-   * Returns it to the review queue (status -> submitted), bumps revision_count,
-   * and stamps verified_* clear so it reads as fresh. RLS restricts this to the
-   * project owner. The notification trigger fires reviewers on the transition.
+   * Returns it to the review queue (status -> submitted) and bumps revision_count.
+   * RLS restricts this to the project owner. Reviewers are alerted in-app via
+   * notifyProjectSubmittedForReview (worded as a resubmission).
    * @param {string} projectId
    * @returns {Promise<Object>} updated project row
    */
@@ -213,6 +214,14 @@ export class ProjectApprovalService {
     if (error) {
       throw new Error(error.message || 'Failed to resubmit project')
     }
+
+    // Alert reviewers that a revised project is back in the queue (best-effort).
+    try {
+      await notifyProjectSubmittedForReview(data)
+    } catch (notifyError) {
+      console.warn('Could not notify reviewers of resubmission (non-critical):', notifyError?.message)
+    }
+
     return data
   }
 

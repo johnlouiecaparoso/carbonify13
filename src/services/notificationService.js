@@ -481,20 +481,33 @@ export async function notifyProjectComment({ project, authorId, authorRole, body
 export async function notifyProjectSubmittedForReview(project) {
   if (!project?.id) return
 
+  const title = project.title || 'Untitled Project'
+  // A resubmission carries a revision_count > 0 (the developer addressed a
+  // "needs revision" decision). Word the alert so reviewers know it's a
+  // returning project, not a brand-new one, and which revision it is.
+  const revision = Number(project.revision_count) || 0
+  const isResubmission = revision > 0
+
   await createNotificationsForRoles(
     ['verifier'],
     {
       type: 'project_submission',
-      title: 'New project submitted for verification',
-      message: `Project "${project.title || 'Untitled Project'}" is waiting for review.`,
+      title: isResubmission
+        ? `Project resubmitted (revision ${revision})`
+        : 'New project submitted for verification',
+      message: isResubmission
+        ? `Project "${title}" was revised and resubmitted for review.`
+        : `Project "${title}" is waiting for review.`,
       link: '/verifier',
       metadata: {
         project_id: project.id,
         status: project.status || 'pending',
+        revision_count: revision,
+        resubmission: isResubmission,
       },
     },
     {
-      excludeUserIds: [project.user_id],
+      excludeUserIds: [project.user_id].filter(Boolean),
     },
   )
 }

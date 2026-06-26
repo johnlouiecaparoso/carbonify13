@@ -31,7 +31,9 @@ Our Privacy Policy already promises this, so the app must be able to do it.
 
 ### 3. Finish the verifier loop
 Developer fixes a rejected project and resubmits; verifier reviews again.
-- Edit & resubmit after "needs revision" · scored checklist · verifier task queue.
+- ✅ Edit & resubmit after "needs revision" (done 2026-06-26 — resubmit re-enters the
+  queue, alerts verifiers, and shows a revision badge).
+- ⏳ Still to do: scored checklist · verifier task queue + SLA.
 
 ### 4. Real credits & buyer trust
 Make listings believable.
