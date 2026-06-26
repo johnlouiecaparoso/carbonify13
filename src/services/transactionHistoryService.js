@@ -235,6 +235,75 @@ export async function getUserPurchaseHistory(userId) {
 }
 
 /**
+ * Server-side paginated purchase history (Phase 3 — scale).
+ *
+ * Unlike getUserTransactionHistory (which loads everything and sorts in the
+ * client), this pages at the database with `.range()` and returns the total row
+ * count so callers can render pagination without fetching every row. Ordering
+ * and filtering happen in SQL, served by the composite index
+ * `credit_transactions (buyer_id, status, completed_at desc)`.
+ *
+ * @param {{ userId: string, limit?: number, offset?: number, status?: string }} args
+ * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
+ */
+export async function getUserPurchaseHistoryPage({ userId, limit = 20, offset = 0, status = 'completed' } = {}) {
+  const supabase = getSupabase()
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100)
+  const safeOffset = Math.max(Number(offset) || 0, 0)
+  const empty = { rows: [], total: 0, limit: safeLimit, offset: safeOffset }
+
+  if (!supabase || !userId) return empty
+
+  let query = supabase
+    .from('credit_transactions')
+    .select(
+      `
+      id, quantity, price_per_credit, total_amount, currency, status,
+      payment_method, payment_reference, created_at, completed_at,
+      project_credits!inner(
+        id, vintage_year, verification_standard,
+        projects!inner(id, title, category, location, project_image)
+      )
+    `,
+      { count: 'exact' },
+    )
+    .eq('buyer_id', userId)
+
+  if (status) query = query.eq('status', status)
+
+  const { data, count, error } = await query
+    .order('completed_at', { ascending: false, nullsFirst: false })
+    .range(safeOffset, safeOffset + safeLimit - 1)
+
+  if (error) {
+    console.warn('getUserPurchaseHistoryPage failed:', error.message)
+    return empty
+  }
+
+  const rows = (data || []).map((p) => ({
+    id: p.id,
+    transaction_id: p.id,
+    project_id: p.project_credits?.projects?.id,
+    project_title: p.project_credits?.projects?.title || 'Unknown Project',
+    project_category: p.project_credits?.projects?.category || 'Unknown',
+    project_location: p.project_credits?.projects?.location || 'Unknown',
+    project_image: p.project_credits?.projects?.project_image,
+    credits_quantity: p.quantity,
+    price_per_credit: p.price_per_credit,
+    total_amount: p.total_amount,
+    currency: p.currency || 'PHP',
+    payment_method: p.payment_method || 'wallet',
+    payment_reference: p.payment_reference,
+    vintage_year: p.project_credits?.vintage_year,
+    verification_standard: p.project_credits?.verification_standard,
+    date: p.completed_at || p.created_at,
+    status: p.status,
+  }))
+
+  return { rows, total: Number(count) || 0, limit: safeLimit, offset: safeOffset }
+}
+
+/**
  * Get retirement history only
  */
 export async function getUserRetirementHistory(userId) {
