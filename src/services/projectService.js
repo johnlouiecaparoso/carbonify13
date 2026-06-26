@@ -232,10 +232,59 @@ export class ProjectService {
         throw new Error('This project can no longer be edited once it is under review or validated.')
       }
 
+      // The submit form sends extra fields that are NOT projects columns (a
+      // `documents` array plus collect-only fields like host_entity/start_date/
+      // capex that the create path also drops). PostgREST 400s on any unknown
+      // column, so map `documents` -> the `supporting_documents` JSON and then
+      // keep only real, editable columns. An empty documents array means "no new
+      // files attached" — leave existing docs untouched rather than wiping them.
+      const sanitized = { ...updates }
+      if ('documents' in sanitized) {
+        const docs = Array.isArray(sanitized.documents) ? sanitized.documents : []
+        if (docs.length) {
+          sanitized.supporting_documents = JSON.stringify(
+            docs.map((doc) => ({
+              name: doc.name,
+              type: doc.type,
+              size: doc.size,
+              url: doc.url,
+            })),
+          )
+        }
+        delete sanitized.documents
+      }
+
+      const EDITABLE_COLUMNS = [
+        'title',
+        'description',
+        'category',
+        'location',
+        'expected_impact',
+        'estimated_credits',
+        'credit_price',
+        'geo_coordinates',
+        'barangay',
+        'municipality',
+        'methodology',
+        'vintage',
+        'co_benefits',
+        'boundary',
+        'project_image',
+        'image_name',
+        'image_type',
+        'image_size',
+        'supporting_documents',
+        'status',
+      ]
+      const payload = {}
+      for (const key of EDITABLE_COLUMNS) {
+        if (key in sanitized) payload[key] = sanitized[key]
+      }
+
       const { data, error } = await this.supabase
         .from('projects')
         .update({
-          ...updates,
+          ...payload,
           updated_at: new Date().toISOString(),
         })
         .eq('id', projectId)
