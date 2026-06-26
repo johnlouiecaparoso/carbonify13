@@ -53,6 +53,13 @@ Already applied earlier this session: `20260626000000` (DPA), `20260626000100` (
 constraint), `20260626000400` (marketplace reconcile). After applying, **re-run the audit**
 to confirm an empty result.
 
+> 🆕 **Two more migrations from the Phase 2–4 code sweep** (apply via SQL Editor; idempotent,
+> drift-safe, no behaviour change to existing flows):
+> | # | Migration | Purpose |
+> |---|---|---|
+> | 10 | `20260627000000_scale_composite_indexes.sql` | Composite hot-path indexes (sold-qty scan, history, seller listings). |
+> | 11 | `20260627000100_market_integrity.sql` | Double-claim serial guard + `public_market_stats()` RPC (powers `/market`). |
+
 ---
 
 ## 1. What changed
@@ -92,6 +99,21 @@ dashboard or an external party:
 > All five are **runtime-untested** (🆕) — they're committed and build-green but, like the
 > rest of the session, want a real click-through. None require the §0 migrations or the
 > dashboard blocker; they can be tested as soon as the app is running.
+
+### 2026-06-26 — Phase 2–4 + backlog code sweep (after the money path was proven)
+Advanced the unimplemented phases with pure-code work (build green, ESLint 0, **114 unit
+tests**, +40 this sweep). Two new idempotent migrations (§0 #10–11); everything else is
+additive and leaves the proven money path untouched.
+| Phase | What | Notes |
+|---|---|---|
+| **2 — Beta hardening** | Payment-path tests: VAT-invoice math, weighted rubric, seller-withdrawal validation | Locks the money/feature logic against regression (the silent-webhook-bug class) |
+| **3 — Scale** | Composite hot-path indexes + `getUserPurchaseHistoryPage()` (server-side paginated history with exact count) | Additive; existing marketplace loader untouched |
+| **4 — Credibility** | Double-claim **serial guard** (unique `certificates.registry_serial`) + **`/market` public dashboard** (`public_market_stats`) | Mirrors the registry's anon pattern |
+| **Backlog** | Buyer **portfolio gain/loss vs market** (real value, replaces the fake `×25` placeholder) | Pure `computePortfolioPnl` + cost basis surfaced from `purchase_price` |
+
+> ⏳ Still open in the backlog (not yet built): seller per-project earnings/issuance history,
+> saved-search/price alerts. The `/market` dashboard and paginated history are not yet linked
+> in the nav (reachable by URL); wiring is a small follow-up.
 
 ### 2026-06-25 cycle — Branding & UX (build green)
 - ✅ **Rebrand EcoLink → Carbonify** across ~105 files (app, views, services, config, docs, `index.html`,

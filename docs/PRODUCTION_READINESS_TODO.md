@@ -31,8 +31,8 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 
 ## Phase 2 — Beta hardening (1–2 weeks)
 
-- [ ] 🔴 Integrate **error tracking** (Sentry or similar) + alerts on payment/ledger/payout failures
-- [ ] 🟠 Add **payment-path tests**: `process_marketplace_purchase`, webhook signature + idempotency, escrow, payout state machine
+- [ ] 🔴 Integrate **error tracking** (Sentry or similar) + alerts on payment/ledger/payout failures _(needs a Sentry DSN — your key)_
+- [x] 🟠 Add **payment-path tests** — VAT-invoice math, weighted rubric, seller-withdrawal validation, webhook signature; +paginated-history test _(2026-06-26; 114 tests total)_
 - [ ] 🔴 Finish **P2 client cutover** — ensure no client code writes `credit_transactions`/`credit_ownership` directly (route all buys through the locked RPC; retire the legacy purchase path)
 - [ ] 🔴 Then run **`lockdown_financial_writes.sql`** (P1) to make financial tables server-write-only
 - [ ] 🟠 Derive checkout `user_id` from the **verified JWT** instead of request body (P3)
@@ -41,7 +41,8 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 
 ## Phase 3 — Scale & schema discipline (2–4 weeks)
 
-- [ ] 🟠 **Server-side pagination** for marketplace, portfolio, transaction lists (move filters to SQL)
+- [~] 🟠 **Server-side pagination** — buyer purchase history done (`getUserPurchaseHistoryPage`, SQL order/filter + exact count, 2026-06-26); marketplace/portfolio list wiring still to do
+- [x] 🟠 **Composite hot-path indexes** added (`20260627000000`) — sold-qty scan, buyer/seller history, seller listings, KYC gate _(2026-06-26)_
 - [ ] 🟠 Replace the per-load `credit_transactions` scan with an index or a denormalized `sold_qty` (trigger-maintained)
 - [ ] 🟠 Add a **connection pooler** (PgBouncer) before ~100 concurrent users
 - [ ] 🟠 Resolve `project_credits` **dual-column** drift (`credits_available` vs `available_credits`) — pick canonical, backfill, drop the other
@@ -53,9 +54,9 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 ## Phase 4 — Carbon-market credibility (1–3 months)
 
 - [ ] 🔴 **Real registry/supplier integration** (replace `MockCreditSupplier` with Verra/Gold Standard/Carbonmark/Patch) — gated on a commercial agreement 🏛️
-- [ ] 🟠 **Public searchable registry** (projects / credits / retirements) — key buyer-trust feature
-- [ ] 🟠 **Double-claim prevention** — registry-wide serial/claim tracking so a non-retired credit can't be sold twice
-- [ ] 🟠 Deeper **due-diligence metadata** — co-benefits/SDGs, project boundaries (map polygon), permanence, structured additionality
+- [x] 🟠 **Public searchable registry** (projects / credits / retirements) _(shipped 2026-06-26; verified live)_ — plus a **`/market` public dashboard** (`public_market_stats`)
+- [x] 🟠 **Double-claim prevention** — unique `certificates.registry_serial` guard so a non-retired credit can't back two certificates _(2026-06-26, `20260627000100`)_
+- [~] 🟠 Deeper **due-diligence metadata** — co-benefits/SDGs ✅, project boundaries (map polygon) ✅ _(2026-06-26)_; permanence + structured additionality still to do
 - [ ] 🏛️ **Independent (VVB) verifier** model — external accreditation/governance
 - [ ] 🏛️ **Approved/peer-reviewed methodologies** (vs the current simplified factors)
 
