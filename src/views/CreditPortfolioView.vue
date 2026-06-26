@@ -300,6 +300,8 @@ const exportMessage = ref('')
 const exportError = ref(false)
 
 async function downloadEsg(format) {
+  // Diagnostic: confirms the click handler fired (look for this in the console).
+  console.log(`[ESG] export button clicked → ${format}`)
   const userId = userStore.session?.user?.id
   if (!userId) {
     exportError.value = true
@@ -309,18 +311,19 @@ async function downloadEsg(format) {
   if (exporting.value) return
 
   exporting.value = format
-  exportMessage.value = ''
+  exportMessage.value = 'Preparing your report…'
   exportError.value = false
   try {
     const data =
       format === 'pdf' ? await exportEsgReportPdf(userId) : await exportEsgReportCsv(userId)
     const total = data?.totals?.totalCredits ?? 0
+    console.log('[ESG] report generated', data?.totals)
     exportMessage.value =
       total > 0
         ? `Your ESG/offset report downloaded (${total} credit${total === 1 ? '' : 's'} covered).`
         : 'Report downloaded — you have no credits to disclose yet.'
   } catch (e) {
-    console.error('ESG export failed:', e)
+    console.error('[ESG] export failed:', e)
     exportError.value = true
     exportMessage.value = e?.message || 'Could not generate your report. Please try again.'
   } finally {
