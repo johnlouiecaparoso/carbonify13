@@ -3,26 +3,53 @@
     <div class="checklist-head">
       <h4 class="checklist-title">
         <span class="material-symbols-outlined" aria-hidden="true">checklist</span>
-        Validation Checklist
+        Validation Rubric
       </h4>
       <span class="progress-pill" :class="{ complete: progress.done === progress.total }">
         {{ progress.done }}/{{ progress.total }} required
       </span>
     </div>
 
-    <div v-if="loading" class="checklist-state">Loading checklist…</div>
+    <div v-if="loading" class="checklist-state">Loading rubric…</div>
 
     <template v-else>
+      <!-- Overall weighted score -->
+      <div class="score-card" :style="{ background: bandMeta.bg, borderColor: bandMeta.color }">
+        <div class="score-figure" :style="{ color: bandMeta.color }">
+          {{ score.percent }}<span class="score-pct">%</span>
+        </div>
+        <div class="score-meta">
+          <span class="score-band" :style="{ color: bandMeta.color }">{{ bandMeta.label }}</span>
+          <span class="score-detail">
+            Weighted score {{ score.earned }}/{{ score.possible }} ·
+            {{ score.requiredPassed }}/{{ score.requiredTotal }} required passed
+          </span>
+        </div>
+      </div>
+
       <div v-for="section in sections" :key="section.section" class="checklist-section">
         <h5 class="section-title">{{ section.section }}</h5>
         <div v-for="item in section.items" :key="item.key" class="check-item">
-          <label class="check-label">
-            <input type="checkbox" :checked="isChecked(item.key)" @change="toggle(item.key, $event)" />
-            <span>
+          <div class="check-label">
+            <span class="item-text">
               {{ item.label }}
               <span v-if="item.required" class="req">required</span>
+              <span class="weight" title="Weight in the overall score">×{{ item.weight }}</span>
             </span>
-          </label>
+            <div class="level-group" role="radiogroup" :aria-label="item.label">
+              <button
+                v-for="lvl in levels"
+                :key="lvl.value"
+                type="button"
+                class="level-btn"
+                :class="{ active: scoreOf(item.key) === lvl.value }"
+                :style="scoreOf(item.key) === lvl.value ? { background: lvl.color, borderColor: lvl.color } : {}"
+                @click="setScore(item.key, lvl.value)"
+              >
+                {{ lvl.label }}
+              </button>
+            </div>
+          </div>
           <input
             class="note-input"
             type="text"
@@ -35,7 +62,7 @@
 
       <div class="checklist-actions">
         <button class="save-btn" :disabled="saving" @click="save">
-          {{ saving ? 'Saving…' : 'Save checklist' }}
+          {{ saving ? 'Saving…' : 'Save rubric' }}
         </button>
         <span v-if="msg" class="msg" :class="msg.type">{{ msg.text }}</span>
       </div>
@@ -45,7 +72,15 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { CHECKLIST_SECTIONS, requiredProgress } from '@/constants/verificationChecklist'
+import {
+  CHECKLIST_SECTIONS,
+  RUBRIC_LEVELS,
+  PASS_SCORE,
+  BAND_META,
+  requiredProgress,
+  rubricScore,
+  itemScore,
+} from '@/constants/verificationChecklist'
 import { getAssessment, saveAssessment } from '@/services/verificationService'
 
 const props = defineProps({
@@ -53,25 +88,32 @@ const props = defineProps({
 })
 
 const sections = CHECKLIST_SECTIONS
+const levels = RUBRIC_LEVELS
 const checklist = ref({})
 const loading = ref(true)
 const saving = ref(false)
 const msg = ref(null)
 
 const progress = computed(() => requiredProgress(checklist.value))
+const score = computed(() => rubricScore(checklist.value))
+const bandMeta = computed(() => BAND_META[score.value.band] || BAND_META.none)
 
-function isChecked(key) {
-  return checklist.value?.[key]?.checked === true
+function scoreOf(key) {
+  return itemScore(checklist.value, key)
 }
 function noteFor(key) {
   return checklist.value?.[key]?.note || ''
 }
 function ensure(key) {
-  if (!checklist.value[key]) checklist.value[key] = { checked: false, note: '' }
+  if (!checklist.value[key]) checklist.value[key] = { checked: false, note: '', score: 0 }
 }
-function toggle(key, e) {
+function setScore(key, value) {
   ensure(key)
-  checklist.value[key].checked = e.target.checked
+  // Toggle off if the same level is clicked again.
+  const next = checklist.value[key].score === value ? 0 : value
+  checklist.value[key].score = next
+  // Keep `checked` in sync so pass/fail helpers and older readers still work.
+  checklist.value[key].checked = next >= PASS_SCORE
 }
 function setNote(key, e) {
   ensure(key)
@@ -90,7 +132,7 @@ async function save() {
   msg.value = null
   try {
     await saveAssessment(props.projectId, checklist.value)
-    msg.value = { type: 'ok', text: 'Checklist saved.' }
+    msg.value = { type: 'ok', text: 'Rubric saved.' }
   } catch (err) {
     msg.value = { type: 'error', text: err.message }
   } finally {
@@ -139,6 +181,38 @@ watch(() => props.projectId, load)
   color: #9ca3af;
   font-size: 0.85rem;
 }
+.score-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+}
+.score-figure {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.score-pct {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-left: 1px;
+}
+.score-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.score-band {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.score-detail {
+  font-size: 0.74rem;
+  color: #6b7280;
+}
 .checklist-section {
   margin-bottom: 0.9rem;
 }
@@ -153,17 +227,23 @@ watch(() => props.projectId, load)
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.3rem 0;
+  padding: 0.4rem 0;
   flex-wrap: wrap;
+  border-top: 1px solid #f3f4f6;
 }
 .check-label {
   display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.4rem;
   font-size: 0.875rem;
   flex: 1;
-  min-width: 220px;
-  cursor: pointer;
+  min-width: 240px;
+}
+.item-text {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
 .req {
   font-size: 0.65rem;
@@ -172,8 +252,37 @@ watch(() => props.projectId, load)
   background: #fef3c7;
   border-radius: 999px;
   padding: 0.02rem 0.4rem;
-  margin-left: 0.3rem;
-  vertical-align: middle;
+}
+.weight {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 0.02rem 0.4rem;
+}
+.level-group {
+  display: inline-flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.level-btn {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b5563;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+.level-btn.active {
+  color: #fff;
 }
 .note-input {
   flex: 1;
