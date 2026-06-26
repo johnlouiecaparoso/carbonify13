@@ -299,6 +299,7 @@ export async function getMarketplaceListings(filters = {}) {
         currency,
         total_credits,
         credits_available,
+        available_credits,
         vintage_year,
         verification_standard,
         projects:projects!inner(
@@ -381,8 +382,16 @@ export async function getMarketplaceListings(filters = {}) {
       continue
     }
 
+    // Use || (not ??) so a 0 / null estimated_credits falls back to the credit
+    // pool instead of zeroing it. credits_available and available_credits are
+    // both checked because the validation trigger historically wrote the latter.
+    const creditPool = credit.credits_available ?? credit.available_credits
     const totalPool =
-      project.estimated_credits ?? credit.total_credits ?? listing.quantity ?? 0
+      Number(project.estimated_credits) ||
+      Number(credit.total_credits) ||
+      Number(creditPool) ||
+      Number(listing.quantity) ||
+      0
     const soldQuantity = soldByProjectCredit.get(credit.id) || 0
     const availableFromTransactions = Math.max(0, totalPool - soldQuantity)
 
@@ -390,8 +399,10 @@ export async function getMarketplaceListings(filters = {}) {
     if (project.estimated_credits) {
       availableQuantity = Math.min(availableQuantity, project.estimated_credits)
     }
-    if (credit.credits_available !== null && credit.credits_available !== undefined) {
-      availableQuantity = Math.min(availableQuantity, credit.credits_available)
+    // Only treat the pool column as a cap when it is a positive number — a 0 here
+    // usually means "trigger wrote the other column", not genuinely sold out.
+    if (creditPool !== null && creditPool !== undefined && Number(creditPool) > 0) {
+      availableQuantity = Math.min(availableQuantity, Number(creditPool))
     }
     // Source of truth: never show more than (total pool - already sold)
     availableQuantity = Math.min(availableQuantity, availableFromTransactions)
