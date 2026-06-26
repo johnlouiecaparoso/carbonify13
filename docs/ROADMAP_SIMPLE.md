@@ -37,7 +37,9 @@ Developer fixes a rejected project and resubmits; verifier reviews again.
 
 ### 4. Real credits & buyer trust
 Make listings believable.
-- `local | supplier` label · full project-detail page · offset/ESG export · real SDG filter.
+- ✅ Full project-detail page (done 2026-06-26 — hero image, verification/trust card,
+  developer, timeline & location, map, documents, co-benefits, listings).
+- ⏳ Still to do: `local | supplier` label · offset/ESG export · real SDG filter.
 
 ---
 
