@@ -71,6 +71,12 @@ const router = createRouter({
       component: () => import('@/views/RegistryView.vue'),
     },
     {
+      // Public market dashboard — anonymous market snapshot (supply, price, impact).
+      path: '/market',
+      name: 'market-dashboard',
+      component: () => import('@/views/MarketDashboardView.vue'),
+    },
+    {
       path: '/map',
       name: 'projects-map',
       component: () => import('@/views/ProjectsMapView.vue'),
@@ -349,7 +355,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
   // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry']
+  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard']
   if (publicRoutes.includes(to.name)) {
     console.log('✅ Public route, allowing access')
     next()

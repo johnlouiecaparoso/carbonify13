@@ -41,3 +41,39 @@ export async function getRegistryStats() {
     project_count: Number(data?.project_count) || 0,
   }
 }
+
+/**
+ * Public market dashboard figures (Phase 4) — totals, price range, and the
+ * retired-vs-available split. Backed by the anon-granted `public_market_stats`
+ * RPC (migration 20260627000100). Returns zeroed defaults on any error.
+ */
+export async function getMarketStats() {
+  const zero = {
+    active_listings: 0,
+    credits_available: 0,
+    avg_price: 0,
+    min_price: 0,
+    max_price: 0,
+    total_retired: 0,
+    total_issued: 0,
+    listed_projects: 0,
+  }
+  const supabase = getSupabase()
+  if (!supabase) return zero
+
+  const { data, error } = await supabase.rpc('public_market_stats')
+  if (error) {
+    console.warn('[market] stats failed:', error.message)
+    return zero
+  }
+  return {
+    active_listings: Number(data?.active_listings) || 0,
+    credits_available: Number(data?.credits_available) || 0,
+    avg_price: Number(data?.avg_price) || 0,
+    min_price: Number(data?.min_price) || 0,
+    max_price: Number(data?.max_price) || 0,
+    total_retired: Number(data?.total_retired) || 0,
+    total_issued: Number(data?.total_issued) || 0,
+    listed_projects: Number(data?.listed_projects) || 0,
+  }
+}
