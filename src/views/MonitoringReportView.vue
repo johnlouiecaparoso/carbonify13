@@ -12,6 +12,33 @@
 
     <div class="mrv-content">
       <div class="container">
+        <!-- Reporting reminders -->
+        <div v-if="reminders.length" class="reminders-card">
+          <div class="reminders-head">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
+            <h3>Monitoring due</h3>
+          </div>
+          <ul class="reminders-list">
+            <li v-for="rem in reminders" :key="rem.projectId" class="reminder-item" :class="rem.status">
+              <div class="reminder-text">
+                <span class="reminder-title">{{ rem.title }}</span>
+                <span class="reminder-when">
+                  <template v-if="rem.status === 'overdue'">
+                    Overdue by {{ Math.abs(rem.daysUntil) }} day{{ Math.abs(rem.daysUntil) === 1 ? '' : 's' }}
+                  </template>
+                  <template v-else>
+                    Due in {{ rem.daysUntil }} day{{ rem.daysUntil === 1 ? '' : 's' }} ({{ formatDate(rem.dueDate) }})
+                  </template>
+                  <template v-if="!rem.hasEverReported"> · no report filed yet</template>
+                </span>
+              </div>
+              <button class="btn btn-primary btn-sm" :disabled="creating" @click="startReportFor(rem.projectId)">
+                Start report
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <!-- Project selector -->
         <div class="selector-card">
           <label for="project" class="form-label">Validated Project</label>
@@ -180,10 +207,12 @@ import {
   calculateVers,
   submitReport,
 } from '@/services/monitoringService'
+import { computeMrvReminders, syncMrvReminderNotifications } from '@/services/mrvReminderService'
 
 const userStore = useUserStore()
 const periodTypes = PERIOD_TYPES
 
+const reminders = ref([])
 const projects = ref([])
 const loadingProjects = ref(false)
 const selectedProjectId = ref('')
@@ -241,6 +270,25 @@ async function loadProjects() {
 async function loadReports() {
   if (!selectedProjectId.value) return
   reports.value = await getReportsByProject(selectedProjectId.value)
+}
+
+async function loadReminders() {
+  try {
+    const uid = userStore.session?.user?.id
+    reminders.value = await computeMrvReminders(uid)
+    // Raise deduped bell notifications for anything overdue (best-effort).
+    syncMrvReminderNotifications(uid).catch(() => {})
+  } catch {
+    reminders.value = []
+  }
+}
+
+async function startReportFor(projectId) {
+  selectedProjectId.value = projectId
+  currentReport.value = null
+  await loadReports()
+  await startNewReport()
+  if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function onProjectChange() {
@@ -374,6 +422,7 @@ async function removeEvidence(evidenceId) {
 }
 
 loadProjects()
+loadReminders()
 </script>
 
 <style scoped>
@@ -421,6 +470,75 @@ loadProjects()
 
 .selector-card {
   margin-bottom: 1.5rem;
+}
+
+.reminders-card {
+  background: #fff;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #f59e0b;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.reminders-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.reminders-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.reminders-head .material-symbols-outlined {
+  color: #d97706;
+}
+
+.reminders-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+}
+
+.reminder-item.overdue {
+  background: #fef2f2;
+}
+
+.reminder-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.reminder-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.reminder-when {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.reminder-item.overdue .reminder-when {
+  color: #b91c1c;
 }
 
 .form-label {
