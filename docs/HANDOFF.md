@@ -13,15 +13,22 @@ ESG export, an admin finance console, provisional VAT invoices, a public carbon 
 and a **schema-drift catch-up** that brought the live DB back in sync. Build green, ESLint 0
 throughout (~22 commits this session).
 
-**The one thing left that delivers value is not code:** run the **money-path sandbox test**.
-It's blocked only on a **Supabase dashboard step** (set the PayMongo secrets + deploy the
-fixed `paymongo-webhook`). Everything else either depends on that test, on an external partner
-(real registry, AML data, PSP), or on ops/legal.
+> ✅ **2026-06-26 — THE CORE MONEY PATH IS PROVEN.** The §0 migrations were applied, the 3
+> PayMongo secrets were set, the **bug-fixed `paymongo-webhook` was deployed**, and a real
+> sandbox purchase (PayMongo test card on the Vercel preview) **settled cleanly** —
+> `reconcile_financials()` returns **0 rows** after the sale. The #1 blocker the rest of this
+> doc was built around is **cleared**. The registry + offline service worker were also verified
+> live in the same session.
 
-> ⚠️ **Apply the pending migrations first** — see §0. The live DB had drifted behind the
-> migrations all session; the catch-up (`20260626000700`) + audit
+**What's left of the money path:** the **edges** — subscription, KYB-gated payout, and
+cart + refund (runbook Step E). Same setup, no new dashboard work; each must keep
+`reconcile_financials()` at 0 rows. After those, do the gated cutover and resume **Phase 3**.
+Everything else depends on an external partner (real registry, AML data, PSP) or ops/legal.
+
+> ✅ **Migrations applied + audit clean** (2026-06-26). The live DB had drifted behind the
+> migrations all session; the §0 catch-up (`20260626000700`) + audit
 > ([diagnostics/schema_catchup_audit.sql](../supabase/diagnostics/schema_catchup_audit.sql))
-> resolve that. Run the audit anytime to confirm the schema is current (empty result = good).
+> resolved it. Re-run the audit anytime to confirm (empty result = good).
 
 ---
 
@@ -141,22 +148,24 @@ dashboard or an external party:
 
 ---
 
-## 2. 🔴 Active blocker (dashboard-resolvable, blocks only the money-path test)
+## 2. ✅ Money-path blocker — CLEARED (2026-06-26)
 
-**Supabase CLI returns `403 "necessary privileges"`** for:
-- `supabase secrets set` (all secrets)
-- `supabase functions deploy paymongo-webhook` (the re-deploy with the bug fix)
-- `supabase config push` (earlier)
+The Supabase CLI `403 "necessary privileges"` was sidestepped via the **Dashboard**: the 3
+secrets (`PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `PAYOUT_WORKER_SECRET`) were set
+and the **bug-fixed `paymongo-webhook` was deployed** from the function editor. A real sandbox
+purchase (PayMongo test card `4343 4343 4343 4345`, on the Vercel **preview** deploy of
+`feature-user-onboarding-ux`) **settled cleanly** — `reconcile_financials()` = **0 rows**.
 
-…yet `functions deploy process-payouts` and `paymongo-checkout` **succeeded** earlier. So it's either a
-**deploy throttle** or the CLI account isn't the project **Owner/Administrator**.
+**Still needs the same Dashboard flow when you get to them:**
+- Deploy the **`account-deletion`** edge function + set `ACCOUNT_DELETION_SECRET` (so DPA
+  deletion requests can be processed).
+- The money-path **edges** (subscription, payout, refund) — no new deploy, just app/SQL steps
+  (runbook Step E).
 
-**To clear it (any one):**
-1. **Set the secrets in the Dashboard** (Edge Functions → Secrets): `PAYMONGO_SECRET_KEY` (`sk_test_…`),
-   `PAYMONGO_WEBHOOK_SECRET` (the webhook's `whsk_…`), `PAYOUT_WORKER_SECRET`
-   (`3abdaf78e9fb629b9dcd4d23a110a7cc803440335ad304da4b0271312b16bd1f`).
-2. **Deploy `paymongo-webhook` from the Dashboard** function editor (paste the fixed local file).
-3. Or confirm the account is **Owner/Administrator** (Organization → Settings → Members) and retry the CLI.
+> Testing setup used: pushed `feature-user-onboarding-ux` to GitHub, linked the repo to the
+> `ecolink` Vercel project, and ran `vercel deploy` for a **preview** URL (production `main`
+> intentionally untouched). The webhook posts to the public Supabase functions URL, so the
+> preview front-end is enough to drive the test.
 
 ---
 
@@ -168,8 +177,8 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | Phase | Status |
 |---|---|
 | **0 — Stabilize** | ✅ webhook conflict markers, 4 latent bugs, ESLint 0, live schema fixes |
-| **1 — Money Foundation** | 🆕 provider abstraction, server-authoritative checkout, signed webhook (now **bug-fixed**), double-entry ledger, atomic purchase RPC, reconciliation |
-| **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard |
+| **1 — Money Foundation** | ✅ **core path PROVEN 2026-06-26** (real sandbox purchase settled, `reconcile_financials()` = 0): provider abstraction, server-authoritative checkout, bug-fixed signed webhook, double-entry ledger, atomic purchase RPC, reconciliation. ⏳ edges (subscription) still to verify |
+| **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard — ⏳ runtime-verify payout + refund (runbook Step E) |
 | **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
 | **3 — Buyer Trust** | 🆕 project-detail page, `local\|supplier` badge + filter, ESG/offset export, SDG tagging + filter (real registry/supplier still pending a partner) |
@@ -205,18 +214,21 @@ repeatedly surfaced as "missing column" 400s and broken PostgREST joins. Two new
 Feature work is essentially done (Phases 0–7 code-complete). What remains delivers value only
 via **you** or an **external dependency** — so the priority is now **validation, not building**.
 
-### A. 🔴 The #1 thing — run the money-path sandbox test (your dashboard step)
-1. Apply the §0 pending migrations + run the schema audit (confirm empty).
-2. Set the 3 PayMongo secrets in the **Supabase Dashboard** (Edge Functions → Secrets):
-   `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `PAYOUT_WORKER_SECRET`.
-3. Deploy the fixed **`paymongo-webhook`** from the Dashboard function editor.
-4. Run the **sandbox purchase** (test card `4343 4343 4343 4345`) → then open the new
-   **Admin → Finance Console**: the sale should appear and reconciliation should read
-   "books balanced" (`reconcile_financials()` = 0 rows).
-5. Then: subscription, KYB-gated payout, cart + refund (all 0-drift).
-   Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
-   Also deploy the **`account-deletion`** edge function + set `ACCOUNT_DELETION_SECRET`
-   so DPA deletion requests can actually be processed.
+### A. ✅ The #1 thing — money-path sandbox test — DONE (2026-06-26)
+1. ✅ Applied the §0 migrations + ran the schema audit (clean).
+2. ✅ Set the 3 PayMongo secrets in the Dashboard.
+3. ✅ Deployed the fixed **`paymongo-webhook`** from the Dashboard.
+4. ✅ Ran the **sandbox purchase** (test card `4343 4343 4343 4345`) on the Vercel preview →
+   **`reconcile_financials()` = 0 rows** (books balanced). Core money path **PROVEN**.
+
+   **⏳ Remaining money-path edges** (same setup, no new deploy — runbook Step E):
+   - **Subscription:** `/upgrade` → Pro → pay → `profiles.plan` = `pro` with future `plan_expires_at`.
+   - **KYB-gated payout:** approve seller KYB → Wallet → Withdraw → run `process-payouts` →
+     `payout_requests`: requested → processing → settled.
+   - **Cart + refund:** buy 2 listings, refund one → `reconcile_financials()` still 0 rows.
+
+   Also still to do: deploy the **`account-deletion`** edge function + set `ACCOUNT_DELETION_SECRET`
+   so DPA deletion requests can be processed. Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 
 ### B. Capture the work
 - Branch is **~67 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)

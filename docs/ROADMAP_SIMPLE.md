@@ -7,21 +7,25 @@
 Let a buyer pay for a carbon credit and have the money land safely — then make it trustworthy enough to go live.
 
 ## Where we are (2026-06-26)
-Almost everything buildable is **done** — the verifier loop, buyer-trust features (detail page,
-provenance, ESG export, SDG filter), DPA tooling, admin finance console, VAT invoices, and a
-public registry all shipped this cycle. The big remaining item isn't code: **prove the money
-path** (#1 below). The rest needs an outside party (registry partner, sanctions data, PSP) or
-ops/legal work. Net: **stop building, start validating.**
+Almost everything buildable is **done**, and the big one is now **proven**: ✅ **a real buyer
+paid, the money settled, and the books balanced** (`reconcile_financials()` = 0 rows) on a live
+Vercel preview. The verifier loop, buyer-trust features, DPA tooling, finance console, VAT
+invoices, public registry, and the new offline service worker all shipped + were verified live.
+What's left of the money work is the **edges** (subscription, payout, refund). The rest needs an
+outside party (registry partner, sanctions data, PSP) or ops/legal. Net: **foundation proven —
+finish the edges, then it's all validation + partners.**
 
 ---
 
 ## 🔴 RIGHT NOW (this week)
 
-### 1. Prove money works  ⬅️ most important
+### 1. Prove money works  ✅ DONE (2026-06-26) — most important
 A buyer pays → the money settles → the books balance (zero drift).
-- **You (dashboard):** set 3 secrets, deploy the fixed `paymongo-webhook`, run one test purchase.
-- **Why it's blocked:** the CLI lacks privileges; it's a 15-min dashboard job, not a code job.
-- **Done when:** test card `4343 4343 4343 4345` pays and `reconcile_financials()` returns 0 rows.
+- ✅ Set the 3 secrets, deployed the fixed `paymongo-webhook`, ran a real test purchase on the
+  Vercel preview — it settled and `reconcile_financials()` returned **0 rows**. Foundation proven.
+- ⏳ **Edges still to confirm** (same setup, no new deploy): subscription (`/upgrade` → Pro),
+  KYB-gated payout (Withdraw → run `process-payouts`), and cart + refund — each must keep
+  `reconcile_financials()` at 0 rows.
 
 ### 2. Let users get/delete their data  ✅ code-complete (2026-06-26)
 Our Privacy Policy already promises this, so the app must be able to do it.
@@ -91,6 +95,8 @@ Make listings believable.
 - "You" = a dashboard/admin step only the owner can do.
 - ✅ items are built & committed (runtime-untested until you test them).
 
-**Suggested order now:** (1) apply the pending migrations (see HANDOFF §0), (2) run the
-money-path sandbox test, (3) open the PR / merge to `main`. Then the only feature work left
-needs an external partner or ops/legal — not more code.
+**Suggested order now:** ✅ migrations applied, ✅ core money-path test passed. Next:
+(1) verify the 3 money-path **edges** (subscription, payout, refund — all 0-drift),
+(2) deploy `account-deletion` + set `ACCOUNT_DELETION_SECRET`, (3) when ready, promote the
+preview to `main` / open the PR. Then the only feature work left needs an external partner or
+ops/legal — not more code.
