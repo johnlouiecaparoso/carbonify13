@@ -1294,14 +1294,13 @@ async function openVerificationModal(project, newStatus) {
   gap: 20px;
   min-height: 380px;
   min-width: 0;
+  /* Scroll the whole detail panel so the assessment, checklist, and the
+     Validate / Request Revision / Reject actions below it stay reachable. */
   max-height: calc(100vh - 260px);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .detail-scroll-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
