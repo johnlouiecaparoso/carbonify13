@@ -337,6 +337,18 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- Privacy & Data Tab -->
+                <div v-if="activeTab === 'privacy'" class="tab-panel">
+                  <div class="settings-section">
+                    <h3 class="section-title">Privacy &amp; Your Data</h3>
+                    <p class="section-subtitle">
+                      Exercise your data-privacy rights: download a copy of your data or
+                      request that your account be deleted.
+                    </p>
+                    <PrivacyDataPanel />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -364,11 +376,12 @@ import { ROLES, getRoleDisplayName } from '@/constants/roles'
 import { getRoleDescription } from '@/services/roleService'
 import ChangePasswordPanel from '@/components/auth/ChangePasswordPanel.vue'
 import MfaSetupPanel from '@/components/auth/MfaSetupPanel.vue'
+import PrivacyDataPanel from '@/components/account/PrivacyDataPanel.vue'
 import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 
 export default {
   name: 'ProfileView',
-  components: { ChangePasswordPanel, MfaSetupPanel, VerifiedBadge },
+  components: { ChangePasswordPanel, MfaSetupPanel, PrivacyDataPanel, VerifiedBadge },
   setup() {
     const store = useUserStore()
     return { store }
@@ -385,6 +398,7 @@ export default {
         { id: 'account', label: 'Account' },
         { id: 'notifications', label: 'Notifications' },
         { id: 'security', label: 'Security' },
+        { id: 'privacy', label: 'Privacy & Data' },
       ],
       userProfile: {
         initials: 'U',
@@ -1498,6 +1512,13 @@ export default {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 1.5rem;
+}
+
+.section-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary, #6b7280);
+  margin: -0.75rem 0 1.5rem;
+  line-height: 1.5;
 }
 
 .form-grid {

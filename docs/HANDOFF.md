@@ -57,6 +57,22 @@ Two tracks are in flight:
 
 > Commits: `f39cf51` (rebrand + fixes + comment notifications); verifier price input committed after.
 
+### Phase 5 — DPA tooling (data export / account deletion) — this cycle, code-complete 🆕
+- ✅ **Self-service data export** — **Profile → Privacy & Data** tab → "Download my data"
+  gathers everything we hold for the signed-in user (profile, transactions, holdings,
+  certificates, activity, …) into a single JSON file. RLS scopes every read to the user;
+  the source list is drift-proof (skips missing tables/columns).
+  ([dataPrivacyService.js](../src/services/dataPrivacyService.js),
+  [PrivacyDataPanel.vue](../src/components/account/PrivacyDataPanel.vue))
+- ✅ **Account-deletion request** — same tab; a typed-`DELETE` confirmation records a
+  request in the new `data_subject_requests` table (owner-or-admin RLS), idempotent per
+  user, cancellable while pending.
+- 🆕 **Erasure worker** — [account-deletion edge function](../supabase/functions/account-deletion/index.ts)
+  deletes the auth user (cascades profile-keyed personal data; retains legally-required
+  financial rows). **Code-complete; deploy when the dashboard blocker below is cleared.**
+- Migration: [20260626000000_dpa_data_subject_requests.sql](../supabase/migrations/20260626000000_dpa_data_subject_requests.sql)
+  (apply via SQL Editor). Fulfils the Privacy Policy's §2.5 promise. Build green, ESLint 0.
+
 ---
 
 ## 2. 🔴 Active blocker (dashboard-resolvable, blocks only the money-path test)
@@ -91,13 +107,14 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **Branding & UX** | ✅ Carbonify rebrand, login/map/policies/LGU/submit-project fixes (this cycle) |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist (shipped; predates these docs) |
 | **4 — Developer ↔ Verifier (partial)** | ✅ two-way comment thread + notifications; verifier sets price per credit at validation |
+| **5 — DPA tooling (partial)** | 🆕 self-service data export + account-deletion request (UI live); erasure worker code-complete, awaiting deploy |
 
 ### ❌ Not yet implemented
 | Phase | Highlights |
 |---|---|
 | **3 — Real Credits & Buyer Trust** (NEXT after verification) | real registry/supplier integration, `local\|supplier` flag, full project-detail page, ESG/offset export, real SDG filter |
 | **4 — Developer ↔ Verifier Workflow** (partial — see above) | ⏳ remaining: edit/resubmit after revision, scored checklist/rubric, verifier task queue + SLA, MRV reminders, methodology/boundary map |
-| **5 — Admin & Compliance** | system-config UI, admin finance console, AML screening, **DPA data export/delete tooling**, BIR/VAT invoices, audit-log search |
+| **5 — Admin & Compliance** | system-config UI, admin finance console, AML screening, ~~DPA data export/delete tooling~~ (✅ code-complete this cycle), BIR/VAT invoices, audit-log search |
 | **7 — Scale & Security** | **public searchable registry**, pentest before live keys, pooling/indexes, backups/PITR, observability |
 | **8 — Mobile / PWA** | installable PWA, mobile views, web push |
 | **9 — Business / Legal** 🏛️ | legal entity, PSP/EMI partner, AMLA/DPO/BIR, accredited VVB |
@@ -117,14 +134,18 @@ Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 - ✅ **Committed** the rebrand + fixes (`f39cf51`).
 - ✅ **Developer↔verifier comment thread + notifications** (Phase 4).
 - ✅ **Verifier price input** at validation (Phase 4).
-- **Phase 5 — DPA tooling** (data export / account-delete request) — required by the privacy policy we shipped.
+- ✅ **Phase 5 — DPA tooling** (data export / account-delete request) — **done this cycle**
+  (apply migration `20260626000000` via SQL Editor; deploy `account-deletion` to enable erasure).
 - **`local | supplier` listing flag** (Phase 3 groundwork) — pure schema + UI label, no payments needed.
 - **Edit & resubmit after "needs revision"** (Phase 4) — completes the revision loop the comment thread started.
 - **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
 
-> Next recommended: **DPA tooling** (compliance — fulfils the privacy policy we shipped) or the
-> **edit/resubmit loop** (completes Phase 4). These move the product
-> forward while the money-path test waits on the dashboard step.
+> Next recommended: the **edit/resubmit loop** (completes Phase 4) or the **`local | supplier`
+> flag** (Phase 3 groundwork). These move the product forward while the money-path test waits
+> on the dashboard step. (DPA tooling ✅ done this cycle.)
+>
+> When the dashboard blocker clears, also deploy the **`account-deletion`** edge function and set
+> its `ACCOUNT_DELETION_SECRET` so deletion requests can actually be processed.
 
 ---
 
