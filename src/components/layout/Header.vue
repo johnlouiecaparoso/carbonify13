@@ -349,6 +349,7 @@ const navItems = computed(() => {
   const baseItems = [
     { path: '/', label: 'Home' },
     { path: '/marketplace', label: 'Marketplace' },
+    { path: '/market', label: 'Market' },
     { path: '/registry', label: 'Registry' },
     { path: '/about', label: 'About' },
   ]
@@ -416,6 +417,7 @@ const accountLinks = computed(() => {
     return [
       { path: '/map', label: 'Project Map' },
       { path: '/monitoring', label: 'Monitoring (MRV)' },
+      { path: '/upgrade', label: 'Upgrade plan' },
       aboutLink,
     ]
   }
@@ -434,6 +436,7 @@ const accountLinks = computed(() => {
       { path: '/watchlist', label: 'Saved' },
       { path: '/receipts', label: 'Receipts' },
       { path: '/certificates', label: 'Certificates' },
+      { path: '/upgrade', label: 'Upgrade plan' },
       aboutLink,
     ]
   }
