@@ -144,11 +144,15 @@ Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 - ✅ **Full project-detail page** (Phase 3) — **done this cycle** (hero, verification/trust
   card, developer, timeline & location, map, documents, co-benefits, listings).
 - ✅ **Edit & resubmit after "needs revision"** (Phase 4) — **done this cycle** (resubmit
-  re-enters the verifier queue, notifies reviewers in-app, and shows a revision badge).
-  ⚠️ **Apply migration `20260626000100` via SQL Editor** — the live `projects` table's
-  status CHECK constraint predates migrations and only allowed `pending/approved/rejected`,
-  so "Request Revision" (and validate/resubmit) failed with `projects_status_check`. The
-  migration widens it to the full workflow status set.
+  re-enters the verifier queue, notifies verifiers in-app, and shows a revision badge).
+  ⚠️ **Apply these migrations via SQL Editor** for the loop to work end-to-end:
+  - `20260626000100` — widens the stale `projects` status CHECK constraint (it predated
+    migrations and only allowed `pending/approved/rejected`, so Request Revision / validate /
+    resubmit failed with `projects_status_check`).
+  - `20260626000200` — `notify_project_submitted` trigger: notifies verifiers in-app on
+    submit/resubmit. Required because `system_notifications` RLS (`auth.uid() = user_id`)
+    blocks a developer from inserting notifications for verifiers, so the client-side
+    approach never rang the bell. The trigger runs SECURITY DEFINER and covers all paths.
 - **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
 
 > Next recommended: a **scored verification checklist/rubric** (Phase 4) or **ESG / offset
