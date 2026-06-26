@@ -145,6 +145,10 @@ Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
   card, developer, timeline & location, map, documents, co-benefits, listings).
 - ✅ **Edit & resubmit after "needs revision"** (Phase 4) — **done this cycle** (resubmit
   re-enters the verifier queue, notifies reviewers in-app, and shows a revision badge).
+  ⚠️ **Apply migration `20260626000100` via SQL Editor** — the live `projects` table's
+  status CHECK constraint predates migrations and only allowed `pending/approved/rejected`,
+  so "Request Revision" (and validate/resubmit) failed with `projects_status_check`. The
+  migration widens it to the full workflow status set.
 - **Favicon set** — generate proper square favicons from the new logo (`scripts/create-favicons.js`).
 
 > Next recommended: a **scored verification checklist/rubric** (Phase 4) or **ESG / offset
