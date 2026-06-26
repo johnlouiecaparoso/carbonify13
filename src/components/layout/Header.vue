@@ -374,7 +374,9 @@ const navItems = computed(() => {
   if (!hideFinanceAndCertificateNav) {
     // Saved, Cart, Wallet, Receipts, Certificates and KYC all live in the profile
     // dropdown (see accountLinks) to keep the top nav uncluttered for buyers.
-    // Only the Carbon Calculator stays in the top nav.
+    // Portfolio (a buyer's owned/retired credits + ESG export) and the Carbon
+    // Calculator are prominent enough to keep in the top nav.
+    items.push({ path: '/credit-portfolio', label: 'Portfolio' })
     items.push({ path: '/carbon-calculator', label: 'Carbon Calculator' })
   }
 
