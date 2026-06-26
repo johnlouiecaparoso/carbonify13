@@ -143,6 +143,12 @@ Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
   the real registry/supplier integration). Migration `20260607000100` already applied.
 - ✅ **Full project-detail page** (Phase 3) — **done this cycle** (hero, verification/trust
   card, developer, timeline & location, map, documents, co-benefits, listings).
+  ⚠️ **Validated projects → marketplace:** a project appears in the marketplace only once it
+  has an active `credit_listing` → `project_credits` → project (status validated/approved),
+  created by `trg_activate_validated_project` on validation. **Apply migration `20260626000300`
+  via SQL Editor** — it re-installs that trigger (so future validations list automatically)
+  and **backfills** existing validated/approved projects that have no listing yet. After
+  applying, validating a project in the verifier panel publishes it to the marketplace.
 - ✅ **Edit & resubmit after "needs revision"** (Phase 4) — **done this cycle** (resubmit
   re-enters the verifier queue, notifies verifiers in-app, and shows a revision badge).
   ⚠️ **Apply these migrations via SQL Editor** for the loop to work end-to-end:
