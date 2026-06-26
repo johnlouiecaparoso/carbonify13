@@ -31,6 +31,10 @@
             <option value="local">Local</option>
             <option value="supplier">Registry</option>
           </select>
+          <select v-model="selectedSdg" class="filter-select" aria-label="Filter by Sustainable Development Goal">
+            <option value="">All SDGs</option>
+            <option v-for="tag in SDG_TAGS" :key="tag" :value="tag">{{ tag }}</option>
+          </select>
           <select
             v-model="availabilityFilter"
             class="filter-select"
@@ -541,6 +545,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getMarketplaceListings, getMarketplaceStats } from '@/services/marketplaceService'
+import { SDG_TAGS } from '@/constants/sdgs'
 import { projectService } from '@/services/projectService'
 import {
   getMyWatchlistIds,
@@ -596,6 +601,7 @@ const marketplaceStats = ref({
 const searchQuery = ref('')
 const selectedCategory = ref('')
 const selectedSource = ref('all')
+const selectedSdg = ref('')
 const selectedCountry = ref('')
 const priceRange = ref({ min: '', max: '' })
 const sortBy = ref('name')
@@ -667,6 +673,13 @@ const filteredListings = computed(() => {
   // Apply credit-source filter (local vs registry/supplier)
   if (selectedSource.value && selectedSource.value !== 'all') {
     filtered = filtered.filter((listing) => (listing.source || 'local') === selectedSource.value)
+  }
+
+  // Apply SDG filter (listing tagged with the selected Sustainable Development Goal)
+  if (selectedSdg.value) {
+    filtered = filtered.filter((listing) =>
+      Array.isArray(listing.co_benefits) && listing.co_benefits.includes(selectedSdg.value),
+    )
   }
 
   // Apply availability filter
@@ -814,6 +827,7 @@ function handleSearchReset() {
   searchQuery.value = ''
   selectedCategory.value = ''
   selectedSource.value = 'all'
+  selectedSdg.value = ''
   selectedCountry.value = ''
   priceRange.value = { min: '', max: '' }
   availabilityFilter.value = 'all'

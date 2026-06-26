@@ -86,6 +86,9 @@ export class ProjectService {
         expected_impact: projectData.expected_impact.trim(),
         status: 'pending',
         user_id: finalUserId,
+        ...(Array.isArray(projectData.co_benefits) && projectData.co_benefits.length && {
+          co_benefits: projectData.co_benefits,
+        }),
         ...(estimatedCredits !== null && !isNaN(estimatedCredits) && { estimated_credits: estimatedCredits }),
         ...(creditPrice !== null && !isNaN(creditPrice) && { credit_price: creditPrice }),
         ...(projectData.project_image && { project_image: projectData.project_image }),

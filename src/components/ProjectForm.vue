@@ -7,6 +7,7 @@ import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
+import { SDGS, sdgTag } from '@/constants/sdgs'
 
 const props = defineProps({
   project: {
@@ -40,6 +41,7 @@ const formData = ref({
   barangay: '',
   municipality: '',
   expected_impact: '',
+  co_benefits: [], // Selected UN SDG tags (sdgTag strings)
   project_image: null, // Add project image field
   estimated_credits: '', // Add estimated credits field
   // credit_price is intentionally omitted — the verifier sets the price per
@@ -669,6 +671,7 @@ async function handleSubmit() {
       barangay: formData.value.barangay,
       municipality: formData.value.municipality,
       expected_impact: formData.value.expected_impact,
+      co_benefits: Array.isArray(formData.value.co_benefits) ? formData.value.co_benefits : [],
       start_date: formData.value.start_date,
       end_date: formData.value.end_date,
       host_entity: formData.value.host_entity,
@@ -891,15 +894,30 @@ function handleCancel() {
   emit('cancel')
 }
 
+// Toggle an SDG tag in the selected co-benefits list.
+function toggleSdg(tag) {
+  const list = Array.isArray(formData.value.co_benefits) ? [...formData.value.co_benefits] : []
+  const idx = list.indexOf(tag)
+  if (idx === -1) list.push(tag)
+  else list.splice(idx, 1)
+  formData.value.co_benefits = list
+}
+
 // Initialize form with project data if editing
 onMounted(() => {
   if (isEditMode.value && props.project) {
     formData.value = {
+      ...formData.value,
       title: props.project.title || '',
       description: props.project.description || '',
       category: props.project.category || '',
       location: props.project.location || '',
       expected_impact: props.project.expected_impact || '',
+      co_benefits: Array.isArray(props.project.co_benefits)
+        ? props.project.co_benefits
+            .map((c) => (typeof c === 'string' ? c : c?.label || c?.sdg || ''))
+            .filter(Boolean)
+        : [],
     }
   }
 })
@@ -1064,6 +1082,27 @@ onMounted(() => {
           {{ errors.expected_impact }}
         </div>
         <div class="field-help">{{ formData.expected_impact.length }}/500 characters</div>
+      </div>
+
+      <!-- Sustainable Development Goals (co-benefits) -->
+      <div class="form-group">
+        <label class="form-label">UN Sustainable Development Goals (SDGs)</label>
+        <p class="field-help" style="margin-top: 0">
+          Select the SDGs your project contributes to — buyers can filter the marketplace by these.
+        </p>
+        <div class="sdg-grid">
+          <button
+            v-for="goal in SDGS"
+            :key="goal.id"
+            type="button"
+            class="sdg-chip"
+            :class="{ selected: formData.co_benefits.includes(sdgTag(goal)) }"
+            @click="toggleSdg(sdgTag(goal))"
+          >
+            <span class="sdg-num">{{ goal.id }}</span>
+            <span class="sdg-label">{{ goal.label }}</span>
+          </button>
+        </div>
       </div>
 
         <div class="form-subsection">
@@ -1428,6 +1467,54 @@ onMounted(() => {
   color: var(--text-muted, #718096);
   font-size: 12px;
   font-weight: 500;
+}
+
+.sdg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sdg-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sdg-chip:hover {
+  border-color: var(--primary-color, #069e2d);
+}
+
+.sdg-chip.selected {
+  border-color: var(--primary-color, #069e2d);
+  background: #ecfdf5;
+}
+
+.sdg-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sdg-label {
+  font-size: 13px;
+  color: var(--text-primary, #1f2937);
 }
 
 .error-message {

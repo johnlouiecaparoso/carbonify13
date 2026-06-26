@@ -7,6 +7,7 @@ import { notifyMarketplacePurchaseAndStock } from '@/services/notificationServic
 import { realPaymentService } from './realPaymentService.js'
 import { creditOwnershipService } from '@/services/creditOwnershipService'
 import { getCurrentUserId } from '@/utils/authHelper'
+import { normalizeCoBenefits } from '@/constants/sdgs'
 
 const isDev = import.meta.env?.DEV ?? false
 const MARKETPLACE_CACHE_TTL = 10000 // 10 seconds
@@ -227,6 +228,14 @@ function applyMarketplaceFilters(sourceListings = [], filters = {}) {
     filtered = filtered.filter((listing) => (listing.source || 'local') === criteria.source)
   }
 
+  // SDG filter: keep listings tagged with ANY of the selected SDGs.
+  if (Array.isArray(criteria.sdgs) && criteria.sdgs.length) {
+    filtered = filtered.filter((listing) => {
+      const tags = Array.isArray(listing.co_benefits) ? listing.co_benefits : []
+      return criteria.sdgs.some((sdg) => tags.includes(sdg))
+    })
+  }
+
   if (criteria.country) {
     const searchLocation = criteria.country.toLowerCase()
     filtered = filtered.filter((listing) =>
@@ -314,6 +323,7 @@ export async function getMarketplaceListings(filters = {}) {
           feasibility_score,
           social_impact_score,
           climate_risk_rating,
+          co_benefits,
           project_image,
           image_name,
           image_type,
@@ -424,6 +434,7 @@ export async function getMarketplaceListings(filters = {}) {
           feasibility_score: project.feasibility_score,
           social_impact_score: project.social_impact_score,
           climate_risk_rating: project.climate_risk_rating,
+          co_benefits: normalizeCoBenefits(project.co_benefits),
           vintage_year: credit.vintage_year,
           verification_standard: credit.verification_standard,
       available_quantity: availableQuantity,

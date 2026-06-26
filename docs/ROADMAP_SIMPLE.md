@@ -43,7 +43,9 @@ Make listings believable.
   detail page, and purchase modal; "All / Local / Registry" filter).
 - ✅ ESG / offset report export (done 2026-06-26 — "ESG report (PDF)" + CSV buttons on the
   Credit Portfolio page, backed by the existing esgReportService).
-- ⏳ Still to do: real SDG filter · real registry/supplier integration.
+- ✅ SDG filter (done 2026-06-26 — developers tag UN SDGs at submission, shown as chips on the
+  detail page, and buyers filter the marketplace by goal).
+- ⏳ Still to do: real registry/supplier integration (needs an external partner).
 
 ---
 
