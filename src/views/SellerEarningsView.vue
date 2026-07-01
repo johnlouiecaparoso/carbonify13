@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { getSellerBalance, getMySales, getMySalesByProject, getMyPayouts } from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
 import Withdraw from '@/components/wallet/Withdraw.vue'
+import KybForm from '@/components/wallet/KybForm.vue'
 
 const loading = ref(true)
 const balance = ref({ available: 0, held: 0, currency: 'PHP' })
@@ -11,6 +12,7 @@ const salesByProject = ref([])
 const payouts = ref([])
 const kyb = ref({ verified: false, application: null })
 const showWithdraw = ref(false)
+const showKyb = ref(false)
 
 const totalEarned = computed(() =>
   sales.value
@@ -55,6 +57,11 @@ function onWithdrawSuccess() {
   load()
 }
 
+function onKybSuccess() {
+  showKyb.value = false
+  load()
+}
+
 onMounted(load)
 </script>
 
@@ -71,10 +78,21 @@ onMounted(load)
       <!-- KYB gate notice -->
       <div v-if="!kyb.verified" class="notice warn">
         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
-        <div>
+        <div class="notice-body">
           <strong>Business verification required.</strong>
           You must complete KYB before withdrawing earnings.
-          <template v-if="kyb.application"> Current status: {{ kyb.application.status }}.</template>
+          <template v-if="kyb.application?.status === 'pending'">
+            Your submission is <strong>pending review</strong>.
+          </template>
+          <template v-else-if="kyb.application?.status === 'rejected'">
+            Your last submission was <strong>rejected</strong>.
+            <template v-if="kyb.application.review_notes"> Note: {{ kyb.application.review_notes }}.</template>
+          </template>
+          <div v-if="kyb.application?.status !== 'pending'" class="notice-action">
+            <button class="btn-primary sm" @click="showKyb = true">
+              {{ kyb.application?.status === 'rejected' ? 'Resubmit verification' : 'Verify your business' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -102,6 +120,13 @@ onMounted(load)
           <div class="muted small">{{ creditsSold }} credits sold</div>
         </div>
       </section>
+
+      <!-- KYB submission modal -->
+      <div v-if="showKyb" class="modal-overlay" @click.self="showKyb = false">
+        <div class="modal">
+          <KybForm @success="onKybSuccess" @cancel="showKyb = false" />
+        </div>
+      </div>
 
       <!-- Withdraw modal -->
       <div v-if="showWithdraw" class="modal-overlay" @click.self="showWithdraw = false">
@@ -243,6 +268,18 @@ onMounted(load)
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.btn-primary.sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+.notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.notice-action {
+  margin-top: 8px;
 }
 .panel {
   background: #fff;

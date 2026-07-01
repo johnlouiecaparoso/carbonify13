@@ -73,12 +73,13 @@ npm run dev          # open the printed URL, usually http://localhost:5173
 > The SQL below is kept as a fallback.
 
 ### Approve KYB (to unblock a seller payout)
-- **UI:** profile menu → **KYB Review** (`/admin/kyb`) → find the seller's
-  application → **Approve**. This sets `kyb_verified` and unlocks their withdrawals.
-- **Note:** sellers still have no KYB *submission* screen, so you may need to
-  create the application first (SQL below), then approve it in the console.
+1. **Seller submits (now clickable):** as the seller, **Seller Earnings** (`/sales`)
+   → the "Business verification required" banner → **Verify your business** → fill
+   the form → **Submit for review**.
+2. **Admin approves:** profile menu → **KYB Review** (`/admin/kyb`) → find the
+   application → **Approve**. This sets `kyb_verified` and unlocks their withdrawals.
 
-Fallback / seed an application in SQL:
+Fallback / seed an application directly in SQL (no longer required):
 
 ```sql
 -- 1. Find the seller's user id (profiles.id) — e.g. by email:
