@@ -7,9 +7,12 @@ vi.mock('@/services/supabaseClient', () => ({
 import { getUserPurchaseHistoryPage } from '@/services/transactionHistoryService'
 import { getSupabase } from '@/services/supabaseClient'
 
-/** Chainable supabase query-builder fake whose .range() resolves the query. */
-function makeBuilder(result) {
-  const calls = { eq: [], order: [], range: [], select: [] }
+/**
+ * Chainable supabase query-builder fake. The main purchase query resolves on
+ * .range(); the follow-up certificates query resolves on .in() with `certResult`.
+ */
+function makeBuilder(result, certResult = { data: [], error: null }) {
+  const calls = { eq: [], order: [], range: [], select: [], in: [] }
   const builder = {
     calls,
     select(sel, opts) {
@@ -23,6 +26,10 @@ function makeBuilder(result) {
     order(col, opts) {
       calls.order.push([col, opts])
       return builder
+    },
+    in(col, vals) {
+      calls.in.push([col, vals])
+      return Promise.resolve(certResult)
     },
     range(from, to) {
       calls.range.push([from, to])
@@ -90,6 +97,23 @@ describe('getUserPurchaseHistoryPage', () => {
       credits_quantity: 3,
       vintage_year: 2026,
     })
+  })
+
+  it('attaches a certificate to the matching purchase row', async () => {
+    const builder = makeBuilder(
+      {
+        data: [{ id: 'tx1', quantity: 1, total_amount: 500, status: 'completed', completed_at: '2026-06-26T00:00:00Z', project_credits: { projects: { id: 'p1', title: 'Mangrove' } } }],
+        count: 1,
+        error: null,
+      },
+      { data: [{ id: 'c1', transaction_id: 'tx1', certificate_number: 'CERT-001', status: 'issued' }], error: null },
+    )
+    getSupabase.mockReturnValue({ from: () => builder })
+
+    const res = await getUserPurchaseHistoryPage({ userId: 'u1' })
+    expect(builder.calls.in).toContainEqual(['transaction_id', ['tx1']])
+    expect(res.rows[0].certificate_number).toBe('CERT-001')
+    expect(res.rows[0].certificate).toMatchObject({ id: 'c1' })
   })
 
   it('lets the caller override the status filter', async () => {

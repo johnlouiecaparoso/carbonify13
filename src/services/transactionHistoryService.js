@@ -280,25 +280,55 @@ export async function getUserPurchaseHistoryPage({ userId, limit = 20, offset = 
     return empty
   }
 
-  const rows = (data || []).map((p) => ({
-    id: p.id,
-    transaction_id: p.id,
-    project_id: p.project_credits?.projects?.id,
-    project_title: p.project_credits?.projects?.title || 'Unknown Project',
-    project_category: p.project_credits?.projects?.category || 'Unknown',
-    project_location: p.project_credits?.projects?.location || 'Unknown',
-    project_image: p.project_credits?.projects?.project_image,
-    credits_quantity: p.quantity,
-    price_per_credit: p.price_per_credit,
-    total_amount: p.total_amount,
-    currency: p.currency || 'PHP',
-    payment_method: p.payment_method || 'wallet',
-    payment_reference: p.payment_reference,
-    vintage_year: p.project_credits?.vintage_year,
-    verification_standard: p.project_credits?.verification_standard,
-    date: p.completed_at || p.created_at,
-    status: p.status,
-  }))
+  // Attach purchase certificates for just this page of rows (linked via
+  // transaction_id), mirroring getUserTransactionHistory so the paginated list
+  // can show the same "View Certificate" affordance. Non-critical: on failure
+  // rows still render, just without a certificate.
+  let certsByTransaction = {}
+  const pageIds = (data || []).map((p) => p.id)
+  if (pageIds.length) {
+    try {
+      const { data: certs, error: certError } = await supabase
+        .from('certificates')
+        .select('id, transaction_id, certificate_number, issued_at, status')
+        .in('transaction_id', pageIds)
+      if (certError) {
+        console.warn('getUserPurchaseHistoryPage certificates (non-critical):', certError.message)
+      } else {
+        certsByTransaction = (certs || []).reduce((acc, cert) => {
+          if (!acc[cert.transaction_id]) acc[cert.transaction_id] = cert
+          return acc
+        }, {})
+      }
+    } catch (certErr) {
+      console.warn('getUserPurchaseHistoryPage certificates (non-critical):', certErr?.message)
+    }
+  }
+
+  const rows = (data || []).map((p) => {
+    const cert = certsByTransaction[p.id] || null
+    return {
+      id: p.id,
+      transaction_id: p.id,
+      project_id: p.project_credits?.projects?.id,
+      project_title: p.project_credits?.projects?.title || 'Unknown Project',
+      project_category: p.project_credits?.projects?.category || 'Unknown',
+      project_location: p.project_credits?.projects?.location || 'Unknown',
+      project_image: p.project_credits?.projects?.project_image,
+      credits_quantity: p.quantity,
+      price_per_credit: p.price_per_credit,
+      total_amount: p.total_amount,
+      currency: p.currency || 'PHP',
+      payment_method: p.payment_method || 'wallet',
+      payment_reference: p.payment_reference,
+      vintage_year: p.project_credits?.vintage_year,
+      verification_standard: p.project_credits?.verification_standard,
+      date: p.completed_at || p.created_at,
+      certificate: cert,
+      certificate_number: cert?.certificate_number || null,
+      status: p.status,
+    }
+  })
 
   return { rows, total: Number(count) || 0, limit: safeLimit, offset: safeOffset }
 }
