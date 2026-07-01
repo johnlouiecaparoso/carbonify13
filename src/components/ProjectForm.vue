@@ -9,6 +9,11 @@ import UiInput from '@/components/ui/Input.vue'
 import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
+import {
+  ADDITIONALITY_TYPES,
+  REVERSAL_RISK_LEVELS,
+  normalizeCredibility,
+} from '@/services/projectCredibility'
 
 const props = defineProps({
   project: {
@@ -30,6 +35,10 @@ const userStore = useUserStore()
 const projectTypes = PROJECT_TYPES
 const selectedTypeDescription = computed(
   () => PROJECT_TYPES.find((type) => type.value === formData.value.category)?.description || '',
+)
+const additionalityHint = computed(
+  () =>
+    ADDITIONALITY_TYPES.find((t) => t.value === formData.value.additionality_type)?.description || '',
 )
 
 // Form data
@@ -69,7 +78,15 @@ const formData = ref({
   capex: '',
   opex: '',
   carbon_yield_projection: '',
+
+  // Credibility metadata (optional, structured)
+  additionality_type: '',
+  permanence_years: '',
+  reversal_risk: '',
 })
+
+const additionalityTypes = ADDITIONALITY_TYPES
+const reversalRiskLevels = REVERSAL_RISK_LEVELS
 
 // File upload state
 const uploadedFiles = ref([])
@@ -682,6 +699,11 @@ async function handleSubmit() {
       capex: formData.value.capex,
       opex: formData.value.opex,
       carbon_yield_projection: formData.value.carbon_yield_projection,
+      ...normalizeCredibility({
+        additionality_type: formData.value.additionality_type,
+        permanence_years: formData.value.permanence_years,
+        reversal_risk: formData.value.reversal_risk,
+      }),
       status: isEditMode.value ? (props.project && props.project.status ? props.project.status : 'draft') : 'submitted',
       documents: [],
     }
@@ -923,6 +945,9 @@ onMounted(() => {
             .map((c) => (typeof c === 'string' ? c : c?.label || c?.sdg || ''))
             .filter(Boolean)
         : [],
+      additionality_type: props.project.additionality_type || '',
+      permanence_years: props.project.permanence_years ?? '',
+      reversal_risk: props.project.reversal_risk || '',
     }
   }
 })
@@ -1171,70 +1196,135 @@ onMounted(() => {
 
         <div class="form-subsection optional">
           <div class="subsection-header">
-            <h4 class="subsection-title">Required Technical & Compliance Documents</h4>
-            <p class="subsection-subtitle">Upload each required document as its own file input.</p>
+            <h4 class="subsection-title">Required Technical &amp; Compliance Documents</h4>
           </div>
 
+          <p class="doc-intro">
+            Tap any card below to pick a PDF from your device. Each card explains what the
+            document is, so you always know what to upload. Cards marked
+            <span class="req">*</span> are required; a green check means your file is attached.
+          </p>
+
           <div class="document-grid">
-            <div class="doc-row">
-              <label>PDD *</label>
+            <label class="doc-card" :class="{ filled: !!formData.pdd_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.pdd_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">PDD <span class="req">*</span></span>
+                <span class="doc-card-desc">Project Design Document — the full blueprint: what your project does, where, the methodology used, and how carbon savings are measured.</span>
+                <span class="doc-card-file">{{ formData.pdd_file ? formData.pdd_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="pddInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'pdd_file')" />
-              <div class="doc-meta">{{ formData.pdd_file ? formData.pdd_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Baseline Report *</label>
+            <label class="doc-card" :class="{ filled: !!formData.baseline_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.baseline_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Baseline Report <span class="req">*</span></span>
+                <span class="doc-card-desc">Shows the emissions that would happen WITHOUT your project — the comparison point used to calculate your carbon savings.</span>
+                <span class="doc-card-file">{{ formData.baseline_file ? formData.baseline_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="baselineInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'baseline_file')" />
-              <div class="doc-meta">{{ formData.baseline_file ? formData.baseline_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Additionality Justification *</label>
+            <label class="doc-card" :class="{ filled: !!formData.additionality_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.additionality_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Additionality Justification <span class="req">*</span></span>
+                <span class="doc-card-desc">Explains why the project genuinely needs carbon finance and would not have happened on its own.</span>
+                <span class="doc-card-file">{{ formData.additionality_file ? formData.additionality_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="additionalityInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'additionality_file')" />
-              <div class="doc-meta">{{ formData.additionality_file ? formData.additionality_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Leakage Assessment *</label>
+            <label class="doc-card" :class="{ filled: !!formData.leakage_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.leakage_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Leakage Assessment <span class="req">*</span></span>
+                <span class="doc-card-desc">Checks whether your project simply shifts emissions to another place instead of truly reducing them.</span>
+                <span class="doc-card-file">{{ formData.leakage_file ? formData.leakage_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="leakageInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'leakage_file')" />
-              <div class="doc-meta">{{ formData.leakage_file ? formData.leakage_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Safeguards Checklist *</label>
+            <label class="doc-card" :class="{ filled: !!formData.safeguards_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.safeguards_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Safeguards Checklist <span class="req">*</span></span>
+                <span class="doc-card-desc">Confirms the project does no social or environmental harm to the community or surroundings.</span>
+                <span class="doc-card-file">{{ formData.safeguards_file ? formData.safeguards_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="safeguardsInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'safeguards_file')" />
-              <div class="doc-meta">{{ formData.safeguards_file ? formData.safeguards_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Feasibility Study (Optional)</label>
+            <label class="doc-card" :class="{ filled: !!formData.feasibility_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.feasibility_file ? 'check_circle' : 'description' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Feasibility Study <span class="opt">Optional</span></span>
+                <span class="doc-card-desc">Technical and financial study showing the project is realistic and viable. Helpful but not required.</span>
+                <span class="doc-card-file">{{ formData.feasibility_file ? formData.feasibility_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="feasibilityInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'feasibility_file')" />
-              <div class="doc-meta">{{ formData.feasibility_file ? formData.feasibility_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>LGU Endorsement *</label>
+            <label class="doc-card" :class="{ filled: !!formData.lgu_endorsement_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.lgu_endorsement_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">LGU Endorsement <span class="req">*</span></span>
+                <span class="doc-card-desc">An official letter of support for the project from your Local Government Unit (city, municipality, or barangay).</span>
+                <span class="doc-card-file">{{ formData.lgu_endorsement_file ? formData.lgu_endorsement_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="lguEndorsementInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'lgu_endorsement_file')" />
-              <div class="doc-meta">{{ formData.lgu_endorsement_file ? formData.lgu_endorsement_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Land Ownership / Lease Documents *</label>
+            <label class="doc-card" :class="{ filled: !!formData.land_ownership_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.land_ownership_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Land Ownership / Lease <span class="req">*</span></span>
+                <span class="doc-card-desc">Proof you own or legally lease the project land — e.g. land title, tax declaration, or signed lease contract.</span>
+                <span class="doc-card-file">{{ formData.land_ownership_file ? formData.land_ownership_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="landOwnershipInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'land_ownership_file')" />
-              <div class="doc-meta">{{ formData.land_ownership_file ? formData.land_ownership_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>ECC / Permits *</label>
+            <label class="doc-card" :class="{ filled: !!formData.ecc_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.ecc_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">ECC / Permits <span class="req">*</span></span>
+                <span class="doc-card-desc">Environmental Compliance Certificate and any other government permits the project needs to operate.</span>
+                <span class="doc-card-file">{{ formData.ecc_file ? formData.ecc_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="eccInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'ecc_file')" />
-              <div class="doc-meta">{{ formData.ecc_file ? formData.ecc_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>MOA / Agreements *</label>
+            <label class="doc-card" :class="{ filled: !!formData.moa_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.moa_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">MOA / Agreements <span class="req">*</span></span>
+                <span class="doc-card-desc">Signed Memorandum of Agreement with your partners, landowners, or the community involved in the project.</span>
+                <span class="doc-card-file">{{ formData.moa_file ? formData.moa_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="moaInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'moa_file')" />
-              <div class="doc-meta">{{ formData.moa_file ? formData.moa_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
           </div>
         </div>
 
@@ -1276,6 +1366,55 @@ onMounted(() => {
               <span class="material-symbols-outlined help-icon" aria-hidden="true">info</span>
               <span>The price per carbon credit is set by the verifier after they review and validate your project.</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-subsection optional">
+        <div class="subsection-header">
+          <h4 class="subsection-title">Credibility (Optional)</h4>
+          <p class="subsection-hint">
+            Helps buyers trust the credits. Shown on the public project page.
+          </p>
+        </div>
+        <div class="credibility-grid">
+          <div class="form-group">
+            <label for="additionality_type" class="form-label">Additionality basis</label>
+            <select
+              id="additionality_type"
+              v-model="formData.additionality_type"
+              class="credibility-select"
+            >
+              <option value="">Not specified</option>
+              <option v-for="t in additionalityTypes" :key="t.value" :value="t.value">
+                {{ t.label }}
+              </option>
+            </select>
+            <p v-if="additionalityHint" class="field-hint">{{ additionalityHint }}</p>
+          </div>
+
+          <div class="form-group">
+            <label for="permanence_years" class="form-label">Permanence (years)</label>
+            <UiInput
+              id="permanence_years"
+              type="number"
+              min="0"
+              step="1"
+              v-model.number="formData.permanence_years"
+              placeholder="e.g. 100"
+            />
+            <p class="field-hint">How long the carbon removal is expected to persist.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="reversal_risk" class="form-label">Reversal risk</label>
+            <select id="reversal_risk" v-model="formData.reversal_risk" class="credibility-select">
+              <option value="">Not specified</option>
+              <option v-for="r in reversalRiskLevels" :key="r.value" :value="r.value">
+                {{ r.label }}
+              </option>
+            </select>
+            <p class="field-hint">Risk the stored carbon is later re-released.</p>
           </div>
         </div>
       </div>
@@ -2293,10 +2432,158 @@ onMounted(() => {
   display: none;
 }
 
+/* ── Required Technical & Compliance Documents ── */
+.doc-intro {
+  margin: -4px 0 16px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-secondary, #4a5568);
+  background: var(--bg-secondary, #f8fdf8);
+  border: 1px solid var(--border-light, #e8f5e8);
+  border-radius: var(--radius-md, 0.625rem);
+  padding: 0.75rem 0.9rem;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+.doc-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: #fff;
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-md, 0.625rem);
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.doc-card:hover {
+  border-color: var(--primary-color, #069e2d);
+  background: var(--bg-secondary, #f8fdf8);
+  box-shadow: 0 6px 16px rgba(6, 158, 45, 0.12);
+  transform: translateY(-1px);
+}
+
+.doc-card.filled {
+  border-color: var(--primary-color, #069e2d);
+  background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
+}
+
+.doc-card-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex-shrink: 0;
+  border-radius: 0.6rem;
+  background: var(--bg-muted, #e8f5e8);
+  color: var(--text-muted, #718096);
+}
+
+.doc-card:hover .doc-card-status {
+  color: var(--primary-color, #069e2d);
+}
+
+.doc-card.filled .doc-card-status {
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+}
+
+.doc-card-status .material-symbols-outlined {
+  font-size: 1.3rem;
+}
+
+.doc-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.doc-card-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a202c);
+}
+
+.req {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.opt {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted, #718096);
+  background: var(--bg-muted, #eef2f1);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.doc-card-desc {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #4a5568);
+}
+
+.doc-card-file {
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primary-color, #069e2d);
+  word-break: break-word;
+}
+
+.doc-card:not(.filled) .doc-card-file {
+  color: var(--text-muted, #718096);
+  font-weight: 500;
+}
+
 .credit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
+}
+
+.subsection-hint {
+  margin: 0.25rem 0 0;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.credibility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.credibility-select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.credibility-select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
 .credit-card {

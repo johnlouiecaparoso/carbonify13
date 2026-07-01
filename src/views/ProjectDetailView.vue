@@ -45,6 +45,15 @@
                 <div><dt>Standard</dt><dd>{{ project.methodology || 'Carbonify Standard' }}</dd></div>
                 <div><dt>Vintage</dt><dd>{{ project.vintage || '—' }}</dd></div>
                 <div><dt>Credit source</dt><dd>{{ sourceLabel }}</dd></div>
+                <div v-if="project.additionality_type">
+                  <dt>Additionality</dt><dd>{{ additionalityLabel(project.additionality_type) }}</dd>
+                </div>
+                <div v-if="project.permanence_years">
+                  <dt>Permanence</dt><dd>{{ formatPermanence(project.permanence_years) }}</dd>
+                </div>
+                <div v-if="project.reversal_risk">
+                  <dt>Reversal risk</dt><dd>{{ reversalRiskLabel(project.reversal_risk) }}</dd>
+                </div>
                 <div v-if="project.revision_count">
                   <dt>Revisions</dt><dd>{{ project.revision_count }}</dd>
                 </div>
@@ -154,6 +163,11 @@ import 'leaflet/dist/leaflet.css'
 import { getProject } from '@/services/projectService'
 import { marketplaceIntegrationService } from '@/services/marketplaceIntegrationService'
 import { getSupabase } from '@/services/supabaseClient'
+import {
+  additionalityLabel,
+  reversalRiskLabel,
+  formatPermanence,
+} from '@/services/projectCredibility'
 
 const props = defineProps({ id: { type: String, required: true } })
 
@@ -325,6 +339,8 @@ onBeforeUnmount(() => {
 <style scoped>
 .detail-page {
   padding: 1.5rem 0 3rem;
+  background: linear-gradient(180deg, var(--bg-secondary, #f8fdf8) 0%, var(--bg-primary, #fff) 260px);
+  min-height: 100vh;
 }
 .container {
   max-width: 1080px;
@@ -332,28 +348,55 @@ onBeforeUnmount(() => {
   padding: 0 1.25rem;
 }
 .back-link {
-  color: #069e2d;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--primary-color, #069e2d);
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border-green-light, #d4edda);
+  border-radius: 999px;
+  background: #fff;
+  transition: all 0.18s ease;
+}
+.back-link:hover {
+  background: var(--bg-green-light, #e8f5e8);
+  border-color: var(--primary-color, #069e2d);
+  transform: translateX(-2px);
 }
 .hero {
-  margin: 1rem 0 0;
-  border-radius: 0.75rem;
+  position: relative;
+  margin: 1.25rem 0 0;
+  border-radius: 1rem;
   overflow: hidden;
-  max-height: 320px;
+  max-height: 340px;
+  box-shadow: 0 16px 40px rgba(6, 158, 45, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(4, 119, 59, 0.55) 100%);
+  pointer-events: none;
 }
 .hero-img {
   width: 100%;
-  height: 320px;
+  height: 340px;
   object-fit: cover;
   display: block;
+  transition: transform 0.4s ease;
+}
+.hero:hover .hero-img {
+  transform: scale(1.03);
 }
 .detail-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin: 1rem 0 0.5rem;
+  margin: 1.5rem 0 0.5rem;
 }
 .header-badges {
   display: flex;
@@ -363,11 +406,18 @@ onBeforeUnmount(() => {
 }
 .title {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary, #1a1a1a);
+  line-height: 1.15;
 }
 .subtitle {
-  margin: 0.25rem 0 0;
+  margin: 0.4rem 0 0;
   font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 .muted {
   color: #6b7280;
@@ -394,17 +444,32 @@ onBeforeUnmount(() => {
 }
 .card {
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+  border: 1px solid #e8edf1;
+  border-radius: 0.9rem;
+  padding: 1.4rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(6, 158, 45, 0.12);
+  border-color: var(--border-green-light, #d4edda);
 }
 .card h2 {
-  margin: 0 0 0.75rem;
+  margin: 0 0 1rem;
   font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a1a);
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--primary-color, #069e2d);
+  line-height: 1.2;
 }
 .trust-card {
-  border-color: #bbf7d0;
-  background: #f6fef9;
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
+}
+.trust-card:hover {
+  border-color: var(--primary-color, #069e2d);
 }
 .facts {
   display: grid;
@@ -457,10 +522,17 @@ onBeforeUnmount(() => {
 .chip {
   background: #e8f5e8;
   color: #069e2d;
+  border: 1px solid #c6ecc6;
   border-radius: 999px;
-  padding: 0.25rem 0.7rem;
+  padding: 0.3rem 0.8rem;
   font-size: 0.8rem;
   font-weight: 600;
+  transition: all 0.15s ease;
+}
+.chip:hover {
+  background: #069e2d;
+  color: #fff;
+  border-color: #069e2d;
 }
 .docs,
 .listings {
@@ -473,6 +545,22 @@ onBeforeUnmount(() => {
 .listings {
   list-style: none;
   padding-left: 0;
+  gap: 0.55rem;
+}
+.listings li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-secondary, #f8fdf8);
+  border: 1px solid #e8edf1;
+  border-radius: 0.6rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.listings li:hover {
+  border-color: var(--border-green-light, #d4edda);
+  background: #fff;
 }
 .lst-price {
   color: #069e2d;
@@ -480,7 +568,9 @@ onBeforeUnmount(() => {
 }
 .map {
   height: 280px;
-  border-radius: 0.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid #e8edf1;
+  overflow: hidden;
 }
 .status-badge {
   border-radius: 999px;
@@ -530,11 +620,23 @@ onBeforeUnmount(() => {
   color: #047857;
 }
 .buy-link {
-  display: inline-block;
-  margin-top: 0.75rem;
-  color: #069e2d;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 1rem;
+  padding: 0.6rem 1.1rem;
+  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
+  color: #fff;
   font-weight: 600;
+  font-size: 0.875rem;
   text-decoration: none;
+  border-radius: 0.6rem;
+  box-shadow: 0 4px 12px rgba(6, 158, 45, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.buy-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(6, 158, 45, 0.32);
 }
 .state {
   padding: 3rem 0;

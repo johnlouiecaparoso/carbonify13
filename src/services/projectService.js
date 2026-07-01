@@ -97,6 +97,10 @@ export class ProjectService {
         ...(projectData.image_name && { image_name: projectData.image_name }),
         ...(projectData.image_type && { image_type: projectData.image_type }),
         ...(projectData.image_size && { image_size: projectData.image_size }),
+        ...(projectData.additionality_type && { additionality_type: projectData.additionality_type }),
+        ...(projectData.permanence_years != null &&
+          projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
+        ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
@@ -119,7 +123,14 @@ export class ProjectService {
       let { data, error } = await this.supabase.from('projects').insert([insertData]).select().single()
 
       // Schema-drift safety: drop any optional column missing on this DB and retry.
-      const driftCols = ['supporting_documents', 'boundary', 'geo_coordinates']
+      const driftCols = [
+        'supporting_documents',
+        'boundary',
+        'geo_coordinates',
+        'additionality_type',
+        'permanence_years',
+        'reversal_risk',
+      ]
       const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
       if (error && driftCols.some((c) => blob.includes(c))) {
         const fallbackData = { ...insertData }
@@ -278,6 +289,9 @@ export class ProjectService {
         'image_type',
         'image_size',
         'supporting_documents',
+        'additionality_type',
+        'permanence_years',
+        'reversal_risk',
         'status',
       ]
       const payload = {}

@@ -71,6 +71,10 @@ export class ProjectWorkflowService {
         ...(projectData.image_name && { image_name: projectData.image_name }),
         ...(projectData.image_type && { image_type: projectData.image_type }),
         ...(projectData.image_size && { image_size: projectData.image_size }),
+        ...(projectData.additionality_type && { additionality_type: projectData.additionality_type }),
+        ...(projectData.permanence_years != null &&
+          projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
+        ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
@@ -87,7 +91,14 @@ export class ProjectWorkflowService {
 
       // Schema-drift safety: if an optional column is missing on this DB, drop
       // the offending field(s) and retry instead of failing the whole submit.
-      const driftCols = ['supporting_documents', 'boundary', 'geo_coordinates']
+      const driftCols = [
+        'supporting_documents',
+        'boundary',
+        'geo_coordinates',
+        'additionality_type',
+        'permanence_years',
+        'reversal_risk',
+      ]
       const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
       if (error && driftCols.some((c) => blob.includes(c))) {
         const fallbackData = { ...insertData }
