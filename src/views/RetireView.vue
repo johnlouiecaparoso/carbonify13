@@ -443,8 +443,10 @@ const handleRetire = async () => {
       throw new Error('User not authenticated')
     }
 
-    // Get project ID from selected credit
-    const projectId = selectedCredit.id
+    // Get project ID from selected credit. NOTE: the portfolio item's `id` is the
+    // credit_ownership row id; the actual project id is `project_id`. Passing the
+    // wrong one makes retire_credits_atomic find no matching credits.
+    const projectId = selectedCredit.project_id || selectedCredit.id
     if (!projectId) {
       throw new Error('Project ID not found')
     }
