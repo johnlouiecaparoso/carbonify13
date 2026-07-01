@@ -77,6 +77,94 @@ export async function getMySales(limit = 50) {
   return data || []
 }
 
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100
+}
+
+/**
+ * Aggregate a seller's completed sales into a per-project earnings breakdown —
+ * pure and side-effect-free so it can be unit-tested without a DB.
+ *
+ * Only `completed` sales count toward earnings; pending/refunded rows are
+ * ignored so the totals stay honest (a refund flips a row's status rather than
+ * adding a negative row). Result is sorted by gross earnings, highest first.
+ *
+ * @param {Array<{project_id?:string, project_title?:string, quantity?:number, total_amount?:number, currency?:string, status?:string, date?:string}>} rows
+ * @returns {Array<{projectId:string, projectTitle:string, salesCount:number, creditsSold:number, grossEarnings:number, currency:string, lastSaleDate:(string|null)}>}
+ */
+export function aggregateSalesByProject(rows = []) {
+  const byProject = new Map()
+
+  for (const r of rows || []) {
+    if (r?.status !== 'completed') continue
+    const id = r.project_id || 'unknown'
+    const existing = byProject.get(id) || {
+      projectId: id,
+      projectTitle: r.project_title || 'Unknown Project',
+      salesCount: 0,
+      creditsSold: 0,
+      grossEarnings: 0,
+      currency: r.currency || 'PHP',
+      lastSaleDate: null,
+    }
+
+    existing.salesCount += 1
+    existing.creditsSold += Number(r.quantity) || 0
+    existing.grossEarnings += Number(r.total_amount) || 0
+    if (r.date && (!existing.lastSaleDate || new Date(r.date) > new Date(existing.lastSaleDate))) {
+      existing.lastSaleDate = r.date
+    }
+
+    byProject.set(id, existing)
+  }
+
+  return Array.from(byProject.values())
+    .map((p) => ({ ...p, grossEarnings: round2(p.grossEarnings) }))
+    .sort((a, b) => b.grossEarnings - a.grossEarnings)
+}
+
+/**
+ * The caller's completed sales grouped per project (earnings + issuance/volume
+ * history). Reads `credit_transactions` joined to the project, then aggregates
+ * client-side via {@link aggregateSalesByProject}.
+ */
+export async function getMySalesByProject(limit = 200) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('credit_transactions')
+    .select(
+      `id, quantity, total_amount, currency, status, created_at, completed_at,
+       project_credits!inner(projects!inner(id, title))`,
+    )
+    .eq('seller_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Error fetching sales by project:', error)
+    return []
+  }
+
+  const rows = (data || []).map((t) => ({
+    project_id: t.project_credits?.projects?.id,
+    project_title: t.project_credits?.projects?.title,
+    quantity: t.quantity,
+    total_amount: t.total_amount,
+    currency: t.currency,
+    status: t.status,
+    date: t.completed_at || t.created_at,
+  }))
+
+  return aggregateSalesByProject(rows)
+}
+
 /** The caller's payout requests, most recent first. */
 export async function getMyPayouts(limit = 20) {
   const supabase = getSupabase()

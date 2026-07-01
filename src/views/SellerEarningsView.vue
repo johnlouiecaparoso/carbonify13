@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getSellerBalance, getMySales, getMyPayouts } from '@/services/payoutService'
+import { getSellerBalance, getMySales, getMySalesByProject, getMyPayouts } from '@/services/payoutService'
 import { getMyKyb } from '@/services/kybService'
 import Withdraw from '@/components/wallet/Withdraw.vue'
 
 const loading = ref(true)
 const balance = ref({ available: 0, held: 0, currency: 'PHP' })
 const sales = ref([])
+const salesByProject = ref([])
 const payouts = ref([])
 const kyb = ref({ verified: false, application: null })
 const showWithdraw = ref(false)
@@ -32,14 +33,16 @@ function shortDate(d) {
 async function load() {
   loading.value = true
   try {
-    const [b, s, p, k] = await Promise.all([
+    const [b, s, sp, p, k] = await Promise.all([
       getSellerBalance(),
       getMySales(),
+      getMySalesByProject(),
       getMyPayouts(),
       getMyKyb(),
     ])
     balance.value = b
     sales.value = s
+    salesByProject.value = sp
     payouts.value = p
     kyb.value = k
   } finally {
@@ -106,6 +109,28 @@ onMounted(load)
           <Withdraw @success="onWithdrawSuccess" @cancel="showWithdraw = false" />
         </div>
       </div>
+
+      <!-- Earnings by project -->
+      <section class="panel">
+        <h2>Earnings by project</h2>
+        <div v-if="salesByProject.length" class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>Project</th><th>Sales</th><th>Credits sold</th><th>Gross earned</th><th>Last sale</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in salesByProject" :key="row.projectId">
+                <td>{{ row.projectTitle }}</td>
+                <td>{{ row.salesCount }}</td>
+                <td>{{ row.creditsSold }}</td>
+                <td>{{ peso(row.grossEarnings) }}</td>
+                <td>{{ shortDate(row.lastSaleDate) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="muted">No completed sales yet.</p>
+      </section>
 
       <!-- Recent sales -->
       <section class="panel">
