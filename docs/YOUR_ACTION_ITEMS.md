@@ -1,11 +1,17 @@
 # 👉 Your Action Items (owner-only steps)
 
+> ## ✅ ALL COMPLETE (2026-07-01)
+> §1 (4 features click-through), §2 (payout + refund edges, reconcile = 0), and
+> §3 (account-deletion deploy) are all **done and verified**. The money path is
+> fully proven end-to-end. The steps below are kept for reference / re-testing.
+>
+> **Still to run:** migrations `20260701000200` (admin refund) and `20260701000300`
+> (admin KYC/role set) if not yet applied.
+
 > **Created:** 2026-07-01. These are the things only you can do — they need a
 > running app, real accounts/roles, or the Supabase/PayMongo dashboards. Claude
 > can't click dashboards or hold your keys. Do them top-to-bottom; paste back any
 > error and it gets diagnosed.
->
-> Migrations are already applied (`20260701000000`, `20260701000100`). ✅
 
 ---
 

@@ -8,7 +8,8 @@
 
 ## TL;DR
 
-Phases 0–8 are **code-complete** and the **money path is proven** (purchase + subscription).
+Phases 0–8 are **code-complete** and the **money path is fully proven** (purchase + subscription
++ **payout + refund**, all reconciling to 0 — verified 2026-07-01).
 The 2026-06-26 session shipped DPA tooling, the edit/resubmit loop, project-detail page,
 `local|supplier` + SDG filters, ESG export, finance console, VAT invoices, public registry,
 a schema-drift catch-up, then a **codeable-backlog sweep** (scored rubric, boundary map, MRV
@@ -25,9 +26,15 @@ of `main`).
 > around is **cleared**. The registry, `/market` dashboard, and offline service worker were also
 > verified live in the same session.
 
-**What's left of the money path:** the last two **edges** — KYB-gated payout and cart + refund
-(runbook Step E; need a seller/admin test account). Same setup, no new dashboard work; each must
-keep `reconcile_financials()` at 0 rows. After those, do the gated cutover and resume **Phase 3**.
+> ✅ **2026-07-01 — MONEY PATH FULLY PROVEN + click-through complete.** The remaining edges were
+> verified: **KYB-gated payout** and **cart + refund** both settled with `reconcile_financials()`
+> at **0 rows**. The `account-deletion` edge function was deployed (DPA erasure works). The
+> session's new features (seller per-project earnings, purchases pagination, structured
+> additionality/permanence, saved-search/price alerts) were all runtime-verified, and the admin
+> KYB-review + refunds consoles + seller KYB form + KYC-level admin override were exercised.
+
+**What's left of the money path:** nothing to *prove* — only the gated cutover remains (switch the
+Buy UI fully to the server RPC, then run `supabase/cutover/lockdown_financial_writes.sql`).
 Everything else depends on an external partner (real registry, AML data, PSP) or ops/legal.
 
 > ✅ **Migrations applied + audit clean** (2026-06-26). The live DB had drifted behind the
@@ -223,7 +230,7 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 |---|---|
 | **0 — Stabilize** | ✅ webhook conflict markers, 4 latent bugs, ESLint 0, live schema fixes |
 | **1 — Money Foundation** | ✅ **PROVEN** — real sandbox **purchase** settled (`reconcile_financials()` = 0) **and subscription** verified (`/upgrade` → Pro flipped `profiles.plan`). Provider abstraction, server-authoritative checkout, bug-fixed signed webhook, double-entry ledger, atomic purchase RPC, reconciliation |
-| **2 — Seller Payouts** | 🆕 escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard — ⏳ runtime-verify **payout + refund** (runbook Step E; needs a seller/admin test account) |
+| **2 — Seller Payouts** | ✅ **PROVEN (2026-07-01)** — escrow, payout state machine + worker, seller KYB gating, refunds/disputes, earnings dashboard; **payout + refund settled with `reconcile_financials()` = 0**. Now click-driven: seller KYB submission form, admin KYB-review (`/admin/kyb`) + refunds console (`/admin/refunds`) |
 | **Branding & UX** | ✅ Carbonify rebrand; login/map/policies/LGU/submit-project fixes; mobile polish on heavy tables |
 | **Buyer cart + watchlist** | ✅ sequential cart checkout + saved/watchlist |
 | **3 — Buyer Trust** | 🆕 project-detail page, `local\|supplier` badge + filter, ESG/offset export, SDG tagging + filter, **project boundary map (draw + display)**, **buyer portfolio gain/loss vs market** — (real registry/supplier still pending a partner) |
@@ -232,19 +239,25 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **7 — Scale & Security** | 🆕 public searchable registry, **`/market` public dashboard**, hot-path + **composite indexes**, **server-side paginated purchase history**, **double-claim serial guard**, offline service worker, **payment-path test suite (114 tests)** |
 | **8 — Mobile / PWA** | 🆕 installable manifest, offline service worker, mobile view polish |
 
-> Money path = ✅ **proven for purchase + subscription**; ⏳ payout + refund edges still want a runtime click-through. Everything else marked 🆕 is committed + build-green but runtime-untested unless noted.
+> Money path = ✅ **fully proven** (purchase + subscription + payout + refund, all reconcile to 0, 2026-07-01). The 2026-07-01 session also runtime-verified the codeable-backlog features + admin consoles below.
 
 ### ❌ Not yet implemented (what's actually left)
 | Item | Phase | Blocked on |
 |---|---|---|
-| **Payout + refund edge tests** | 1/2 | you — a seller/admin test account (runbook Step E) |
 | **Real registry/supplier integration** | 3 | 🌐 external registry partner (Verra / Gold Standard / Carbonmark / Patch) |
 | **AML / sanctions screening** | 5 | 🌐 a sanctions/PEP data vendor |
 | **Error tracking (Sentry) + alerts** | 2 | you — a Sentry DSN; then codeable |
 | **Web push notifications** | 8 | you — a deployed edge fn + VAPID keys |
 | **Pentest · backups/PITR · connection pooling · observability** | 7 | ops/infra + a provider key |
 | **Legal entity · PSP/EMI · BIR/DPO · accredited VVB** | 9 🏛️ | business/legal |
-| **Codeable backlog** (no blocker) | — | seller per-project earnings/issuance history · saved-search/price alerts · permanence + structured additionality metadata · split large view files · marketplace/portfolio list pagination wiring · nav already done for `/market` + `/upgrade` |
+| **Money-path gated cutover** (server-authoritative Buy UI + RLS lockdown) | 1 | codeable now — see NOW_IMPLEMENTATION_PLAN Wave 3 |
+| **Code hygiene** (dual-column canonicalization, FK-fallback removal, split large views) | — | codeable now — Wave 2 |
+
+> ✅ **2026-07-01 — DONE this session (built + runtime-verified):** seller per-project earnings ·
+> purchases pagination · structured additionality/permanence · saved-search/price alerts · admin
+> KYB-review console · refunds/disputes console · seller KYB submission form · admin KYC-level
+> override + level list. Migrations `20260701000000–000300` applied. All the codeable-backlog +
+> "built-but-not-clickable" gaps are closed.
 
 ---
 
