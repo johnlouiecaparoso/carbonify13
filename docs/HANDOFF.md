@@ -1,6 +1,7 @@
 # Carbonify — Handoff (current state)
 
-> **Updated:** 2026-06-26 · **Branch:** `feature-user-onboarding-ux`
+> **Updated:** 2026-06-27 · **Branch:** `feature-user-onboarding-ux`
+> Doc refresh only; runtime state is unchanged from the 2026-06-26 verification run.
 > Supersedes the 2026-06-25 handoff. Pair with [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md)
 > (plain-language roadmap), [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md)
 > (money-path steps), and [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (full roadmap).
@@ -63,10 +64,28 @@ to confirm an empty result.
 > |---|---|---|
 > | 10 | `20260627000000_scale_composite_indexes.sql` | Composite hot-path indexes (sold-qty scan, history, seller listings). |
 > | 11 | `20260627000100_market_integrity.sql` | Double-claim serial guard + `public_market_stats()` RPC (powers `/market`). |
+> | 12 | `20260627000200_fix_admin_recent_transactions_casts.sql` | **Fixes a live 42804** — `admin_recent_transactions()` selected raw `credit_transactions` columns with no casts, so on a drifted DB (e.g. `quantity` integer ≠ declared numeric) the Finance Console RPC 400'd. Now casts each column to its declared type. |
 
 ---
 
 ## 1. What changed
+
+### 2026-06-26 — UI/UX design pass + a Submit-Project fix (build green, ESLint 0, 114 tests)
+A presentation-layer polish sweep across the most-used screens, kept brand-safe (green/white
+Carbonify identity) and **logic-free** except for one genuine bug fix. Every change is CSS/markup
+only and revertible per-file with `git checkout`.
+| Area | What | Notes |
+|---|---|---|
+| Header / nav | Profile dropdown + mobile menu rebuilt into **role-aware grouped sections** (Workspace / Account / Shopping / Records / Tools / More) with icons + identity header; top-nav links got pill hover + animated underline | [Header.vue](../src/components/layout/Header.vue); routes unchanged |
+| Header | Removed the name/role **text block** from the bar — now just the **bell + avatar**; name/role still shown inside the dropdown | per request |
+| Page heroes | Unified the **green hero gradient** across Market, Registry, Finance Console, About to match the Marketplace hero (they were teal/light before) | [MarketDashboardView](../src/views/MarketDashboardView.vue), [RegistryView](../src/views/RegistryView.vue), [FinanceConsoleView](../src/views/FinanceConsoleView.vue), [AboutView](../src/views/AboutView.vue) |
+| Profile | Brand-gradient header, **role pill** (colour-tinted per role), phone/website shown, tinted Role & Access card | [ProfileView.vue](../src/views/ProfileView.vue) |
+| Admin dashboard | Gradient header, **floating stat cards with tinted icons**, green tool-card hovers (was off-brand blue), accented section headers + pill "Open Full Role Applications" | [AdminDashboard.vue](../src/components/admin/AdminDashboard.vue) |
+| Project detail | Pill back-button, richer hero (overlay + zoom), accented card headers, hover lifts, listing rows, gradient "Go to marketplace" button | [ProjectDetailView.vue](../src/views/ProjectDetailView.vue) |
+| **Submit Project (bug fix)** | The **Required Technical & Compliance Documents** inputs were `display:none` with no `for`/`id` and no click handler — **they were not clickable at all**. Rebuilt each as a `<label>`-wrapped **card with a plain-language description** of the document (PDD, Baseline, Additionality, Leakage, Safeguards, LGU Endorsement, Land/Lease, ECC, MOA) + an attached/required status. Clicking now opens the file picker natively | [ProjectForm.vue](../src/components/ProjectForm.vue); `handleSingleDocUpload` + refs unchanged. **Runtime-verify** an actual upload |
+
+> ⚠️ The document-input fix is exactly the "code-complete but runtime-untested" class — those
+> required-doc fields had never been clickable, so confirm a real PDF attaches on submit.
 
 ### 2026-06-26 session — features shipped (build green, ESLint 0)
 | Area | What | Commit |
@@ -264,7 +283,7 @@ the priority is **validation** plus a thin codeable backlog (see §3's "codeable
    so DPA deletion requests can be processed. Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
 
 ### B. Capture the work
-- Branch is **~67 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)
+- Branch is **~75 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)
   or merge. A ready PR body is in the session scratchpad; `gh` is installed but unauthenticated,
   so push + `gh pr create` (or the web UI) is a manual step.
 
