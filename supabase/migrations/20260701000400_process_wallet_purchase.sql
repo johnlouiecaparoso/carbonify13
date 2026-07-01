@@ -138,7 +138,7 @@ begin
     purchase_date, created_at, updated_at
   ) values (
     v_buyer, v_listing.project_credit_id, v_listing.project_credit_id, v_project_id, p_quantity,
-    v_unit, v_currency, v_txn_id, 'active', 'owned',
+    v_unit, v_currency, v_txn_id, 'owned', 'owned',
     now(), now(), now()
   );
 

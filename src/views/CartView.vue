@@ -113,8 +113,12 @@ async function startCheckout() {
     })
     const url = result?.checkoutUrl || result?.checkout_url
     if (url) {
-      // Let the callback page find the webhook-settled transaction so it can
-      // issue the certificate/receipt for this cart item too.
+      // The callback page needs the session id to verify the payment, and the
+      // intent id to find the webhook-settled transaction (so it can issue the
+      // certificate/receipt for this cart item).
+      if (result.sessionId) {
+        localStorage.setItem('pending_purchase_session', result.sessionId)
+      }
       if (result.paymentIntentId) {
         localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
       }
