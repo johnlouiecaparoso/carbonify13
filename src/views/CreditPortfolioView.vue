@@ -212,6 +212,13 @@
                 </div>
 
                 <div class="credit-actions">
+                  <button
+                    v-if="credit.ownership_status !== 'retired' && credit.quantity > 0"
+                    class="btn btn-sm btn-primary"
+                    @click="router.push('/retire')"
+                  >
+                    Retire Credits
+                  </button>
                   <button class="btn btn-sm btn-outline" @click="router.push('/wallet')">
                     Manage in Wallet
                   </button>

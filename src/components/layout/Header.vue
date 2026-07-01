@@ -100,13 +100,6 @@
         </div>
 
         <div v-if="userStore.isAuthenticated" class="user-menu">
-            <div class="user-info">
-              <span class="user-name">
-                {{ userStore.profile?.full_name || 'User' }}
-                <VerifiedBadge v-if="isKycVerified" type="kyc" icon-only />
-              </span>
-              <span class="user-role">{{ getRoleDisplayName(userStore.role) }}</span>
-            </div>
           <div
             class="user-avatar user-avatar-thumb"
             :class="{ 'has-image': showAvatarImage }"
@@ -123,38 +116,57 @@
           </div>
             <!-- User Dropdown Menu -->
             <div v-if="showUserMenu" class="user-dropdown">
-              <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
-                Profile Settings
-              </router-link>
-
-              <template v-if="showAccountLinks">
-                <div class="dropdown-divider"></div>
-                <router-link
-                  v-for="link in accountLinks"
-                  :key="link.path"
-                  :to="link.path"
-                  class="dropdown-item"
-                  @click="showUserMenu = false"
+              <!-- Identity header -->
+              <div class="dropdown-header">
+                <div
+                  class="dropdown-avatar"
+                  :class="{ 'has-image': showAvatarImage }"
                 >
-                  {{ link.label }}
+                  <img
+                    v-if="showAvatarImage"
+                    :src="avatarUrl"
+                    alt="User avatar"
+                    class="avatar-img"
+                    @error.stop="onAvatarError"
+                  />
+                  <span v-else class="avatar-initials">{{ avatarInitials }}</span>
+                </div>
+                <div class="dropdown-identity">
+                  <span class="dropdown-name">
+                    {{ userStore.profile?.full_name || 'User' }}
+                    <VerifiedBadge v-if="isKycVerified" type="kyc" icon-only />
+                  </span>
+                  <span class="dropdown-role" :data-role="userStore.role">
+                    {{ getRoleDisplayName(userStore.role) }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="dropdown-scroll">
+                <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
+                  <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">manage_accounts</span>
+                  <span>Profile Settings</span>
                 </router-link>
-              </template>
 
-              <!-- Admin Tools moved to Admin Dashboard page -->
+                <template v-for="section in profileSections" :key="section.title">
+                  <div class="dropdown-section-label">{{ section.title }}</div>
+                  <router-link
+                    v-for="link in section.items"
+                    :key="link.path"
+                    :to="link.path"
+                    class="dropdown-item"
+                    @click="showUserMenu = false"
+                  >
+                    <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">{{ link.icon }}</span>
+                    <span>{{ link.label }}</span>
+                  </router-link>
+                </template>
+              </div>
 
-              <!-- Hidden for now: Preferences, Analytics, Social Impact -->
-              <!-- <router-link to="/preferences" class="dropdown-item" @click="showUserMenu = false">
-                Preferences
-              </router-link>
-              <router-link to="/analytics" class="dropdown-item" @click="showUserMenu = false">
-                Analytics
-              </router-link>
-              <router-link to="/social" class="dropdown-item" @click="showUserMenu = false">
-                Social Impact
-              </router-link> -->
-
-              <div class="dropdown-divider"></div>
-              <button @click="handleLogout" class="dropdown-item logout">Logout</button>
+              <button @click="handleLogout" class="dropdown-item logout">
+                <span class="material-symbols-outlined dropdown-ico" aria-hidden="true">logout</span>
+                <span>Logout</span>
+              </button>
             </div>
           </div>
           <div v-else class="auth-buttons">
@@ -169,141 +181,80 @@
     <div v-if="mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false">
       <div class="mobile-menu" @click.stop>
         <div class="mobile-content">
-          <!-- Header with Logo and Name -->
-          <div
-            style="
-              padding: 1rem !important;
-              background: #e8f5e8 !important;
-              border-bottom: 2px solid #4caf50 !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: space-between !important;
-            "
-          >
-            <div
-              style="
-                display: flex !important;
-                align-items: center !important;
-                gap: 0.75rem !important;
-              "
-            >
-              <img
-                src="/carbonify-logo.png"
-                alt="Carbonify"
-                style="
-                  height: 26px !important;
-                  width: auto !important;
-                  border-radius: 0 !important;
-                "
-              />
-              <h3
-                style="
-                  margin: 0 !important;
-                  color: #2d5a2d !important;
-                  font-size: 1.2rem !important;
-                  font-weight: 600 !important;
-                "
-              >
-                Carbonify
-              </h3>
-            </div>
-            <button
-              @click="mobileMenuOpen = false"
-              style="
-                background: none !important;
-                border: none !important;
-                font-size: 1.5rem !important;
-                cursor: pointer !important;
-                color: #2d5a2d !important;
-                padding: 0.25rem !important;
-              "
-            >
-              ×
+          <!-- Header with Logo and Close -->
+          <div class="m-menu-head">
+            <img src="/carbonify-logo.png" alt="Carbonify" class="m-menu-logo" />
+            <button class="m-menu-close" @click="mobileMenuOpen = false" aria-label="Close menu">
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
 
-          <!-- NAVIGATION LINKS -->
-          <div style="padding: 1rem !important; background: white !important">
-            <div
-              style="
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 0.5rem !important;
-              "
-            >
-              <router-link
-                v-for="item in navItems"
-                :key="item.path"
-                :to="item.path"
-                @click="mobileMenuOpen = false"
-                style="
-                  display: block !important;
-                  padding: 0.75rem !important;
-                  background: #e8f5e8 !important;
-                  border: 1px solid #4caf50 !important;
-                  border-radius: 6px !important;
-                  text-decoration: none !important;
-                  color: #2d5a2d !important;
-                  font-weight: 500 !important;
-                "
-              >
-                {{ item.label }}
-              </router-link>
-
-              <router-link
-                v-if="userStore.isAuthenticated"
-                to="/profile"
-                @click="mobileMenuOpen = false"
-                style="
-                  display: block !important;
-                  padding: 0.75rem !important;
-                  background: #e8f5e8 !important;
-                  border: 1px solid #4caf50 !important;
-                  border-radius: 6px !important;
-                  text-decoration: none !important;
-                  color: #2d5a2d !important;
-                  font-weight: 500 !important;
-                "
-              >
-                Profile Settings
-              </router-link>
-
-              <router-link
-                v-for="link in (showAccountLinks ? accountLinks : [])"
-                :key="link.path"
-                :to="link.path"
-                @click="mobileMenuOpen = false"
-                style="
-                  display: block !important;
-                  padding: 0.75rem !important;
-                  background: #e8f5e8 !important;
-                  border: 1px solid #4caf50 !important;
-                  border-radius: 6px !important;
-                  text-decoration: none !important;
-                  color: #2d5a2d !important;
-                  font-weight: 500 !important;
-                "
-              >
-                {{ link.label }}
-              </router-link>
-
-              <button
-                v-if="userStore.isAuthenticated"
-                @click="handleLogout"
-                style="
-                  display: block !important;
-                  padding: 0.75rem !important;
-                  background: #fee2e2 !important;
-                  border: 1px solid #ef4444 !important;
-                  border-radius: 6px !important;
-                  text-decoration: none !important;
-                  color: #b91c1c !important;
-                  font-weight: 600 !important;
-                "
-              >
-                Logout
-              </button>
+          <!-- Signed-in identity card -->
+          <div v-if="userStore.isAuthenticated" class="m-user-card">
+            <div class="m-user-avatar" :class="{ 'has-image': showAvatarImage }">
+              <img
+                v-if="showAvatarImage"
+                :src="avatarUrl"
+                alt="User avatar"
+                @error.stop="onAvatarError"
+              />
+              <span v-else>{{ avatarInitials }}</span>
             </div>
+            <div class="m-user-meta">
+              <span class="m-user-name">{{ userStore.profile?.full_name || 'User' }}</span>
+              <span class="m-user-role" :data-role="userStore.role">
+                {{ getRoleDisplayName(userStore.role) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Navigation + grouped account links -->
+          <nav class="m-nav">
+            <div class="m-section-label">Navigate</div>
+            <router-link
+              v-for="item in navItems"
+              :key="item.path"
+              :to="item.path"
+              @click="mobileMenuOpen = false"
+              class="m-nav-item"
+              :class="{ active: isActive(item.path) }"
+            >
+              <span>{{ item.label }}</span>
+            </router-link>
+
+            <template v-if="userStore.isAuthenticated">
+              <div class="m-section-label">Account</div>
+              <router-link to="/profile" @click="mobileMenuOpen = false" class="m-nav-item">
+                <span class="material-symbols-outlined m-nav-ico" aria-hidden="true">manage_accounts</span>
+                <span>Profile Settings</span>
+              </router-link>
+
+              <template v-for="section in profileSections" :key="section.title">
+                <div class="m-section-label">{{ section.title }}</div>
+                <router-link
+                  v-for="link in section.items"
+                  :key="link.path"
+                  :to="link.path"
+                  @click="mobileMenuOpen = false"
+                  class="m-nav-item"
+                >
+                  <span class="material-symbols-outlined m-nav-ico" aria-hidden="true">{{ link.icon }}</span>
+                  <span>{{ link.label }}</span>
+                </router-link>
+              </template>
+            </template>
+          </nav>
+
+          <!-- Footer actions -->
+          <div class="m-foot">
+            <button v-if="userStore.isAuthenticated" class="m-logout" @click="handleLogout">
+              <span class="material-symbols-outlined m-nav-ico" aria-hidden="true">logout</span>
+              <span>Logout</span>
+            </button>
+            <template v-else>
+              <router-link to="/login" class="m-auth-btn" @click="mobileMenuOpen = false">Login</router-link>
+              <router-link to="/register" class="m-auth-btn primary" @click="mobileMenuOpen = false">Sign Up</router-link>
+            </template>
           </div>
         </div>
       </div>
@@ -379,6 +330,7 @@ const navItems = computed(() => {
     // Portfolio (a buyer's owned/retired credits + ESG export) and the Carbon
     // Calculator are prominent enough to keep in the top nav.
     items.push({ path: '/credit-portfolio', label: 'Portfolio' })
+    items.push({ path: '/retire', label: 'Retire Credits' })
     items.push({ path: '/carbon-calculator', label: 'Carbon Calculator' })
   }
 
@@ -390,6 +342,7 @@ const navItems = computed(() => {
   if (userStore.isProjectDeveloper) {
     items.push({ path: '/submit-project', label: 'Submit Project' })
     items.push({ path: '/developer/projects', label: 'My Project Dashboard' })
+    items.push({ path: '/sales', label: 'Seller Earnings' })
     // Project Map + Monitoring (MRV) live in the profile dropdown (accountLinks).
   }
 
@@ -404,48 +357,116 @@ const navItems = computed(() => {
   return items
 })
 
-// Role-aware links shown under "Profile Settings" in the profile dropdown to
-// keep the top nav uncluttered.
-const accountLinks = computed(() => {
+// Role-aware links shown under "Profile Settings" in the profile dropdown,
+// grouped into labelled sections (each with a Material Symbols icon) so the
+// dashboards/account pages are organised the same way for every role and the
+// top nav stays uncluttered. Routes are unchanged from before — only their
+// grouping + icons are new.
+const profileSections = computed(() => {
   if (!userStore.isAuthenticated) return []
 
-  // About sits in the profile dropdown for every signed-in role.
-  const aboutLink = { path: '/about', label: 'About' }
+  const aboutItem = { path: '/about', label: 'About', icon: 'info' }
+  const sections = []
 
-  // Project developers: map + monitoring tucked under the profile menu.
+  // 1) Workspace — each role's primary dashboards. These also live in the top
+  //    nav; surfacing them here gives a consistent quick-access spot per role.
+  const workspace = []
+  if (userStore.isAdmin) {
+    workspace.push(
+      { path: '/admin', label: 'Admin Dashboard', icon: 'space_dashboard' },
+      { path: '/admin/finance', label: 'Finance Console', icon: 'account_balance' },
+      { path: '/admin/users', label: 'User Management', icon: 'group' },
+      { path: '/admin/kyc', label: 'KYC Review', icon: 'badge' },
+      { path: '/admin/config', label: 'System Config', icon: 'tune' },
+    )
+  }
+  if (userStore.isVerifier) {
+    workspace.push({ path: '/verifier', label: 'Verifier Panel', icon: 'fact_check' })
+  }
   if (userStore.isProjectDeveloper) {
-    return [
-      { path: '/map', label: 'Project Map' },
-      { path: '/monitoring', label: 'Monitoring (MRV)' },
-      { path: '/upgrade', label: 'Upgrade plan' },
-      aboutLink,
-    ]
+    workspace.push(
+      { path: '/developer/projects', label: 'My Projects', icon: 'space_dashboard' },
+      { path: '/submit-project', label: 'Submit Project', icon: 'add_circle' },
+      { path: '/sales', label: 'Seller Earnings', icon: 'payments' },
+    )
   }
+  if (userStore.isLguUser) {
+    workspace.push({ path: '/lgu', label: 'LGU Tools', icon: 'apartment' })
+  }
+  if (workspace.length) sections.push({ title: 'Workspace', items: workspace })
 
-  // Buyers / general users: account pages ordered by importance. KYC gates
-  // transacting, so it leads; the relocated About, Saved and Cart sit beneath it
-  // alongside the existing wallet, receipts and certificate pages.
-  if (!(userStore.isAdmin || userStore.isVerifier)) {
-    return [
-      { path: '/kyc', label: 'KYC Verification' },
-      { path: '/wallet', label: 'Wallet' },
+  // 2) Project developers: map + monitoring tucked under the profile menu.
+  if (userStore.isProjectDeveloper) {
+    sections.push(
       {
-        path: '/cart',
-        label: cartStore.count > 0 ? `Cart (${cartStore.count})` : 'Cart',
+        title: 'Project Tools',
+        items: [
+          { path: '/map', label: 'Project Map', icon: 'map' },
+          { path: '/monitoring', label: 'Monitoring (MRV)', icon: 'monitoring' },
+        ],
       },
-      { path: '/watchlist', label: 'Saved' },
-      { path: '/receipts', label: 'Receipts' },
-      { path: '/certificates', label: 'Certificates' },
-      { path: '/upgrade', label: 'Upgrade plan' },
-      aboutLink,
-    ]
+      {
+        title: 'More',
+        items: [
+          { path: '/upgrade', label: 'Upgrade plan', icon: 'rocket_launch' },
+          aboutItem,
+        ],
+      },
+    )
+    return sections
   }
 
-  // Admins / verifiers: About under the profile menu.
-  return [aboutLink]
-})
+  // 3) Buyers / general / LGU users: account pages grouped by purpose. KYC gates
+  //    transacting, so it leads the Account group.
+  if (!(userStore.isAdmin || userStore.isVerifier)) {
+    sections.push(
+      {
+        title: 'Account',
+        items: [
+          { path: '/kyc', label: 'KYC Verification', icon: 'verified_user' },
+          { path: '/wallet', label: 'Wallet', icon: 'account_balance_wallet' },
+        ],
+      },
+      {
+        title: 'Shopping',
+        items: [
+          {
+            path: '/cart',
+            label: cartStore.count > 0 ? `Cart (${cartStore.count})` : 'Cart',
+            icon: 'shopping_cart',
+          },
+          { path: '/watchlist', label: 'Saved', icon: 'bookmark' },
+        ],
+      },
+      {
+        title: 'Credits',
+        items: [
+          { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
+          { path: '/retire', label: 'Retire Credits', icon: 'eco' },
+        ],
+      },
+      {
+        title: 'Records',
+        items: [
+          { path: '/receipts', label: 'Receipts', icon: 'receipt_long' },
+          { path: '/certificates', label: 'Certificates', icon: 'verified' },
+        ],
+      },
+      {
+        title: 'More',
+        items: [
+          { path: '/upgrade', label: 'Upgrade plan', icon: 'rocket_launch' },
+          aboutItem,
+        ],
+      },
+    )
+    return sections
+  }
 
-const showAccountLinks = computed(() => accountLinks.value.length > 0)
+  // 4) Admins / verifiers: only About remains outside the Workspace group.
+  sections.push({ title: 'More', items: [aboutItem] })
+  return sections
+})
 
 function isActive(path) {
   return route.path === path
@@ -923,35 +944,56 @@ watch(
 .desktop-nav {
   display: none;
   align-items: center;
-  gap: 1.5rem;
+  gap: 0.5rem;
 }
 
 .nav-link {
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  font-weight: 500;
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: var(--transition);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-lg);
   position: relative;
 }
 
+/* Animated underline accent that grows on hover */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0.9rem;
+  right: 0.9rem;
+  bottom: 0.3rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary-color);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.22s ease;
+}
+
 .nav-link:hover:not(.active) {
-  color: var(--primary-color);
+  color: var(--primary-dark);
   background: var(--bg-green-light);
   transform: translateY(-1px);
 }
 
+.nav-link:hover:not(.active)::after {
+  transform: scaleX(1);
+}
+
 .nav-link.active {
   color: var(--text-light);
-  background: var(--primary-color);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
   font-weight: 600;
   box-shadow: var(--shadow-green);
 }
 
 .nav-link.active:hover {
-  background: var(--primary-hover);
+  background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary-dark) 100%);
   color: var(--text-light);
+  transform: translateY(-1px);
 }
 
 /* Admin navigation items removed - admin features accessible via profile dropdown */
@@ -1158,50 +1200,185 @@ watch(
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 0.5rem;
+  margin-top: 0.6rem;
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-green-light);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 40px rgba(6, 158, 45, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
   z-index: 1000;
-  min-width: 14rem;
-  max-width: 18rem;
+  min-width: 16rem;
+  max-width: 19rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(75vh, 34rem);
+  animation: dropdownIn 0.16s ease;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Identity header */
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.dropdown-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+  font-weight: 700;
   overflow: hidden;
 }
 
-.dropdown-item {
-  display: block;
+.dropdown-avatar .avatar-img {
   width: 100%;
-  padding: 0.75rem 1rem;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.dropdown-avatar .avatar-initials {
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+}
+
+.dropdown-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dropdown-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-role {
+  margin-top: 0.25rem;
+  align-self: flex-start;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* Scrollable link area between the fixed header and logout */
+.dropdown-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.35rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-green-light) transparent;
+}
+
+.dropdown-scroll::-webkit-scrollbar,
+.m-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-scroll::-webkit-scrollbar-thumb,
+.m-nav::-webkit-scrollbar-thumb {
+  background: var(--border-green-light);
+  border-radius: 999px;
+}
+
+/* Section labels that group the links */
+.dropdown-section-label {
+  padding: 0.5rem 1rem 0.25rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
   font-size: var(--font-size-sm);
+  font-weight: 500;
   color: var(--text-primary);
   text-decoration: none;
   border: none;
   background: none;
   text-align: left;
   cursor: pointer;
-  transition: var(--transition);
-  border-bottom: 1px solid var(--border-light);
+  transition: background 0.15s ease, color 0.15s ease, padding-left 0.15s ease;
   box-sizing: border-box;
+  position: relative;
 }
 
-.dropdown-item:last-child {
-  border-bottom: none;
+.dropdown-ico {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.15s ease;
 }
 
 .dropdown-item:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-green-light);
+  color: var(--primary-dark);
+  padding-left: 1.25rem;
+}
+
+.dropdown-item:hover .dropdown-ico {
   color: var(--primary-color);
 }
 
+/* Logout pinned at the bottom, divided from the list */
 .dropdown-item.logout {
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.dropdown-item.logout .dropdown-ico {
+  color: #ef4444;
 }
 
 .dropdown-item.logout:hover {
   color: #dc2626;
   background: #fef2f2;
 }
+
+.dropdown-item.logout:hover .dropdown-ico {
+  color: #dc2626;
+}
+
+/* Role-tinted pill colours in the dropdown header */
+.dropdown-role[data-role='admin'] { background: rgba(255, 255, 255, 0.28); }
+.dropdown-role[data-role='verifier'] { background: rgba(255, 255, 255, 0.24); }
 
 /* Admin Dropdown Items */
 .dropdown-divider {
@@ -2071,5 +2248,225 @@ watch(
   .desktop-actions {
     display: none;
   }
+}
+
+/* ============================================================
+   Refreshed mobile drawer (grouped, icon-led, brand-consistent)
+   ============================================================ */
+.m-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(135deg, var(--bg-green-light) 0%, var(--bg-secondary) 100%);
+  border-bottom: 2px solid var(--border-green-light);
+  flex-shrink: 0;
+}
+
+.m-menu-logo {
+  height: 1.9rem;
+  width: auto;
+  display: block;
+}
+
+.m-menu-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.m-menu-close:hover {
+  background: var(--error-light);
+  color: var(--error-color);
+  border-color: var(--error-color);
+}
+
+.m-menu-close .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+/* Identity card */
+.m-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.9rem;
+  padding: 0.85rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.m-user-avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.m-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.m-user-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.m-user-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-user-role {
+  margin-top: 0.25rem;
+  align-self: flex-start;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Grouped nav */
+.m-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.6rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.m-section-label {
+  padding: 0.7rem 0.5rem 0.3rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.m-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.75rem;
+  margin: 0.12rem 0;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  transition: all 0.18s ease;
+}
+
+.m-nav-item:hover {
+  background: var(--bg-green-light);
+  border-color: var(--border-green-light);
+  color: var(--primary-dark);
+  transform: translateX(3px);
+}
+
+.m-nav-item.active {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
+.m-nav-ico {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.m-nav-item:hover .m-nav-ico {
+  color: var(--primary-color);
+}
+
+/* Footer */
+.m-foot {
+  flex-shrink: 0;
+  padding: 0.75rem 0.9rem 1rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.m-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-md);
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.m-logout:hover {
+  background: #fecaca;
+}
+
+.m-logout .m-nav-ico {
+  color: #dc2626;
+}
+
+.m-auth-btn {
+  display: block;
+  text-align: center;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-green-light);
+  border: 1px solid var(--border-green-light);
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+.m-auth-btn.primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.m-auth-btn.primary:hover {
+  background: var(--primary-hover);
 }
 </style>

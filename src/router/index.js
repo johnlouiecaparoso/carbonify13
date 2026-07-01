@@ -87,7 +87,12 @@ const router = createRouter({
       name: 'role-application',
       component: () => import('@/views/RoleApplicationView.vue'),
     },
-    { path: '/retire', redirect: '/wallet' },
+    {
+      path: '/retire',
+      name: 'retire',
+      component: () => import('@/views/RetireView.vue'),
+      meta: { requiresAuth: true },
+    },
     {
       // Public certificate verification (QR codes resolve here)
       path: '/verify/:certificateNumber?',
