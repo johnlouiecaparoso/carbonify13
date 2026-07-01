@@ -1,11 +1,12 @@
 # Carbonify — Production Readiness & Roadmap TODO
 
-> Created 2026-06-15 from the system analysis (deployment readiness, scalability/feasibility, and feature gaps).
-> Plan only — no code yet. Check items off as they're completed.
+> Created 2026-06-15 from the system analysis · **Updated 2026-07-01.**
+> Check items off as they're completed.
 >
-> **Verdict:** Strong, well-architected MVP with a sound money core that is *unproven at runtime* and
-> missing the *trust/registry layer*. Deployable to a **sandbox/closed beta** after Phase 1–2;
-> **real-money production** also needs the legal/compliance track + a real registry integration.
+> **Verdict (2026-07-01):** Strong, well-architected MVP with a **money core now PROVEN at runtime**
+> (purchase + subscription + payout + refund, 0 drift). Still missing the *trust/registry layer*.
+> Deployable to a **sandbox/closed beta** now; **real-money production** also needs the
+> legal/compliance track + a real registry integration.
 
 Legend: 🔴 blocker · 🟠 important · 🟢 minor · 🏛️ business/legal (not code)
 
@@ -23,11 +24,11 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
   - [ ] `20260615000200_app_settings`
   - [ ] `20260615000400_verification_checklist`
   - [ ] (already run: `…000000_subscriptions`, `…000300_watchlist`)
-- [ ] 🔴 Sandbox purchase end-to-end: `createMarketplaceCheckout` → webhook → `process_marketplace_purchase` → credits in portfolio
-- [ ] 🔴 Confirm `ledger_entries` balance and `reconcile_financials()` returns 0 rows
-- [ ] 🔴 Verify escrow hold created, then a **KYB-gated payout** request → `process-payouts` worker
-- [ ] 🟠 Sandbox a **subscription** checkout → webhook → `activate_subscription` flips the plan
-- [ ] 🟠 Sandbox the **cart** sequential checkout (2 items) and a **refund/dispute**
+- [x] 🔴 Sandbox purchase end-to-end: `createMarketplaceCheckout` → webhook → `process_marketplace_purchase` → credits in portfolio ✅ (2026-06-26)
+- [x] 🔴 Confirm `ledger_entries` balance and `reconcile_financials()` returns 0 rows ✅
+- [x] 🔴 Verify escrow hold created, then a **KYB-gated payout** request → `process-payouts` worker ✅ (2026-07-01)
+- [x] 🟠 Sandbox a **subscription** checkout → webhook → `activate_subscription` flips the plan ✅
+- [x] 🟠 Sandbox the **cart** sequential checkout (2 items) and a **refund/dispute** ✅ (2026-07-01) — refund console at `/admin/refunds`
 
 ## Phase 2 — Beta hardening (1–2 weeks)
 
@@ -41,7 +42,7 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 
 ## Phase 3 — Scale & schema discipline (2–4 weeks)
 
-- [~] 🟠 **Server-side pagination** — buyer purchase history done (`getUserPurchaseHistoryPage`, SQL order/filter + exact count, 2026-06-26); marketplace/portfolio list wiring still to do
+- [x] 🟠 **Server-side pagination** — buyer purchase history (`getUserPurchaseHistoryPage`) + purchases-tab UI wiring done (2026-07-01, `/retire` un-orphaned)
 - [x] 🟠 **Composite hot-path indexes** added (`20260627000000`) — sold-qty scan, buyer/seller history, seller listings, KYC gate _(2026-06-26)_
 - [ ] 🟠 Replace the per-load `credit_transactions` scan with an index or a denormalized `sold_qty` (trigger-maintained)
 - [ ] 🟠 Add a **connection pooler** (PgBouncer) before ~100 concurrent users
@@ -56,7 +57,7 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 - [ ] 🔴 **Real registry/supplier integration** (replace `MockCreditSupplier` with Verra/Gold Standard/Carbonmark/Patch) — gated on a commercial agreement 🏛️
 - [x] 🟠 **Public searchable registry** (projects / credits / retirements) _(shipped 2026-06-26; verified live)_ — plus a **`/market` public dashboard** (`public_market_stats`)
 - [x] 🟠 **Double-claim prevention** — unique `certificates.registry_serial` guard so a non-retired credit can't back two certificates _(2026-06-26, `20260627000100`)_
-- [~] 🟠 Deeper **due-diligence metadata** — co-benefits/SDGs ✅, project boundaries (map polygon) ✅ _(2026-06-26)_; permanence + structured additionality still to do
+- [x] 🟠 Deeper **due-diligence metadata** — co-benefits/SDGs ✅, project boundaries (map polygon) ✅, **permanence + structured additionality ✅** _(2026-07-01)_
 - [ ] 🏛️ **Independent (VVB) verifier** model — external accreditation/governance
 - [ ] 🏛️ **Approved/peer-reviewed methodologies** (vs the current simplified factors)
 
@@ -65,7 +66,7 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 ## Feature backlog by role (post-beta)
 
 ### Admin
-- [ ] Marketplace/transaction oversight (refunds, disputes, chargebacks)
+- [~] Marketplace/transaction oversight — **refunds + disputes console done** (`/admin/refunds`, 2026-07-01); chargebacks still to do
 - [ ] Verifier performance metrics; project-lifecycle analytics with drill-down
 - [ ] Emission-factor **versioning/history** + rollback
 
@@ -75,7 +76,7 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 - [ ] Project-type-specific checklist templates
 
 ### Project Developer
-- [ ] Credit **issuance + earnings visibility** (per-project mint history + payout status)
+- [~] Credit **issuance + earnings visibility** — **per-project earnings breakdown done** (`/sales`, 2026-07-01); per-project mint history still to do
 - [ ] MRV reminders/schedule; impact/ESG export; team/co-developer access
 
 ### LGU
@@ -83,7 +84,7 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 - [ ] Link MSW achievements to marketplace projects
 
 ### Buyer / Investor
-- [ ] Portfolio **gain/loss vs market**; saved-search alerts; recurring buys
+- [~] Portfolio **gain/loss vs market** ✅ + **saved-search price alerts** ✅ (2026-07-01); recurring buys still to do
 - [ ] Corporate offset inventory + GHG reporting export; buyer-protection/dispute path
 
 ### General user

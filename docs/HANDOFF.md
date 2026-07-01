@@ -1,10 +1,12 @@
 # Carbonify — Handoff (current state)
 
-> **Updated:** 2026-06-27 · **Branch:** `feature-user-onboarding-ux`
-> Doc refresh only; runtime state is unchanged from the 2026-06-26 verification run.
-> Supersedes the 2026-06-25 handoff. Pair with [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md)
-> (plain-language roadmap), [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md)
-> (money-path steps), and [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (full roadmap).
+> **Updated:** 2026-07-01 · **Branch:** `feature-user-onboarding-ux`
+> Money path **fully proven** (purchase + subscription + payout + refund); this session's
+> features + admin consoles all runtime-verified. Supersedes the 2026-06-27 handoff. Pair with
+> [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md) (plain-language roadmap),
+> [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md) (build-now plan),
+> [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) (owner steps), and
+> [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (full roadmap).
 
 ## TL;DR
 
@@ -15,8 +17,9 @@ The 2026-06-26 session shipped DPA tooling, the edit/resubmit loop, project-deta
 a schema-drift catch-up, then a **codeable-backlog sweep** (scored rubric, boundary map, MRV
 reminders, offline SW, mobile polish) and a **Phase 2–4 sweep** (payment-path tests → 114
 tests, composite indexes + paginated history, `/market` dashboard + double-claim guard, buyer
-portfolio P&L) and nav links. Build green, ESLint 0, 114 tests throughout (~75 commits ahead
-of `main`).
+portfolio P&L) and nav links. The **2026-07-01 session** then proved the money-path edges
+(payout + refund), shipped the codeable backlog + admin action consoles, and runtime-verified
+everything. Build green, ESLint 0, **145 tests** (~86 commits ahead of `main`).
 
 > ✅ **2026-06-26 — THE CORE MONEY PATH IS PROVEN.** The §0 migrations were applied, the 3
 > PayMongo secrets were set, the **bug-fixed `paymongo-webhook` was deployed**, and a real
@@ -76,6 +79,26 @@ to confirm an empty result.
 ---
 
 ## 1. What changed
+
+### 2026-07-01 — money edges proven + codeable backlog + admin consoles (build green, ESLint 0, 145 tests)
+The money path was proven end-to-end and the remaining "built-but-not-clickable" gaps were closed.
+Everything below was **runtime-verified** this session (not just build-green). Four idempotent
+migrations (`20260701000000–000300`) were applied.
+| Area | What | Notes |
+|---|---|---|
+| **Money edges** | ✅ **payout + refund proven** — KYB-gated payout settled; cart + refund reversed; `reconcile_financials()` = 0 throughout | Phase 2 now PROVEN, not just code-complete |
+| Backlog | Seller **per-project earnings** breakdown on `/sales` | pure `aggregateSalesByProject` + unit tests |
+| Backlog | **Server-side pagination** on the buyer purchases tab | also un-orphaned `/retire` (redirected to `/wallet`, was unreachable) |
+| Phase 3 | **Structured additionality + permanence** metadata (form → trust card) | migration `…000000`; persisted across all 3 write paths |
+| Phase 6 | **Saved searches + price alerts** (marketplace) | migration `…000100`; bell alert on new/cheaper match |
+| Nav | Surfaced **Retire Credits** (buyers) + **Seller Earnings** (developers) in nav | both existed but were linked nowhere |
+| Phase 5 | **Admin KYB-review console** (`/admin/kyb`) + **Refunds/Disputes console** (`/admin/refunds`) | migration `…000200` (admin refund RPC); were backend-only RPCs |
+| Phase 2 | **Seller KYB submission form** (from the Seller Earnings gate) | completes the click-driven payout path |
+| Phase 5 | **Admin KYC-level override + level list** in User Management (fixes a 400) | migration `…000300`; KYC ≠ KYB clarified |
+| DPA | **`account-deletion` edge function deployed** | erasure worker live |
+
+> All 2026-07-01 work is committed on `feature-user-onboarding-ux` and pushed. Migrations
+> `20260701000000–000300` are applied on the live DB.
 
 ### 2026-06-26 — UI/UX design pass + a Submit-Project fix (build green, ESLint 0, 114 tests)
 A presentation-layer polish sweep across the most-used screens, kept brand-safe (green/white

@@ -1,10 +1,20 @@
 # Carbonify — "Build Now" Implementation Plan
 
-> **Created:** 2026-07-01 · **Branch:** `feature-user-onboarding-ux`
+> **Created:** 2026-07-01 · **Updated:** 2026-07-01 · **Branch:** `feature-user-onboarding-ux`
 > Companion to [HANDOFF.md](HANDOFF.md) §3 (implemented vs not) and
 > [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md). This doc takes everything marked
 > **❌ not implemented** and sorts it into what we can **start in code today** vs what is
 > **blocked** on you (a key/account) or an outside party (partner/ops/legal).
+
+> ## ✅ Progress (2026-07-01)
+> - **Wave 0 (verify)** — DONE. Money edges (payout + refund) proven at 0 drift;
+>   `account-deletion` deployed; all 🆕 features click-through verified.
+> - **Wave 1 (codeable backlog)** — DONE. Pagination, seller per-project earnings,
+>   saved-search/price alerts, structured additionality/permanence — all shipped + verified.
+>   (Plus, beyond the original list: admin KYB-review + refunds consoles, seller KYB form,
+>   admin KYC-level override, and nav fixes surfacing Retire / Seller Earnings.)
+> - **Next:** Wave 2 (hygiene) and Wave 3 (money-path gated cutover) remain — both optional/
+>   non-blocking. Waves below are kept for reference.
 
 ## The sorting rule
 

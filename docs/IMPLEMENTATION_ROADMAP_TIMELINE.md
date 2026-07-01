@@ -1,9 +1,9 @@
 # Carbonify — Implementation Roadmap & Timeline
 
 > **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Carbonify scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
-> **Compiled:** 2026-06-06 · **Progress updated:** 2026-06-27
+> **Compiled:** 2026-06-06 · **Progress updated:** 2026-07-01
 >
-> **📍 Progress (2026-06-27):** **Phases 0–8 are code-complete and locally green** (ESLint 0, 114 unit tests, build ✓; financial schema applied live) — see `handoff.md`. The money foundation is now **sandbox-proven for purchase + subscription**, while the **payout/refund edges** still need a runtime click-through. Phases 3–8 shipped as pure-code sweeps and are **🆕 runtime-untested** except where noted. **Next:** finish the payout/refund edge checks + a click-through pass, then the only remaining work needs an external partner (registry, AML data, PSP) or ops/legal — see the "Not yet implemented" roadmap in `handoff.md` §3. Per-phase status is marked inline below.
+> **📍 Progress (2026-07-01):** **Phases 0–8 are code-complete; the money path (Phases 1–2) is now FULLY PROVEN** — purchase + subscription + **payout + refund** all reconcile to 0 drift (ESLint 0, 145 unit tests, build ✓). The 2026-07-01 session also runtime-verified the codeable-backlog features (seller earnings, pagination, additionality/permanence, saved searches) and shipped admin action consoles (KYB review, refunds/disputes) + a seller KYB form. **Next:** the only *code* left is the money-path gated cutover (server-authoritative Buy UI + RLS lockdown) and code hygiene ([`NOW_IMPLEMENTATION_PLAN.md`](NOW_IMPLEMENTATION_PLAN.md)); everything else needs an external partner (registry, AML data, PSP) or ops/legal. Per-phase status is marked inline below.
 
 ---
 
@@ -19,12 +19,12 @@
 | Phase | Theme | Solo-dev weeks | Cumulative | Status |
 |---|---|---|---|---|
 | **0** | Stabilize & clean up | 1–2 | Wk 2 | ✅ **Code-complete** |
-| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 | 🆕 **Code-complete** (purchase + subscription verified) |
-| **2** | Get sellers paid 🔴 | 3 | Wk 9 | 🆕 **Code-complete** (payout/refund runtime check pending) |
+| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 | ✅ **PROVEN** (purchase + subscription, 0 drift) |
+| **2** | Get sellers paid 🔴 | 3 | Wk 9 | ✅ **PROVEN** (payout + refund settled, 0 drift, 2026-07-01) |
 | **3** | Real credits + buyer trust 🔴 | 3 | Wk 12 | 🆕 **Code-complete** (real registry/supplier needs a partner) |
 | **4** | Workflow completeness 🟠 | 3 | Wk 15 | 🆕 **Code-complete** (runtime-untested) |
 | **5** | Admin & compliance 🟠 | 3 | Wk 18 | 🆕 **Code-complete** (AML needs a data vendor) |
-| **6** | Buyer & LGU experience 🟢 | 3 | Wk 21 | 🟡 **Partial** (buyer cart/watchlist done; LGU tooling + price alerts pending) |
+| **6** | Buyer & LGU experience 🟢 | 3 | Wk 21 | 🟡 **Partial** (buyer cart/watchlist + saved-search price alerts done; LGU tooling pending) |
 | **7** | Scale, transparency & security hardening 🟠 | 3 | Wk 24 | 🆕 **Code-complete** (pentest/PITR/pooling/observability are ops) |
 | **8** | Mobile / PWA 🟢 | 3 | Wk 27 | 🆕 **Code-complete** (web push pending keys) |
 | **9** | Future / institutional ⏳ | ongoing | — | ⏳ Parallel/ongoing |
@@ -75,9 +75,9 @@
 
 ---
 
-## Phase 2 — Get Sellers Paid (Weeks 7–9) 🔴 · 🆕 CODE-COMPLETE (2026-06-27)
+## Phase 2 — Get Sellers Paid (Weeks 7–9) 🔴 · ✅ PROVEN (2026-07-01)
 
-> **Status:** Branch `phase-2-seller-payouts` (current). All tasks built: `escrow_holds` hold/release, `PayoutProvider`/Mock, `payout_requests` state machine + dead-letter, `payoutService.js` + `process-payouts` worker behind `Withdraw.vue`, seller KYB (`kyb_applications`, payouts gated), refund/dispute via compensating ledger entries, `SellerEarningsView.vue` at `/sales` + listing management. The payout/refund flow still needs a **sandbox payout run** to close the remaining runtime verification gap.
+> **Status:** All tasks built and **runtime-proven**: `escrow_holds` hold/release, `PayoutProvider`/Mock, `payout_requests` state machine + dead-letter, `payoutService.js` + `process-payouts` worker behind `Withdraw.vue`, seller KYB (`kyb_applications`, payouts gated), refund/dispute via compensating ledger entries, `SellerEarningsView.vue` at `/sales` + listing management. **A sandbox KYB-gated payout settled and a refund reversed, both with `reconcile_financials()` = 0** (2026-07-01). Now fully click-driven: seller **KYB submission form**, admin **KYB-review console** (`/admin/kyb`) and **refunds/disputes console** (`/admin/refunds`).
 
 **Goal:** Developers can actually cash out. Without this Carbonify is not a real marketplace.
 

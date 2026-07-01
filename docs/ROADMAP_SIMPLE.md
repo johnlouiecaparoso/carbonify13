@@ -1,40 +1,42 @@
 # Carbonify — Simple Roadmap
 
-> **Updated:** 2026-06-26 · Plain-language plan. For the full detail see
+> **Updated:** 2026-07-01 · Plain-language plan. For the full detail see
 > [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) and [HANDOFF.md](HANDOFF.md).
 
 ## The one-line goal
 Let a buyer pay for a carbon credit and have the money land safely — then make it trustworthy enough to go live.
 
-## Where we are (2026-06-26)
-Almost everything buildable is **done**, and the big one is now **proven**: ✅ **a real buyer
-paid, the money settled, and the books balanced** (`reconcile_financials()` = 0 rows) on a live
-Vercel preview. The verifier loop, buyer-trust features, DPA tooling, finance console, VAT
-invoices, public registry, and the new offline service worker all shipped + were verified live.
-What's left of the money work is the **edges** (subscription, payout, refund). The rest needs an
-outside party (registry partner, sanctions data, PSP) or ops/legal. Net: **foundation proven —
-finish the edges, then it's all validation + partners.**
+## Where we are (2026-07-01)
+**The money works — all of it, proven.** ✅ A real buyer paid, the money settled, and the books
+balanced (`reconcile_financials()` = 0). And as of 2026-07-01 the **edges are proven too**:
+**subscription, seller payout, and refund** all settled with zero drift. The verifier loop,
+buyer-trust features, DPA tooling (erasure worker now deployed), finance console, VAT invoices,
+public registry, and offline service worker are all live and verified.
+The 2026-07-01 session also shipped + verified the last buildable extras — seller per-project
+earnings, purchases pagination, structured additionality/permanence, saved-search price alerts,
+and **admin consoles** for KYB review + refunds. Net: **the whole money path and feature set are
+proven; what remains needs an outside party (registry partner, sanctions data, PSP) or ops/legal.**
+
+> ✅ **2026-07-01 — money edges proven + gaps closed.** Payout + refund verified (zero drift);
+> `account-deletion` deployed; admin KYB-review + refunds consoles, seller KYB form, and an admin
+> KYC-level override all built and clicked through. Everything that was "built but not clickable"
+> is now reachable.
 
 ---
 
 ## 🔴 RIGHT NOW (this week)
 
-### 1. Prove money works  ✅ DONE (2026-06-26) — most important
+### 1. Prove money works  ✅ FULLY DONE (2026-07-01) — most important
 A buyer pays → the money settles → the books balance (zero drift).
-- ✅ Set the 3 secrets, deployed the fixed `paymongo-webhook`, ran a real test purchase on the
-  Vercel preview — it settled and `reconcile_financials()` returned **0 rows**. Foundation proven.
-- ⏳ **Edges still to confirm** (same setup, no new deploy): subscription (`/upgrade` → Pro),
-  KYB-gated payout (Withdraw → run `process-payouts`), and cart + refund — each must keep
-  `reconcile_financials()` at 0 rows.
+- ✅ Purchase settled, `reconcile_financials()` = **0 rows**. Foundation proven (2026-06-26).
+- ✅ **Edges proven (2026-07-01):** subscription (`/upgrade` → Pro), KYB-gated payout (Withdraw →
+  `process-payouts` → settled), and cart + refund — each kept `reconcile_financials()` at 0 rows.
 
-### 2. Let users get/delete their data  ✅ code-complete (2026-06-26)
+### 2. Let users get/delete their data  ✅ DONE (2026-07-01)
 Our Privacy Policy already promises this, so the app must be able to do it.
 - Built: **Profile → Privacy & Data** tab — "Download my data" (instant JSON export)
   and "Request account deletion" (recorded for admin processing, cancellable).
-- Erasure worker (`account-deletion` edge function) is written; deploy it when the
-  Supabase dashboard blocker (#1) is cleared.
-- **Done when (runtime):** a user downloads their export and an admin runs the
-  erasure worker on a deletion request.
+- ✅ Erasure worker (`account-deletion` edge function) **deployed and verified**.
 
 ---
 
@@ -100,10 +102,11 @@ Make listings believable.
 ## How to read this
 - 🔴 = do this week · 🟡 = do next · 🟢 = before going live
 - "You" = a dashboard/admin step only the owner can do.
-- ✅ items are built & committed (runtime-untested until you test them).
+- ✅ items are built & committed; most are now **runtime-verified** (2026-07-01).
 
-**Suggested order now:** ✅ migrations applied, ✅ core money-path test passed. Next:
-(1) verify the 3 money-path **edges** (subscription, payout, refund — all 0-drift),
-(2) deploy `account-deletion` + set `ACCOUNT_DELETION_SECRET`, (3) when ready, promote the
-preview to `main` / open the PR. Then the only feature work left needs an external partner or
-ops/legal — not more code.
+**Suggested order now:** ✅ money path fully proven (purchase + subscription + payout + refund),
+✅ `account-deletion` deployed, ✅ 2026-07-01 features + admin consoles verified. Next:
+(1) **open the PR** `feature-user-onboarding-ux` → `main` to capture the proven work,
+(2) optional codeable hardening — the **money-path gated cutover** (server-authoritative Buy UI
+then RLS lockdown) and code hygiene (see [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md)),
+(3) everything else needs an external partner or ops/legal — not more code.
