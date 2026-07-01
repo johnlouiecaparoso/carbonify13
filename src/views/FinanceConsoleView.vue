@@ -169,7 +169,7 @@ onMounted(refresh)
   padding: 0 1.5rem;
 }
 .page-header {
-  background: linear-gradient(135deg, #10b981, #04773b);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   padding: 2rem 0;
 }
 .page-title {

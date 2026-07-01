@@ -244,6 +244,53 @@ export async function createMarketplaceCheckout({ listingId, quantity, billing }
 }
 
 /**
+ * Server-recorded wallet top-up checkout (Phase 1 P5).
+ *
+ * Records a payment_intent (purpose 'wallet_topup') server-side; the webhook
+ * credits the balance. The client no longer writes wallet_accounts /
+ * wallet_transactions for a top-up.
+ *
+ * @param {{ amount: number, billing?: object }} args
+ * @returns {Promise<{ success: boolean, sessionId: string, checkoutUrl: string, amount: number, currency: string, paymentIntentId: string }>}
+ */
+export async function createWalletTopupCheckout({ amount, billing } = {}) {
+  if (!amount || amount <= 0) {
+    throw new Error('A positive amount is required')
+  }
+
+  const supabase = await getSupabaseAsync()
+  if (!supabase) {
+    throw new Error('Supabase client not available for checkout')
+  }
+
+  let userId = null
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+    userId = userData?.user?.id ?? null
+  } catch {
+    // Unauthenticated callers are rejected server-side; leave userId null.
+  }
+
+  const { data: result, error } = await supabase.functions.invoke('paymongo-checkout', {
+    body: {
+      action: 'create_wallet_topup_checkout',
+      amount,
+      user_id: userId,
+      origin: window.location.origin,
+      billing,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message || 'Failed to create wallet top-up checkout')
+  }
+  if (result?.error) {
+    throw new Error(result.error)
+  }
+  return result
+}
+
+/**
  * Process a successful payment callback
  * This is called when user returns from PayMongo checkout
  *

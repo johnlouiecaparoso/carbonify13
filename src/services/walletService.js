@@ -69,53 +69,26 @@ export async function getWalletBalance(userId = null) {
   return data
 }
 
-export async function createWallet(userId = null) {
+export async function createWallet() {
   const supabase = getSupabase()
   if (!supabase) {
     throw new Error('Supabase client not available')
   }
 
-  // Get user ID from session if not provided
-  if (!userId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      throw new Error('User not authenticated')
-    }
-    userId = user.id
-  }
-
-  const { data, error } = await supabase
-    .from('wallet_accounts')
-    .insert([
-      {
-        user_id: userId,
-        current_balance: 0,
-        currency: 'PHP',
-      },
-    ])
-    .select()
-    .single()
-
+  // Wallet creation is server-side via the ensure_wallet() RPC (SECURITY
+  // DEFINER, user taken from the JWT). This is idempotent and survives the
+  // financial-table RLS lockdown — the browser never inserts wallet_accounts.
+  const { data, error } = await supabase.rpc('ensure_wallet')
   if (error) {
-    // Check for RLS (Row Level Security) policy violations
-    if (error.message.includes('row-level security') || error.message.includes('violates row-level security') || error.code === '42501' || error.code === 'PGRST301') {
-      const rlsError = new Error(
-        'Wallet creation blocked by database security policy. Please contact an administrator to configure Row Level Security (RLS) policies to allow users to create their own wallet accounts.'
-      )
-      rlsError.code = 'RLS_VIOLATION'
-      rlsError.originalError = error
-      console.error('RLS Policy Violation - Wallet creation blocked:', {
-        message: error.message,
-        code: error.code,
-        hint: 'The Supabase RLS policy for the wallet_accounts table needs to allow INSERT operations for authenticated users.',
-      })
-      throw rlsError
-    }
     throw new Error(error.message || 'Failed to create wallet')
   }
-  return data
+
+  // The table function returns an array; the caller expects a single wallet row.
+  const wallet = Array.isArray(data) ? data[0] : data
+  if (!wallet) {
+    throw new Error('Failed to create wallet')
+  }
+  return wallet
 }
 
 export async function getTransactions(userId = null, limit = 50) {
@@ -338,29 +311,23 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
       console.log('✅ Using existing wallet account:', walletAccount.id)
     }
 
-    // Create payment intent with the payment gateway
-    const paymentData = {
-      amount: amount,
-      currency: 'PHP',
-      description: `Carbonify Wallet Top-up`,
-      userId: userId, // Required by payment service - must be at top level
-      metadata: {
-        walletAccountId: walletAccount.id,
-      },
+    // Server-authoritative top-up (Phase 1 P5): record a payment_intent and let
+    // the webhook credit the balance. The browser no longer inserts a pending
+    // wallet_transactions row or updates the balance itself — that keeps top-ups
+    // working after the financial-table RLS lockdown.
+    const { createWalletTopupCheckout } = await import('@/services/paymongoService')
+
+    let billing = null
+    try {
+      billing = await realPaymentService.getBuyerBillingInfo(userId)
+    } catch {
+      // billing prefill is best-effort
     }
 
-    // Use PayMongo via realPaymentService
-    let paymentResult
-    if (paymentMethod === 'gcash') {
-      paymentResult = await realPaymentService.processGCashPayment(paymentData)
-    } else if (paymentMethod === 'maya') {
-      paymentResult = await realPaymentService.processMayaPayment(paymentData)
-    } else {
-      throw new Error('Unsupported payment method')
-    }
-
-    if (!paymentResult.success) {
-      throw new Error(paymentResult.error || 'Payment processing failed')
+    const checkout = await createWalletTopupCheckout({ amount, billing })
+    const checkoutUrl = checkout?.checkoutUrl || checkout?.checkout_url
+    if (!checkoutUrl) {
+      throw new Error('Failed to start wallet top-up checkout')
     }
 
     // Return result with checkout URL for redirect
@@ -368,14 +335,15 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
       account_id: walletAccount.id,
       amount,
       paymentMethod,
-      transactionId: paymentResult.transactionId,
+      sessionId: checkout.sessionId,
     })
 
     return {
       success: true,
-      transactionId: paymentResult.transactionId,
-      checkoutUrl: paymentResult.checkoutUrl,
-      sessionId: paymentResult.sessionId,
+      transactionId: checkout.paymentIntentId,
+      paymentIntentId: checkout.paymentIntentId,
+      checkoutUrl,
+      sessionId: checkout.sessionId,
       amount: amount,
       currency: 'PHP',
       method: paymentMethod,

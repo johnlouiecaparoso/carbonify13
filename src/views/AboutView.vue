@@ -103,7 +103,7 @@ const trust = [
   padding: 0 1rem;
 }
 .about-hero {
-  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   padding: 3.5rem 0;
   text-align: center;
   margin-bottom: 2.5rem;
@@ -111,12 +111,12 @@ const trust = [
 .hero-title {
   font-size: 2.2rem;
   margin: 0 0 0.75rem;
-  color: #065f46;
+  color: #fff;
 }
 .hero-tagline {
   max-width: 680px;
   margin: 0 auto;
-  color: #374151;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 1.05rem;
   line-height: 1.6;
 }

@@ -1074,8 +1074,12 @@ async function handlePurchase() {
     // Handle redirect for PayMongo checkout
     if (result.redirect && result.checkoutUrl) {
       console.log('🔗 Redirecting to PayMongo checkout:', result.checkoutUrl)
-      // Store the pending purchase
+      // Store the pending purchase. The intent id lets the callback page find
+      // the webhook-settled transaction (server-authoritative path).
       localStorage.setItem('pending_purchase_session', result.sessionId)
+      if (result.paymentIntentId) {
+        localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
+      }
 
       // Redirect to PayMongo checkout immediately
       window.location.href = result.checkoutUrl
@@ -1089,6 +1093,9 @@ async function handlePurchase() {
         result.checkoutUrl,
       )
       localStorage.setItem('pending_purchase_session', result.sessionId || '')
+      if (result.paymentIntentId) {
+        localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
+      }
       window.location.href = result.checkoutUrl
       return
     }

@@ -113,6 +113,11 @@ async function startCheckout() {
     })
     const url = result?.checkoutUrl || result?.checkout_url
     if (url) {
+      // Let the callback page find the webhook-settled transaction so it can
+      // issue the certificate/receipt for this cart item too.
+      if (result.paymentIntentId) {
+        localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
+      }
       window.location.href = url
     } else {
       throw new Error('Could not start checkout.')

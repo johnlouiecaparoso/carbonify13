@@ -8,6 +8,36 @@ const PAYMONGO_SECRET_KEY = Deno.env.get('PAYMONGO_SECRET_KEY') || ''
 const PAYMONGO_API_URL = 'https://api.paymongo.com/v1'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
+
+/**
+ * P3 — Derive the caller's user id from their verified Supabase JWT rather than
+ * trusting a client-supplied `user_id` in the request body.
+ *
+ * `supabase.functions.invoke` forwards the signed-in user's access token in the
+ * Authorization header. We validate it here (getUser verifies the JWT signature)
+ * and use the resulting id as authoritative. Returns null for anonymous/invalid
+ * callers; callers decide whether to reject or fall back.
+ */
+async function getVerifiedUserId(req: Request): Promise<string | null> {
+  const header = req.headers.get('Authorization') || req.headers.get('authorization') || ''
+  const token = header.replace(/^Bearer\s+/i, '').trim()
+  // Ignore the anon/service key sent as a bearer by the SDK when no user session
+  // exists — it is not a user token and getUser would (correctly) reject it.
+  if (!token || token === SUPABASE_ANON_KEY || token === SUPABASE_SERVICE_ROLE_KEY) {
+    return null
+  }
+  try {
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY || SUPABASE_SERVICE_ROLE_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    })
+    const { data, error } = await authClient.auth.getUser(token)
+    if (error) return null
+    return data?.user?.id ?? null
+  } catch {
+    return null
+  }
+}
 
 // CORS headers required when invoking from browser (localhost or production).
 const corsHeaders = {
@@ -78,12 +108,16 @@ async function verifyCheckoutSession(sessionId: string) {
  * NOTE (hardening, tracked): user_id should be derived from the verified JWT
  * rather than the request body. The critical fix here is server-side AMOUNT.
  */
-async function createMarketplaceCheckout(body: any) {
+async function createMarketplaceCheckout(body: any, verifiedUserId: string | null) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   const listingId = body.listing_id
   const quantity = Number(body.quantity)
-  const userId = body.user_id ?? null
+  // P3: authoritative id from the verified JWT; the request body is no longer
+  // trusted for identity. Fall back to the body only when no user token was
+  // presented (keeps mock/local dev working); reject anonymous purchases.
+  const userId = verifiedUserId ?? body.user_id ?? null
+  if (!userId) throw new Error('Authentication required to check out')
   const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
 
   if (!listingId || !Number.isFinite(quantity) || quantity <= 0) {
@@ -198,14 +232,15 @@ async function createMarketplaceCheckout(body: any) {
  * session; the webhook reads that intent and calls activate_subscription on
  * 'checkout.payment.paid'. The plan is granted only after confirmed payment.
  */
-async function createSubscriptionCheckout(body: any) {
+async function createSubscriptionCheckout(body: any, verifiedUserId: string | null) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   const planKey = String(body.plan || '')
-  const userId = body.user_id ?? null
+  // P3: identity comes from the verified JWT, not the client body.
+  const userId = verifiedUserId ?? body.user_id ?? null
   const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
 
-  if (!userId) throw new Error('user_id is required')
+  if (!userId) throw new Error('Authentication required to subscribe')
   if (!['pro', 'business'].includes(planKey)) throw new Error('Unknown plan')
 
   // Authoritative price from the catalog.
@@ -302,6 +337,102 @@ async function createSubscriptionCheckout(body: any) {
   }
 }
 
+/**
+ * Server-recorded wallet top-up (Phase 1 P5).
+ *
+ * Unlike a marketplace purchase the amount is legitimately client-chosen (the
+ * user's own deposit), but we still record a payment_intent (purpose
+ * 'wallet_topup') up front so the webhook can credit the balance as the single
+ * source of truth and everything reconciles consistently. The browser no longer
+ * writes wallet_accounts / wallet_transactions for a top-up.
+ */
+async function createWalletTopupCheckout(body: any, verifiedUserId: string | null) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  const userId = verifiedUserId ?? body.user_id ?? null
+  const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
+  const amount = Number(body.amount)
+
+  if (!userId) throw new Error('Authentication required to top up')
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('A positive amount is required')
+
+  const currency = 'PHP'
+
+  const { data: intent, error: intentErr } = await supabase
+    .from('payment_intents')
+    .insert({
+      user_id: userId,
+      purpose: 'wallet_topup',
+      unit_amount: amount,
+      amount,
+      currency,
+      provider: 'paymongo',
+      status: 'created',
+      metadata: {},
+    })
+    .select('id')
+    .single()
+
+  if (intentErr || !intent) {
+    throw new Error(`Failed to create payment intent: ${intentErr?.message ?? 'unknown'}`)
+  }
+
+  const checkoutData = {
+    data: {
+      attributes: {
+        send_email_receipt: false,
+        show_description: true,
+        show_line_items: true,
+        description: 'Carbonify wallet top-up',
+        line_items: [
+          {
+            name: 'Wallet top-up',
+            quantity: 1,
+            amount: Math.round(amount * 100), // centavos
+            currency,
+          },
+        ],
+        payment_method_types: ['card', 'gcash', 'paymaya'],
+        success_url: `${origin}/payment/callback`,
+        cancel_url: `${origin}/wallet?cancelled=true`,
+        metadata: {
+          payment_intent_id: intent.id,
+          purpose: 'wallet_topup',
+        },
+        ...(body.billing && (body.billing.name || body.billing.email || body.billing.phone)
+          ? { billing: body.billing }
+          : {}),
+      },
+    },
+  }
+
+  const res = await fetch(`${PAYMONGO_API_URL}/checkout_sessions`, {
+    method: 'POST',
+    headers: authHeader(),
+    body: JSON.stringify(checkoutData),
+  })
+  const result = await res.json()
+  if (!res.ok) {
+    await supabase.from('payment_intents').update({ status: 'failed' }).eq('id', intent.id)
+    throw new Error(result.errors?.[0]?.detail || 'Failed to create checkout session')
+  }
+
+  const sessionId = result.data.id
+  await supabase
+    .from('payment_intents')
+    .update({ provider_session_id: sessionId, status: 'pending', updated_at: new Date().toISOString() })
+    .eq('id', intent.id)
+
+  return {
+    success: true,
+    sessionId,
+    checkoutUrl: result.data.attributes.checkout_url,
+    amount,
+    currency,
+    paymentIntentId: intent.id,
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders })
@@ -326,9 +457,10 @@ serve(async (req) => {
     }
 
     // Server-authoritative marketplace checkout: amount computed from the
-    // listing, not trusted from the client (Phase 1.2).
+    // listing, not trusted from the client (Phase 1.2). Identity from JWT (P3).
     if (body.action === 'create_marketplace_checkout') {
-      const result = await createMarketplaceCheckout(body)
+      const verifiedUserId = await getVerifiedUserId(req)
+      const result = await createMarketplaceCheckout(body, verifiedUserId)
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -336,9 +468,21 @@ serve(async (req) => {
     }
 
     // Server-authoritative subscription checkout: price from subscription_plans,
-    // never the client.
+    // never the client. Identity from JWT (P3).
     if (body.action === 'create_subscription_checkout') {
-      const result = await createSubscriptionCheckout(body)
+      const verifiedUserId = await getVerifiedUserId(req)
+      const result = await createSubscriptionCheckout(body, verifiedUserId)
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Wallet top-up recorded as a payment_intent (Phase 1 P5); the webhook
+    // credits the balance. Identity from JWT (P3).
+    if (body.action === 'create_wallet_topup_checkout') {
+      const verifiedUserId = await getVerifiedUserId(req)
+      const result = await createWalletTopupCheckout(body, verifiedUserId)
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -512,9 +512,74 @@ serve(async (req) => {
       // webhook metadata.
       const { data: intentRow } = await supabase
         .from('payment_intents')
-        .select('purpose, user_id, status, metadata')
+        .select('purpose, user_id, status, metadata, amount')
         .eq('id', paymentIntentId)
         .single()
+
+      // Wallet top-up (Phase 1 P5): credit the balance server-side (source of
+      // truth), record a completed wallet_transactions row keyed on the checkout
+      // session id (so the callback's waitForWebhookTransaction finds it).
+      if (intentRow?.purpose === 'wallet_topup') {
+        if (intentRow.status === 'paid') {
+          await markEventProcessed(supabase, eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Top-up already credited' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        const topupAmount = Number(intentRow.amount)
+        const { error: balErr } = await supabase.rpc('update_wallet_balance_atomic', {
+          p_user_id: intentRow.user_id,
+          p_amount: topupAmount,
+          p_operation: 'add',
+        })
+        if (balErr) {
+          // Leave the event unprocessed so PayMongo retries.
+          throw new Error(`wallet top-up failed: ${balErr.message}`)
+        }
+
+        try {
+          const { data: wallet } = await supabase
+            .from('wallet_accounts')
+            .select('id')
+            .eq('user_id', intentRow.user_id)
+            .single()
+          if (wallet) {
+            const { data: existingWt } = await supabase
+              .from('wallet_transactions')
+              .select('id')
+              .eq('external_reference', sessionId)
+              .maybeSingle()
+            if (!existingWt) {
+              await supabase.from('wallet_transactions').insert({
+                account_id: wallet.id,
+                user_id: intentRow.user_id,
+                type: 'deposit',
+                amount: topupAmount,
+                status: 'completed',
+                payment_method: 'paymongo',
+                description: 'Wallet top-up via PayMongo',
+                reference_id: `pm_${paymentId}`,
+                external_reference: sessionId,
+              })
+            }
+          }
+        } catch (err) {
+          console.warn('wallet_transactions record failed (non-critical):', (err as Error)?.message)
+        }
+
+        await supabase
+          .from('payment_intents')
+          .update({ status: 'paid', provider_payment_id: paymentId, updated_at: new Date().toISOString() })
+          .eq('id', paymentIntentId)
+
+        await markEventProcessed(supabase, eventId)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Wallet topped up', amount: topupAmount }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
 
       if (intentRow?.purpose === 'subscription') {
         if (intentRow.status === 'paid') {
@@ -618,6 +683,10 @@ serve(async (req) => {
       })
     } else {
       console.warn('âš ï¸ Unknown payment type or missing metadata')
+      // Terminal: acknowledged (200 → no PayMongo retry) but no actionable
+      // metadata, so nothing settles. Mark it processed so it doesn't linger at
+      // 'received' and trip reconcile_financials()'s webhook_stuck check.
+      await markEventProcessed(supabase, eventId)
       return new Response(JSON.stringify({
         success: false,
         message: 'Unknown payment type',

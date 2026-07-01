@@ -758,58 +758,62 @@ export async function purchaseCredits(listingId, purchaseData) {
     // Handle different payment methods
     let paymentResult
     if (purchaseData.paymentMethod === 'wallet') {
-      // Wallet balance payment - deduct from user's wallet
-      const { updateWalletBalance, getWalletBalance } = await import('@/services/walletService')
+      // Server-authoritative wallet purchase (Phase 1 P2 cutover). A single
+      // atomic RPC checks the buyer's wallet balance, decrements the pool,
+      // debits the wallet, and writes credit_transactions + credit_ownership +
+      // the balanced double-entry ledger — all server-side. The browser writes
+      // NO financial tables for wallet purchases anymore.
       const supabase = getSupabase()
+      const { data: walletTxnId, error: walletErr } = await supabase.rpc(
+        'process_wallet_purchase',
+        {
+          p_listing_id: listingId,
+          p_quantity: purchaseData.quantity,
+        },
+      )
 
-      // Check wallet balance
-      const walletBalance = await getWalletBalance(user.id)
-      if (walletBalance.current_balance < totalCost) {
-        throw new Error(
-          `Insufficient wallet balance. You have ₱${walletBalance.current_balance.toFixed(2)}, but need ₱${totalCost.toFixed(2)}`,
-        )
+      if (walletErr) {
+        const message = /insufficient wallet balance/i.test(walletErr.message || '')
+          ? 'Insufficient wallet balance for this purchase.'
+          : walletErr.message || 'Wallet purchase failed'
+        throw new Error(message)
       }
 
-      // Get wallet account for transaction record
-      const { data: walletAccount } = await supabase
-        .from('wallet_accounts')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-
-      // Create wallet transaction record
-      const { data: walletTransaction, error: transactionError } = await supabase
-        .from('wallet_transactions')
-        .insert({
-          account_id: walletAccount.id,
-          user_id: user.id,
-          type: 'withdrawal',
-          amount: totalCost,
-          status: 'completed',
-          payment_method: 'wallet',
-          description: `Purchase ${purchaseData.quantity} credits from ${listing.project_credits.projects.title}`,
-          reference_id: `wallet_purchase_${Date.now()}`,
-        })
-        .select()
-        .single()
-
-      if (transactionError) {
-        throw new Error(`Failed to create wallet transaction: ${transactionError.message}`)
+      // Issue the receipt + certificate (best-effort, idempotent/guarded). No
+      // financial writes here — those already happened in the RPC.
+      try {
+        const { generateReceipt } = await import('@/services/receiptService')
+        await generateReceipt(walletTxnId)
+      } catch (receiptError) {
+        console.warn('⚠️ Receipt generation failed (non-critical):', receiptError?.message)
+      }
+      try {
+        const { data: existingCert } = await supabase
+          .from('certificates')
+          .select('id')
+          .eq('transaction_id', walletTxnId)
+          .limit(1)
+          .maybeSingle()
+        if (!existingCert) {
+          const { generateCreditCertificate } = await import('@/services/certificateService')
+          await generateCreditCertificate(walletTxnId, 'purchase')
+        }
+      } catch (certError) {
+        console.warn('⚠️ Certificate generation failed (non-critical):', certError?.message)
       }
 
-      // Deduct from wallet balance
-      await updateWalletBalance(user.id, totalCost, 'withdrawal')
-
-      // Payment result for wallet
-      paymentResult = {
+      console.log('✅ Wallet purchase settled server-side:', walletTxnId)
+      return {
         success: true,
-        transactionId: walletTransaction.id,
-        checkoutUrl: null,
-        sessionId: null,
-        status: 'completed',
-        paymentMethod: 'wallet',
+        redirect: false,
+        transaction: {
+          id: walletTxnId,
+          total_amount: totalCost,
+          currency: listing.currency || 'PHP',
+          quantity: purchaseData.quantity,
+        },
+        message: 'Purchase completed from wallet balance.',
       }
-      console.log('Wallet payment processed successfully')
     } else if (purchaseData.paymentMethod === 'demo') {
       // Demo mode - instant completion
       paymentResult = {
@@ -824,70 +828,46 @@ export async function purchaseCredits(listingId, purchaseData) {
       purchaseData.paymentMethod === 'gcash' ||
       purchaseData.paymentMethod === 'maya'
     ) {
-      // Real PayMongo payment - creates checkout session
-      // PayMongo supports card, gcash, and paymaya in the same checkout session
-      // The actual payment method will be detected from PayMongo callback
-      // Include detailed purchase information for PayMongo checkout display
+      // Server-authoritative online checkout (Phase 1 P2 cutover).
+      //
+      // The client now sends ONLY { listingId, quantity }. The paymongo-checkout
+      // Edge Function recomputes the amount from credit_listings.price_per_credit
+      // and records a payment_intent; the paymongo-webhook then settles the
+      // purchase atomically via process_marketplace_purchase (decrement + ledger
+      // + credit_transactions + credit_ownership). The browser NO LONGER writes
+      // any financial tables for card/gcash/maya — this closes both the
+      // client-controlled-amount hole and the callback double-write hazard.
+      const { createMarketplaceCheckout } = await import('@/services/paymongoService')
 
-      // Prepare payment data
-      const paymentData = {
-        amount: totalCost,
-        currency: listing.currency,
-        description: `Purchase ${purchaseData.quantity} credits from ${listing.project_credits.projects.title}`,
-        userId: user.id,
-        metadata: {
-          quantity: purchaseData.quantity,
-          price_per_credit: actualPricePerCredit,
-          total_amount: totalCost,
-          project_title: listing.project_credits.projects.title,
-          listing_id: listingId,
-          requested_payment_method: purchaseData.paymentMethod, // Store requested method for reference
-        },
+      let billing = null
+      try {
+        billing = await realPaymentService.getBuyerBillingInfo(user.id)
+      } catch {
+        // billing prefill is best-effort; the amount is server-computed regardless
       }
 
-      // Call the appropriate payment method with proper context binding
-      if (purchaseData.paymentMethod === 'card') {
-        paymentResult = await realPaymentService.processCardPayment(paymentData)
-      } else if (purchaseData.paymentMethod === 'gcash') {
-        paymentResult = await realPaymentService.processGCashPayment(paymentData)
-      } else {
-        paymentResult = await realPaymentService.processMayaPayment(paymentData)
-      }
+      const checkout = await createMarketplaceCheckout({
+        listingId,
+        quantity: purchaseData.quantity,
+        billing,
+      })
 
-      // Check for errors first
-      if (!paymentResult.success) {
-        const errorMessage = paymentResult.error || 'Payment processing failed'
-        console.error('❌ Payment service error:', errorMessage)
-        throw new Error(errorMessage)
-      }
-
-      // If PayMongo checkout is created, redirect user and return early
-      if (paymentResult.checkoutUrl) {
-        console.log('🔗 Redirecting to PayMongo checkout:', paymentResult.checkoutUrl)
-        // Store purchase data temporarily in localStorage for later completion
-        localStorage.setItem(
-          'pending_purchase',
-          JSON.stringify({
-            listingId,
-            purchaseData,
-            totalCost,
-            listing,
-            paymentResult,
-          }),
-        )
-
-        // Redirect to PayMongo checkout
-        return {
-          success: true,
-          redirect: true,
-          checkoutUrl: paymentResult.checkoutUrl,
-          sessionId: paymentResult.sessionId,
-          message: 'Redirecting to payment...',
-        }
-      } else {
-        // If no checkoutUrl is returned, this is an error for online payment methods
-        console.error('❌ No checkout URL returned from payment service')
+      const checkoutUrl = checkout?.checkoutUrl || checkout?.checkout_url
+      if (!checkoutUrl) {
+        console.error('❌ No checkout URL returned from marketplace checkout')
         throw new Error('Failed to create payment checkout. Please try again or contact support.')
+      }
+
+      console.log('🔗 Redirecting to server-authoritative PayMongo checkout:', checkoutUrl)
+      return {
+        success: true,
+        redirect: true,
+        checkoutUrl,
+        sessionId: checkout.sessionId,
+        // The callback page uses the intent id to find the webhook-settled
+        // transaction (and then generate the certificate/receipt).
+        paymentIntentId: checkout.paymentIntentId,
+        message: 'Redirecting to payment...',
       }
     } else {
       throw new Error(`Invalid payment method: ${purchaseData.paymentMethod}`)
@@ -1135,40 +1115,22 @@ export async function retireCredits(userId, projectId, quantity, reason) {
   }
 
   try {
-    // Atomically decrement the owner's balance FIRST. This is the
-    // anti-double-counting guard: the DB only decrements when enough credits
-    // exist, so the same credits can never be retired twice (even concurrently).
-    let decremented = false
-    try {
-      const { data, error } = await supabase.rpc('retire_credits_atomic', {
-        p_user_id: userId,
-        p_project_id: projectId,
-        p_quantity: quantity,
-      })
-      if (error) throw error
-      decremented = data === true
-    } catch (rpcErr) {
-      // Fallback for environments where the RPC isn't deployed yet.
-      console.warn('retire_credits_atomic unavailable, using fallback:', rpcErr?.message)
-      const { data: ownership, error: ownershipError } = await supabase
-        .from('credit_ownership')
-        .select('quantity')
-        .eq('user_id', userId)
-        .eq('project_id', projectId)
-        .single()
-      if (ownershipError || !ownership || ownership.quantity < quantity) {
-        throw new Error('Insufficient credits to retire')
-      }
-      const { error: updateError } = await supabase
-        .from('credit_ownership')
-        .update({ quantity: ownership.quantity - quantity, updated_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('project_id', projectId)
-      if (updateError) throw new Error('Failed to update credit ownership')
-      decremented = true
+    // Atomically decrement the owner's balance FIRST via the server RPC. This is
+    // the anti-double-counting guard (the DB only decrements when enough credits
+    // exist, so the same unit can never be retired twice, even concurrently) and
+    // it keeps retirement working after the financial-table RLS lockdown — the
+    // browser no longer writes credit_ownership directly. retire_credits_atomic
+    // is SECURITY DEFINER and granted to authenticated, so it bypasses the (now
+    // write-locked) RLS on credit_ownership.
+    const { data: decremented, error: rpcErr } = await supabase.rpc('retire_credits_atomic', {
+      p_user_id: userId,
+      p_project_id: projectId,
+      p_quantity: quantity,
+    })
+    if (rpcErr) {
+      throw new Error(`Failed to retire credits: ${rpcErr.message}`)
     }
-
-    if (!decremented) {
+    if (decremented !== true) {
       throw new Error('Insufficient credits to retire')
     }
 
