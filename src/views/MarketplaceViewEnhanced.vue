@@ -50,6 +50,16 @@
             <option value="price-high">Expensive to Cheapest</option>
           </select>
           <button
+            type="button"
+            class="save-search-button"
+            :disabled="savingSearch"
+            title="Save this search and get a bell alert when a new matching listing appears"
+            @click="handleSaveSearch"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span>
+            <span>{{ savingSearch ? 'Saving…' : 'Save search' }}</span>
+          </button>
+          <button
             v-if="userStore.isProjectDeveloper"
             @click="navigateToSubmitProject"
             class="submit-project-button"
@@ -57,6 +67,27 @@
             <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
             <span>Submit Project</span>
           </button>
+        </div>
+
+        <!-- Saved searches / price alerts -->
+        <div v-if="savedSearches.length" class="saved-searches">
+          <span class="saved-searches-label">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
+            Saved searches
+          </span>
+          <span v-for="s in savedSearches" :key="s.id" class="saved-chip">
+            <button type="button" class="saved-chip-apply" @click="applySavedSearch(s)">
+              {{ s.label }}
+            </button>
+            <button
+              type="button"
+              class="saved-chip-remove"
+              aria-label="Delete saved search"
+              @click="handleDeleteSavedSearch(s.id)"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </span>
         </div>
       </div>
     </div>
@@ -553,6 +584,13 @@ import {
   removeFromWatchlist,
 } from '@/services/watchlistService'
 import WatchButton from '@/components/ui/WatchButton.vue'
+import {
+  listMySavedSearches,
+  saveSearch,
+  deleteSavedSearch,
+  checkSavedSearchAlerts,
+  describeCriteria,
+} from '@/services/savedSearchService'
 import { useCartStore } from '@/store/cartStore'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import UiButton from '@/components/ui/Button.vue'
@@ -607,6 +645,10 @@ const priceRange = ref({ min: '', max: '' })
 const sortBy = ref('name')
 const availabilityFilter = ref('all')
 const viewMode = ref('grid') // 'grid' or 'list'
+
+// Saved searches / price alerts
+const savedSearches = ref([])
+const savingSearch = ref(false)
 const currentPage = ref(1)
 const itemsPerPage = ref(12)
 const marketplaceRefreshTimer = ref(null)
@@ -803,6 +845,16 @@ async function loadMarketplaceData(forceRefresh = false) {
       totalMarketValue: 0,
       recentTransactions: 0,
     }
+
+    // Fire saved-search price alerts against the freshly-loaded listings
+    // (best-effort; never blocks the render). Skipped on the silent 15s
+    // auto-refresh — the last_seen_at high-water mark already dedupes, and we
+    // don't need to poll saved searches every cycle.
+    if (!forceRefresh && userStore.session?.user?.id && listings.value.length) {
+      checkSavedSearchAlerts(listings.value).catch((err) =>
+        console.warn('Saved-search alert check failed:', err?.message),
+      )
+    }
   } catch (err) {
     console.error('Error loading marketplace data:', err)
     if (err.message?.includes('timed out')) {
@@ -821,6 +873,59 @@ async function loadMarketplaceData(forceRefresh = false) {
   } finally {
     loading.value = false
   }
+}
+
+// The current filter state, in the saved-search criteria shape.
+const currentCriteria = computed(() => ({
+  search: searchQuery.value || '',
+  category: selectedCategory.value || '',
+  source: selectedSource.value || 'all',
+  sdgs: selectedSdg.value ? [selectedSdg.value] : [],
+  country: selectedCountry.value || '',
+  minPrice: priceRange.value?.min || '',
+  maxPrice: priceRange.value?.max || '',
+}))
+
+async function loadSavedSearches() {
+  if (!userStore.session?.user?.id) return
+  savedSearches.value = await listMySavedSearches()
+}
+
+async function handleSaveSearch() {
+  if (!userStore.session?.user?.id) {
+    warning('Sign in required', 'Please sign in to save a search and get price alerts.')
+    return
+  }
+  savingSearch.value = true
+  try {
+    await saveSearch({ label: describeCriteria(currentCriteria.value), criteria: currentCriteria.value })
+    await loadSavedSearches()
+    success('Search saved', "You'll get a bell alert when a new matching listing appears.")
+  } catch (err) {
+    showErrorPrompt('Could not save search', err.message || 'Please try again.')
+  } finally {
+    savingSearch.value = false
+  }
+}
+
+async function handleDeleteSavedSearch(id) {
+  try {
+    await deleteSavedSearch(id)
+    savedSearches.value = savedSearches.value.filter((s) => s.id !== id)
+  } catch (err) {
+    showErrorPrompt('Could not delete', err.message || 'Please try again.')
+  }
+}
+
+function applySavedSearch(saved) {
+  const c = saved?.criteria || {}
+  searchQuery.value = c.search || ''
+  selectedCategory.value = c.category || ''
+  selectedSource.value = c.source || 'all'
+  selectedSdg.value = Array.isArray(c.sdgs) && c.sdgs.length ? c.sdgs[0] : ''
+  selectedCountry.value = c.country || ''
+  priceRange.value = { min: c.minPrice || '', max: c.maxPrice || '' }
+  currentPage.value = 1
 }
 
 function handleSearchReset() {
@@ -1197,6 +1302,7 @@ onMounted(() => {
 
   loadMarketplaceData()
   loadWatchlist()
+  loadSavedSearches()
 
   marketplaceRefreshTimer.value = setInterval(() => {
     loadMarketplaceData(true)
@@ -1307,6 +1413,90 @@ onUnmounted(() => {
 
 .submit-project-button .material-symbols-outlined {
   font-size: 1.25rem;
+}
+
+.save-search-button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.save-search-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.save-search-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-search-button .material-symbols-outlined {
+  font-size: 1.25rem;
+}
+
+.saved-searches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.saved-searches-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.saved-searches-label .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.saved-chip {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.saved-chip-apply {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.saved-chip-remove {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+}
+
+.saved-chip-remove:hover {
+  color: white;
+}
+
+.saved-chip-remove .material-symbols-outlined {
+  font-size: 1rem;
 }
 
 .marketplace-content {
