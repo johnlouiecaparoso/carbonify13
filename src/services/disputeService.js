@@ -38,3 +38,69 @@ export async function getMyDisputes(limit = 20) {
   }
   return data || []
 }
+
+/**
+ * Admin: all disputes (the RLS returns every row for admins). Optionally filter
+ * by status ('open' | 'resolved_refunded' | 'resolved_rejected').
+ */
+export async function listAllDisputes(status = null, limit = 100) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  let query = supabase
+    .from('disputes')
+    .select('id, transaction_id, raised_by, reason, status, resolution_notes, created_at, resolved_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (status) query = query.eq('status', status)
+
+  const { data, error } = await query
+  if (error) {
+    console.error('Error fetching disputes:', error)
+    return []
+  }
+  return data || []
+}
+
+/** Admin: recent transactions (via the admin-gated RPC) for the refund console. */
+export async function listRecentTransactions(limit = 50) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const { data, error } = await supabase.rpc('admin_recent_transactions', { p_limit: limit })
+  if (error) {
+    console.error('Error fetching recent transactions:', error)
+    return []
+  }
+  return data || []
+}
+
+/** Admin: resolve a dispute; refunding triggers the compensating reversal. */
+export async function resolveDispute(disputeId, refund, notes = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!disputeId) throw new Error('disputeId is required')
+
+  const { error } = await supabase.rpc('resolve_dispute', {
+    p_dispute_id: disputeId,
+    p_refund: refund,
+    p_notes: notes || '',
+  })
+  if (error) throw new Error(error.message || 'Failed to resolve dispute')
+}
+
+/**
+ * Admin: refund a transaction directly (no buyer dispute required) via the
+ * admin-gated admin_refund_transaction RPC.
+ */
+export async function adminRefundTransaction(transactionId, reason = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!transactionId) throw new Error('transactionId is required')
+
+  const { error } = await supabase.rpc('admin_refund_transaction', {
+    p_transaction_id: transactionId,
+    p_reason: reason || '',
+  })
+  if (error) throw new Error(error.message || 'Failed to refund transaction')
+}

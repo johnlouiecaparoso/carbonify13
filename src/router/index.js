@@ -257,6 +257,24 @@ const router = createRouter({
         requiresAdmin: true,
       },
     },
+    {
+      path: '/admin/kyb',
+      name: 'admin-kyb',
+      component: () => import('@/views/AdminKybReviewView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      path: '/admin/refunds',
+      name: 'admin-refunds',
+      component: () => import('@/views/AdminRefundsView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
     { path: '/admin/tables', redirect: '/admin/database' },
     {
       path: '/admin/finance',

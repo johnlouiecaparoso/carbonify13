@@ -74,3 +74,47 @@ export async function getMyKyb() {
     application: Array.isArray(apps) && apps.length ? apps[0] : null,
   }
 }
+
+/**
+ * Admin: list KYB applications (the `kyb_applications` RLS returns every row for
+ * admins). Optionally filter by status ('pending' | 'approved' | 'rejected').
+ */
+export async function listKybApplications(status = null) {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  let query = supabase
+    .from('kyb_applications')
+    .select(
+      `id, user_id, business_name, business_type, registration_number, tax_id,
+       business_address, authorized_representative, registration_document_url,
+       tax_document_url, status, submitted_at, reviewed_at, review_notes`,
+    )
+    .order('submitted_at', { ascending: false })
+  if (status) query = query.eq('status', status)
+
+  const { data, error } = await query
+  if (error) {
+    console.error('listKybApplications failed:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Admin: approve or reject a KYB application via the admin-gated RPC. On approve,
+ * the RPC flags the seller `kyb_verified`. Returns the updated application row.
+ */
+export async function reviewKyb(applicationId, approve, notes = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!applicationId) throw new Error('applicationId is required')
+
+  const { data, error } = await supabase.rpc('review_kyb_application', {
+    p_application_id: applicationId,
+    p_approve: approve,
+    p_notes: notes || '',
+  })
+  if (error) throw new Error(error.message || 'Failed to review KYB application')
+  return data
+}

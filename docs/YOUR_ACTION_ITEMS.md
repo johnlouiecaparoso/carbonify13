@@ -67,13 +67,18 @@ npm run dev          # open the printed URL, usually http://localhost:5173
 
 ## 2. Money-path edges (payout + refund) — where to approve KYB & refund
 
-> **Heads-up:** KYB review and refunds are built as **backend RPCs but have no
-> admin UI yet** (same "built, not surfaced" gap as Retire was). So for now you
-> run them in the **Supabase SQL Editor**. Building the admin KYB-review queue and
-> a refund/dispute console is a good next feature — say the word.
+> ✅ **Now clickable (2026-07-01):** admins have **KYB Review** (`/admin/kyb`) and
+> **Refunds & Disputes** (`/admin/refunds`) consoles — both in the profile menu →
+> Workspace. Requires the `20260701000200_admin_refund_rpc.sql` migration.
+> The SQL below is kept as a fallback.
 
 ### Approve KYB (to unblock a seller payout)
-Sellers also have no KYB *submission* UI yet, so create + approve in SQL:
+- **UI:** profile menu → **KYB Review** (`/admin/kyb`) → find the seller's
+  application → **Approve**. This sets `kyb_verified` and unlocks their withdrawals.
+- **Note:** sellers still have no KYB *submission* screen, so you may need to
+  create the application first (SQL below), then approve it in the console.
+
+Fallback / seed an application in SQL:
 
 ```sql
 -- 1. Find the seller's user id (profiles.id) — e.g. by email:
@@ -92,7 +97,11 @@ Then, as the seller: **Seller Earnings** (top nav) → **Withdraw** → run the 
 `requested → processing → settled`.
 
 ### Refund a purchase
-No refund button yet — refund a completed transaction directly in SQL:
+- **UI:** profile menu → **Refunds & Disputes** (`/admin/refunds`) → **Transactions**
+  tab → find a `completed` transaction → **Refund** → confirm. The **Open disputes**
+  tab lets you resolve buyer-opened disputes (Refund / Reject).
+
+Fallback — refund a completed transaction directly in SQL:
 
 ```sql
 -- 1. Find a completed transaction to refund:
