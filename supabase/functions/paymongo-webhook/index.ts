@@ -404,6 +404,12 @@ serve(async (req) => {
     })
   }
 
+  // Hoisted so the catch block can record the failure against the event row for
+  // DB-visible diagnosis (otherwise a thrown handler leaves webhook_events at
+  // 'received' with error=null and PayMongo just retries silently).
+  let dbClient: any = null
+  let currentEventId: string | null = null
+
   try {
     // PayMongo sends the signature in the `paymongo-signature` header.
     const signature =
@@ -462,12 +468,14 @@ serve(async (req) => {
 
     // Initialize Supabase client with service role (bypasses RLS)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    dbClient = supabase
 
     // Event-level idempotency. Record the event keyed by (provider, event_id).
     // A unique-violation means we've seen it before: short-circuit ONLY if the
     // prior attempt actually finished (status 'processed'); otherwise fall
     // through and (re)process — PayMongo retries unacknowledged events.
     const eventId = webhookData.data?.id || paymentId
+    currentEventId = eventId
     const { error: dedupError } = await supabase.from('webhook_events').insert({
       provider: 'paymongo',
       event_id: eventId,
@@ -697,8 +705,23 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('âŒ Webhook processing error:', error)
+    const message = (error as Error)?.message || 'Webhook processing failed'
+    // Persist the failure against the event row so it's diagnosable from SQL
+    // (status stays 'received' so PayMongo keeps retrying and reconcile still
+    // flags it as stuck). Best-effort — never mask the original error.
+    if (dbClient && currentEventId) {
+      try {
+        await dbClient
+          .from('webhook_events')
+          .update({ error: message })
+          .eq('provider', 'paymongo')
+          .eq('event_id', currentEventId)
+      } catch (persistErr) {
+        console.warn('Failed to record webhook error:', (persistErr as Error)?.message)
+      }
+    }
     return new Response(JSON.stringify({
-      error: error.message || 'Webhook processing failed',
+      error: message,
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

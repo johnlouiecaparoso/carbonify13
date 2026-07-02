@@ -12,6 +12,19 @@
         {{ reasonText }}
       </div>
 
+      <div v-if="confirmState === 'success'" class="return-banner success">
+        <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+        {{ confirmMessage }}
+      </div>
+      <div v-else-if="confirmState === 'pending'" class="return-banner pending">
+        <span class="material-symbols-outlined spin" aria-hidden="true">progress_activity</span>
+        {{ confirmMessage }}
+      </div>
+      <div v-else-if="confirmState === 'cancelled'" class="return-banner cancelled">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        {{ confirmMessage }}
+      </div>
+
       <div class="plans-grid">
         <!-- Free (current baseline) -->
         <div class="plan-card" :class="{ current: currentPlan === PLANS.FREE }">
@@ -64,8 +77,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { PLANS, FREE_LISTING_LIMIT, FEATURES, getPlanDisplayName } from '@/constants/plans'
 import {
@@ -75,9 +88,14 @@ import {
 } from '@/services/subscriptionService'
 
 const route = useRoute()
+const router = useRouter()
 const store = useUserStore()
 const loadingKey = ref('')
 const error = ref('')
+
+// Post-checkout return state ('success' | 'pending' | 'cancelled' | '').
+const confirmState = ref('')
+const confirmMessage = ref('')
 
 const currentPlan = computed(() => store.plan)
 const currentPlanName = computed(() => getPlanDisplayName(store.plan))
@@ -88,6 +106,54 @@ const reasonText = computed(() => {
   if (f === FEATURES.UNLIMITED_LISTINGS) return 'You’ve reached the Free listing limit.'
   return ''
 })
+
+/**
+ * Handle the return from the PayMongo subscription checkout. The plan is granted
+ * server-side by the webhook (activate_subscription), which can lag the browser
+ * redirect by a few seconds, so we refresh the profile and poll briefly until
+ * the plan flips. Without this the page silently re-renders "Free" on success.
+ */
+async function handleCheckoutReturn() {
+  if (route.query.cancelled === 'true') {
+    confirmState.value = 'cancelled'
+    confirmMessage.value = 'Checkout was cancelled — your plan was not changed.'
+    clearQuery()
+    return
+  }
+  if (route.query.status !== 'success') return
+
+  confirmState.value = 'pending'
+  confirmMessage.value = 'Payment received — confirming your upgrade…'
+
+  // Poll up to ~24s (12 × 2s) for the webhook to activate the plan.
+  for (let i = 0; i < 12; i++) {
+    await store.fetchUserProfile()
+    if (store.isPremium) {
+      confirmState.value = 'success'
+      confirmMessage.value = `You're now on the ${getPlanDisplayName(store.plan)} plan. Enjoy!`
+      clearQuery()
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+
+  // Paid, but the webhook hasn't landed yet (or didn't fire). Don't claim failure.
+  confirmState.value = 'pending'
+  confirmMessage.value =
+    'Payment received. Your upgrade is taking a little longer than usual to confirm — ' +
+    'refresh this page in a minute. If it still shows Free, the payment webhook may not be firing.'
+  clearQuery()
+}
+
+/** Drop the status/cancelled query params so a refresh doesn't re-trigger. */
+function clearQuery() {
+  const q = { ...route.query }
+  delete q.status
+  delete q.cancelled
+  router.replace({ query: q })
+}
+
+onMounted(handleCheckoutReturn)
 
 async function subscribe(planKey) {
   error.value = ''
@@ -134,6 +200,38 @@ async function subscribe(planKey) {
   padding: 0.6rem 0.9rem;
   font-size: 0.875rem;
   margin-bottom: 1.5rem;
+}
+.return-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.return-banner.success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.return-banner.pending {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.return-banner.cancelled {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+}
+.return-banner .spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .plans-grid {
   display: grid;
