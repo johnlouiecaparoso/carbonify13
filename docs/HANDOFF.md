@@ -1,12 +1,23 @@
 # Carbonify — Handoff (current state)
 
-> **Updated:** 2026-07-01 · **Branch:** `feature-user-onboarding-ux`
-> Money path **fully proven** (purchase + subscription + payout + refund); this session's
-> features + admin consoles all runtime-verified. Supersedes the 2026-06-27 handoff. Pair with
+> **Updated:** 2026-07-02 · **Branch:** `feature-user-onboarding-ux`
+> Server-authoritative money cutover is now **partially runtime-verified** — card
+> purchase + subscription settle end-to-end via the webhook (`reconcile_financials()`
+> = 0); wallet top-up / wallet buy / cart / retire (**Step 4 B–E**) are still to test.
+> See [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md) and
+> [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md) for the live status. Pair with
 > [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md) (plain-language roadmap),
 > [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md) (build-now plan),
 > [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) (owner steps), and
 > [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (full roadmap).
+
+> ⚠️ **2026-07-02 correction:** earlier notes below say the money path was "fully
+> proven." That was true for the **pre-cutover client-write path**. The
+> **server-authoritative cutover** (commits `e4cfde9`/`5a8db56`/`fe52010`) had
+> **never actually settled a purchase** until 2026-07-02, and the first live pass
+> found real blockers (now fixed — commit `a881294`). Card + subscription are now
+> genuinely verified through the webhook; **B–E remain**. Treat the older
+> "fully proven" lines as historical.
 
 ## TL;DR
 
@@ -79,6 +90,29 @@ to confirm an empty result.
 ---
 
 ## 1. What changed
+
+### 2026-07-02 — server-authoritative cutover: first live sandbox pass (bug found + fixed; commit `a881294`)
+The cutover money path was runtime-tested for the first time. It did **not** work
+out of the box — the first purchase surfaced a hard blocker that had been latent
+because this RPC path was never exercised against the live DB. Fixed and
+**partially re-verified** the same session.
+
+| Area | What | Notes |
+|---|---|---|
+| **Bug (critical)** | `process_marketplace_purchase` inserted `credit_ownership.status = 'active'`; the live `credit_ownership_status_check` allows only `'owned'`/`'retired'`/`'transferred'` → **every card/cart purchase rolled back**, webhook 500'd, intent stuck `pending`, and **PayMongo auto-disabled the webhook** after repeated failures | Fix: migration `20260702000000_fix_marketplace_ownership_status.sql` (`status = 'owned'`, matching sibling `process_wallet_purchase`). Safe — `status` is not a read filter (portfolio uses `ownership_type`; retire filters on user/project/qty) |
+| **Ops** | PayMongo webhook had been auto-disabled → re-created it + reset `PAYMONGO_WEBHOOK_SECRET`; delivery restored | PayMongo has no dashboard "re-enable"; recreate or call the `/enable` API |
+| **Diagnostics** | `paymongo-webhook` now records thrown handler errors to `webhook_events.error` (was silent — a failed handler just left the event at `received` and retried) | [paymongo-webhook/index.ts](../supabase/functions/paymongo-webhook/index.ts) |
+| **UI** | `/upgrade` now confirms/polls the plan on return from PayMongo (`?status=success`) and shows success/pending/cancelled; previously it silently re-rendered "Free" even on a successful upgrade | [UpgradeView.vue](../src/views/UpgradeView.vue) |
+| **DB** | Applied §0 `20260626000700_schema_catchup` (adds `credit_transactions → profiles` FKs); schema audit now empty → the receipt/certificate 400 join noise is gone | — |
+
+> **Step 4 status (see [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md)):**
+> ✅ **A. card purchase** (settles via webhook, certificate issued, reconcile = 0) ·
+> ✅ **F. subscription** (`/upgrade` → Pro via `activate_subscription`) ·
+> ⬜ **B. wallet top-up** · ⬜ **C. wallet purchase** · ⬜ **D. cart (2 items)** ·
+> ⬜ **E. retire credits** — **not yet tested.** The **P1 RLS lockdown stays gated**
+> until B–E pass. B–E run through `process_wallet_purchase` / `ensure_wallet` /
+> `retire_credits_atomic` — the webhook now surfaces any failure in
+> `webhook_events.error`.
 
 ### 2026-07-01 — money edges proven + codeable backlog + admin consoles (build green, ESLint 0, 145 tests)
 The money path was proven end-to-end and the remaining "built-but-not-clickable" gaps were closed.

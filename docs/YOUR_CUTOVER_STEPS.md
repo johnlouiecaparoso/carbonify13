@@ -295,8 +295,15 @@ Fake test card: **`4343 4343 4343 4345`**, any future expiry (e.g. 12/30), any
 **After EACH test**, run `select * from reconcile_financials();` in the SQL
 Editor → must be **0 rows**.
 
-- [ ] **A. Buy with Card.** Marketplace → Buy a listing → **Credit/Debit Card** →
-      pay. Check: credits in portfolio + certificate/receipt made → reconcile = 0.
+> **Progress (2026-07-02): A and F done. B, C, D, E still to do.**
+> Getting A to pass needed two fixes first: the PayMongo webhook had been
+> **auto-disabled** (re-created it + reset the signing secret), and a code bug
+> made every purchase fail (`credit_ownership.status` was `'active'`, which the
+> database rejects — fixed by migration `20260702000000`, now applied). If B–E
+> fail, the webhook now records the reason in the `webhook_events.error` column,
+> so send me that.
+
+- [x] **A. Buy with Card.** ✅ Done 2026-07-02 — credits + certificate issued, reconcile = 0.
 - [ ] **B. Top up wallet.** Wallet → Top up → pay. Check: balance went up →
       reconcile = 0.
 - [ ] **C. Buy with Wallet.** Marketplace → Buy → **Wallet Balance** → completes
@@ -305,10 +312,10 @@ Editor → must be **0 rows**.
       reconcile = 0.
 - [ ] **E. Retire credits.** Retire some you own → owned amount drops, retirement
       certificate made.
-- [ ] **F. Subscription.** `/upgrade` → pay → plan becomes Pro.
+- [x] **F. Subscription.** ✅ Done 2026-07-02 — `/upgrade` → paid → plan becomes Pro.
 
 **All 6 green + reconcile always 0 → message me "Step 4 all green."** Don't do
-Step 6 yet.
+Step 6 yet. **(2 of 6 done — B, C, D, E remaining.)**
 
 ---
 

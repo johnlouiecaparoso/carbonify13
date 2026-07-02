@@ -1,15 +1,38 @@
 # Money-path cutover (Phase 1 P2/P3/P5/P1) — status & verification
 
-> **Created:** 2026-07-01 · **Branch:** `feature-user-onboarding-ux`
+> **Created:** 2026-07-01 · **Updated:** 2026-07-02 · **Branch:** `feature-user-onboarding-ux`
 > Companion to [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) (P1–P5) and
 > [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md) Wave 3.
 >
 > **What this session did:** moved every *purchase*, *top-up* and *retirement*
 > money movement off the browser and onto server-authoritative RPCs / the
 > webhook, so the financial-table RLS lockdown (P1) can eventually run. All work
-> is **code-complete, build-green, ESLint 0, 145 tests pass** — but **none of it
-> is runtime-verified yet**. The edge functions must be redeployed and a sandbox
-> pass run before the P1 lockdown is flipped.
+> is **code-complete, build-green, ESLint 0, 145 tests pass**.
+
+> 🚦 **2026-07-02 — cutover partially runtime-verified (2 of 6 steps done).** The
+> first live sandbox pass ran and immediately surfaced that the cutover had
+> **never actually settled a purchase** — it exposed real blockers (commit
+> `a881294`):
+> - **Bug found + fixed:** `process_marketplace_purchase` inserted
+>   `credit_ownership.status = 'active'`, which the live
+>   `credit_ownership_status_check` constraint rejects (`'owned'`/`'retired'`/
+>   `'transferred'` only). Every card/cart purchase rolled back → webhook 500'd →
+>   intent stuck `pending` → **PayMongo auto-disabled the webhook** after repeated
+>   failures. Fixed by migration `20260702000000` (`status = 'owned'`).
+> - **Webhook was disabled** (from the 500 storm above). Re-created the PayMongo
+>   webhook + reset `PAYMONGO_WEBHOOK_SECRET`; delivery restored.
+> - **Diagnostics added:** the webhook now records thrown handler errors to
+>   `webhook_events.error` (was silent).
+> - **UI gap fixed:** `/upgrade` now confirms/polls the plan on return instead of
+>   silently re-rendering "Free".
+>
+> **Runtime-verified 2026-07-02:** ✅ **A. card purchase** (settles via webhook,
+> certificate issued, `reconcile_financials()` = 0) · ✅ **F. subscription**
+> (`/upgrade` → Pro, plan activated by webhook).
+> **NOT yet run:** ⬜ **B. wallet top-up** · ⬜ **C. wallet purchase** ·
+> ⬜ **D. cart (2 items)** · ⬜ **E. retire credits**. Also applied the §0 schema
+> catch-up (`20260626000700`) — the audit is now empty (FK/certificate 400 noise
+> resolved). **The P1 lockdown stays 🔒 gated until B–E are verified.**
 
 Legend: ✅ done in code (needs runtime verify) · ⏳ remaining · 🔒 gated
 
@@ -43,6 +66,8 @@ passes the balance check.
 |---|---|---|
 | 1 | `20260701000400_process_wallet_purchase.sql` | Server-authoritative wallet purchase RPC (mirrors `process_marketplace_purchase` incl. the `platform_fee_percent` fee model). Granted to `authenticated` (spends only the caller's own wallet). |
 | 2 | `20260701000500_ensure_wallet.sql` | Server-side wallet auto-creation (`ensure_wallet()` RPC) so first-use wallet creation survives the lockdown. |
+| 3 | `20260702000000_fix_marketplace_ownership_status.sql` | **✅ applied 2026-07-02.** Fixes `process_marketplace_purchase` to insert `credit_ownership.status = 'owned'` (was `'active'`, which the live constraint rejects — the bug that blocked every card/cart purchase). |
+| — | `20260626000700_schema_catchup.sql` | **✅ applied 2026-07-02.** §0 drift catch-up; adds `credit_transactions → profiles` FKs (fixes the receipt/certificate 400 join noise). Audit is now empty. |
 
 ## Edge functions to redeploy (Dashboard, `--no-verify-jwt`)
 
@@ -80,12 +105,14 @@ paths deleted in hygiene — neither blocks lockdown since nothing calls them).
 Run against the deployed preview (PayMongo can't reach localhost). After **each**
 money step, `select * from reconcile_financials();` must return **0 rows**.
 
-1. **Online purchase** (card `4343 4343 4343 4345`): buy from `/marketplace` → PayMongo → back on `/payment/callback` → credits appear, certificate + receipt generated, `reconcile_financials()` = 0.
-2. **Cart purchase** (2 items): sequential checkout settles each; certificate per item; `reconcile_financials()` = 0.
-3. **Wallet purchase**: top up first, then buy with the `wallet` method → `process_wallet_purchase` settles; balance debited; certificate issued; `reconcile_financials()` = 0.
-4. **Top-up (P5)**: `/wallet` top-up → PayMongo → webhook credits balance; a completed `wallet_transactions` row (external_reference = session id) appears; `reconcile_financials()` = 0.
-5. **Retirement**: retire owned credits → `retire_credits_atomic` decrements; retirement certificate issued; balance can't go negative.
-6. **Subscription** (regression): `/upgrade` still flips the plan.
+> **Progress 2026-07-02:** 1 and 6 ✅ verified; 2–5 ⬜ not yet run.
+
+1. ✅ **Online purchase** (card `4343 4343 4343 4345`): buy from `/marketplace` → PayMongo → back on `/payment/callback` → credits appear, certificate + receipt generated, `reconcile_financials()` = 0. **Verified 2026-07-02** (required the `20260702000000` status fix first).
+2. ⬜ **Cart purchase** (2 items): sequential checkout settles each; certificate per item; `reconcile_financials()` = 0.
+3. ⬜ **Wallet purchase**: top up first, then buy with the `wallet` method → `process_wallet_purchase` settles; balance debited; certificate issued; `reconcile_financials()` = 0.
+4. ⬜ **Top-up (P5)**: `/wallet` top-up → PayMongo → webhook credits balance; a completed `wallet_transactions` row (external_reference = session id) appears; `reconcile_financials()` = 0.
+5. ⬜ **Retirement**: retire owned credits → `retire_credits_atomic` decrements; retirement certificate issued; balance can't go negative.
+6. ✅ **Subscription** (regression): `/upgrade` flips the plan (webhook `activate_subscription`). **Verified 2026-07-02.**
 
 Then: complete the wallet-creation migration, re-run 1–5, and only then run
 `supabase/cutover/lockdown_financial_writes.sql`. Re-run the whole checklist
