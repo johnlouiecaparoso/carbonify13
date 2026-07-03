@@ -9,6 +9,16 @@
 > webhook, so the financial-table RLS lockdown (P1) can eventually run. All work
 > is **code-complete, build-green, ESLint 0, 145 tests pass**.
 
+> ✅ **2026-07-03 — CUTOVER COMPLETE + HARDENED (all 6 flows verified, RLS
+> lockdown applied).** All of A–F settle server-side and `reconcile_financials()`
+> = 0 rows, re-confirmed **after** the P1 RLS lockdown (financial tables are now
+> server-write-only). B–E passed after fixing four out-of-version-control DB
+> objects the flows surfaced (`update_wallet_balance_atomic` was in no migration;
+> `wallet_transactions.external_reference` missing; RetireView `project_id`
+> mapping; a stray `credit_ownership_quantity_positive` > 0 constraint). Fixes
+> committed on `feature-user-onboarding-ux` (migrations `20260703000000`–
+> `20260703000200`). Next: open the PR to `main`.
+
 > 🚦 **2026-07-02 — cutover partially runtime-verified (2 of 6 steps done).** The
 > first live sandbox pass ran and immediately surfaced that the cutover had
 > **never actually settled a purchase** — it exposed real blockers (commit

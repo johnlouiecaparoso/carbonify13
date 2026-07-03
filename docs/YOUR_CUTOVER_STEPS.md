@@ -450,40 +450,42 @@ Fake test card: **`4343 4343 4343 4345`**, any future expiry (e.g. 12/30), any
 **After EACH test**, run `select * from reconcile_financials();` in the SQL
 Editor → must be **0 rows**.
 
-> **Progress (2026-07-02): A and F done. B, C, D, E still to do.**
-> Getting A to pass needed two fixes first: the PayMongo webhook had been
-> **auto-disabled** (re-created it + reset the signing secret), and a code bug
-> made every purchase fail (`credit_ownership.status` was `'active'`, which the
-> database rejects — fixed by migration `20260702000000`, now applied). If B–E
-> fail, the webhook now records the reason in the `webhook_events.error` column,
-> so send me that.
+> **✅ Progress (2026-07-03): ALL 6 DONE.** A/F verified 2026-07-02; B, C, D, E
+> verified 2026-07-03 after fixing four out-of-version-control DB objects the
+> flows surfaced: `update_wallet_balance_atomic` (was defined in no migration),
+> `wallet_transactions.external_reference` (missing column), the RetireView
+> `project_id` mapping, and a stray `credit_ownership_quantity_positive` (> 0)
+> constraint that blocked retirement. Every flow reconciled to 0 rows.
 
-- [x] **A. Buy with Card.** ✅ Done 2026-07-02 — credits + certificate issued, reconcile = 0.
-- [ ] **B. Top up wallet.** Wallet → Top up → pay. Check: balance went up →
-      reconcile = 0.
-- [ ] **C. Buy with Wallet.** Marketplace → Buy → **Wallet Balance** → completes
-      instantly. Check: balance dropped, credits added → reconcile = 0.
-- [ ] **D. Cart, 2 items.** Add 2 listings → checkout → pays one at a time →
-      reconcile = 0.
-- [ ] **E. Retire credits.** Retire some you own → owned amount drops, retirement
-      certificate made.
-- [x] **F. Subscription.** ✅ Done 2026-07-02 — `/upgrade` → paid → plan becomes Pro.
+- [x] **A. Buy with Card.** ✅ 2026-07-02 — credits + certificate issued, reconcile = 0.
+- [x] **B. Top up wallet.** ✅ 2026-07-03 — balance credited by webhook, reconcile = 0.
+- [x] **C. Buy with Wallet.** ✅ 2026-07-03 — `process_wallet_purchase` settles, certificate issued, reconcile = 0.
+- [x] **D. Cart, 2 items.** ✅ 2026-07-03 — sequential checkout, each settles, reconcile = 0.
+- [x] **E. Retire credits.** ✅ 2026-07-03 — retired across ownership rows, retirement certificate, reconcile = 0.
+- [x] **F. Subscription.** ✅ 2026-07-02 — `/upgrade` → paid → plan becomes Pro.
 
-**All 6 green + reconcile always 0 → message me "Step 4 all green."** Don't do
-Step 6 yet. **(2 of 6 done — B, C, D, E remaining.)**
+**✅ All 6 green + reconcile 0.** Step 4 complete.
 
 ---
 
-## STEP 5 — I check, then say go/no-go
+## STEP 5 — I check, then say go/no-go ✅ DONE (GO, 2026-07-03)
 
-After "Step 4 all green," I review the code once more and tell you it's safe to
-lock.
+Pre-lockdown safety scan completed: **no reachable client path writes** the four
+locked tables (all such writers are dead code, test-only, or the UI-unreachable
+`demo` method; the one live client write is a silent no-op UPDATE). All live
+money-writes go through SECURITY DEFINER RPCs / the service-role webhook, which
+bypass RLS. Confirmed all four tables have RLS enabled **with SELECT policies**,
+so the lockdown preserves reads. **Verdict: GO.**
 
 ---
 
-## STEP 6 — Lock the tables (LAST, only after I say go)
+## STEP 6 — Lock the tables ✅ DONE (2026-07-03)
 
-**+ New query**, paste this box, **Run**:
+Ran the lockdown below; then re-verified **all six** flows (A–F) once more — each
+still settled and `reconcile_financials()` stayed at **0 rows** with client
+writes locked out. The financial tables are now server-write-only.
+
+**The SQL that was run:**
 
 ```sql
 -- Make the financial tables server-write-only.
@@ -508,8 +510,11 @@ alter table public.wallet_accounts       enable row level security;
 alter table public.wallet_transactions   enable row level security;
 ```
 
-Then **redo the whole Step 4 test list once more.** Everything must still work
-and reconcile must still be 0. If anything breaks, tell me — it's reversible.
+> ✅ Re-ran the whole Step 4 list after this: all six flows still work and each
+> reconciled to 0 rows. Reversible if ever needed (re-create a specific policy).
+
+**The cutover (P1/P2/P3/P5) is complete and hardened.** Next: capture the work —
+open the PR `feature-user-onboarding-ux` → `main`.
 
 ---
 
