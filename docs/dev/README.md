@@ -15,6 +15,7 @@ Index of developer documentation for Carbonify (repo name **ecolink**). Start wi
 - **[TESTING.md](TESTING.md)** — Vitest unit tests and Playwright e2e.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — workflow, linting, and conventions.
 - **[SECURITY.md](SECURITY.md)** — security model, secrets, and the server-authoritative money path.
+- **[DEPLOYMENT_READINESS.md](DEPLOYMENT_READINESS.md)** — pre-launch security assessment (two adversarial reviews), findings, fixes, and the go/no-go checklist for real-user, real-money deployment. **Read before switching to live PayMongo keys.**
 
 ## Elsewhere in the repo
 

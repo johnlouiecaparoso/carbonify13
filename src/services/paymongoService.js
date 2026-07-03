@@ -26,7 +26,10 @@ const PAYMONGO_CONFIG = {
 export function initPayMongo() {
   try {
     PAYMONGO_CONFIG.publicKey = getEnv('VITE_PAYMONGO_PUBLIC_KEY', { optional: true })
-    PAYMONGO_CONFIG.secretKey = getEnv('VITE_PAYMONGO_SECRET_KEY', { optional: true })
+    // SECURITY: the PayMongo SECRET key must never be read into the browser bundle.
+    // It lives only in Supabase Edge Function secrets. secretKey stays null here, so
+    // all checkout/verify goes through the Edge Function (never a browser-direct call).
+    PAYMONGO_CONFIG.secretKey = null
     // Use real PayMongo (Edge Function) when public key is set; no need for secret in frontend
     PAYMONGO_CONFIG.isConfigured = !!PAYMONGO_CONFIG.publicKey
 
