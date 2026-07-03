@@ -259,6 +259,13 @@
         </div>
       </div>
     </div>
+
+    <Toast
+      v-if="toast.show"
+      :type="toast.type"
+      :message="toast.message"
+      @close="toast.show = false"
+    />
   </div>
 </template>
 
@@ -271,9 +278,16 @@ import {
   getUserPurchaseHistoryPage,
   getUserRetirementHistory,
 } from '@/services/transactionHistoryService'
+import Toast from '@/components/ui/Toast.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
+
+// Lightweight in-app toast (replaces blocking window.alert on retire).
+const toast = ref({ show: false, type: 'success', message: '' })
+function showToast(message, type = 'success') {
+  toast.value = { show: true, type, message }
+}
 
 // Form data
 const selectedProject = ref('')
@@ -473,11 +487,12 @@ const handleRetire = async () => {
     // Reload data
     await loadUserCredits()
 
-    // Show success message
-    alert(`Successfully retired ${creditsToRetireValue} credits from ${projectName}!`)
+    // Show success toast
+    showToast(`Successfully retired ${creditsToRetireValue} credits from ${projectName}!`, 'success')
   } catch (err) {
     console.error('Error retiring credits:', err)
     error.value = err.message || 'Failed to retire credits. Please try again.'
+    showToast(error.value, 'error')
   } finally {
     loading.value = false
   }
