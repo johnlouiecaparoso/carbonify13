@@ -365,17 +365,22 @@ const loadUserCredits = async () => {
       timeoutPromise,
     ])
 
-    // Transform the data to include project details (only show credits with quantity > 0)
+    // Transform the data to include project details (only show credits with quantity > 0).
+    // getUserCreditPortfolio returns FLAT fields (project_id, project_title, ...) — not a
+    // nested project_credits.projects object. The dropdown key stays the ownership-row id,
+    // but we MUST carry the real project_id: retire_credits_atomic matches on it, so dropping
+    // it (the old bug) made every retirement fail with "insufficient credits".
     availableProjects.value = credits
       .filter((credit) => credit.quantity > 0)
       .map((credit) => ({
-        id: credit.project_credits?.projects?.id || credit.id,
-        name: credit.project_credits?.projects?.title || 'Unknown Project',
-        project_title: credit.project_credits?.projects?.title || 'Unknown Project',
+        id: credit.id,
+        project_id: credit.project_id,
+        name: credit.project_title || 'Unknown Project',
+        project_title: credit.project_title || 'Unknown Project',
         credits: credit.quantity,
         quantity: credit.quantity,
-        category: credit.project_credits?.projects?.category || 'Unknown',
-        location: credit.project_credits?.projects?.location || 'Unknown',
+        category: credit.project_category || 'Unknown',
+        location: credit.project_location || 'Unknown',
       }))
 
     // Load transaction history: purchases paginate server-side; retirements

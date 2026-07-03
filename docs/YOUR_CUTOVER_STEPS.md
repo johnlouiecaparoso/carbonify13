@@ -239,16 +239,171 @@ notify pgrst, 'reload schema';
 
 ✅ Again "Success. No rows returned" is correct.
 
-### 1C — Confirm both installed
+### 1C — Retirement function (retire across multiple purchases)
 
-**+ New query**, paste, **Run** — you should get **2 rows** back:
+This makes "Retire credits" (test **E**) work when your credits came from more
+than one purchase — the common case. Without it, retiring can wrongly fail with
+"insufficient credits." **+ New query**, paste, click **Run**:
+
+```sql
+-- Retire across MULTIPLE ownership rows (oldest first).
+create or replace function public.retire_credits_atomic(
+  p_user_id uuid,
+  p_project_id uuid,
+  p_quantity numeric
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user      uuid;
+  v_total     numeric;
+  v_remaining numeric;
+  r           record;
+begin
+  v_user := coalesce(auth.uid(), p_user_id);
+
+  if p_quantity is null or p_quantity <= 0 then
+    return false;
+  end if;
+
+  select coalesce(sum(quantity), 0) into v_total
+  from public.credit_ownership
+  where user_id = v_user
+    and project_id = p_project_id
+    and coalesce(status, 'owned') <> 'retired';
+
+  if v_total < p_quantity then
+    return false;
+  end if;
+
+  v_remaining := p_quantity;
+  for r in
+    select id, quantity
+    from public.credit_ownership
+    where user_id = v_user
+      and project_id = p_project_id
+      and coalesce(status, 'owned') <> 'retired'
+      and quantity > 0
+    order by created_at asc
+    for update
+  loop
+    exit when v_remaining <= 0;
+    if r.quantity <= v_remaining then
+      update public.credit_ownership set quantity = 0, updated_at = now() where id = r.id;
+      v_remaining := v_remaining - r.quantity;
+    else
+      update public.credit_ownership set quantity = quantity - v_remaining, updated_at = now() where id = r.id;
+      v_remaining := 0;
+    end if;
+  end loop;
+
+  return v_remaining <= 0;
+end;
+$$;
+
+grant execute on function public.retire_credits_atomic(uuid, uuid, numeric) to authenticated;
+
+notify pgrst, 'reload schema';
+```
+
+✅ "Success. No rows returned" is correct.
+
+### 1D — Wallet balance function (needed for top-up, test B)
+
+This is the function the payment webhook uses to add money to a wallet after a
+top-up. It was missing from the migration files, so without this box, topping up
+(**test B**) would silently fail and could disable the webhook. **+ New query**,
+paste, click **Run**:
+
+```sql
+-- Atomically adjust a wallet balance (used by the top-up webhook).
+create or replace function public.update_wallet_balance_atomic(
+  p_user_id uuid,
+  p_amount numeric,
+  p_operation text default 'add'
+) returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_wallet public.wallet_accounts%rowtype;
+  v_delta  numeric;
+  v_new    numeric;
+begin
+  if p_user_id is null then
+    raise exception 'user id required';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'amount must be positive';
+  end if;
+
+  if p_operation in ('add', 'credit', 'deposit') then
+    v_delta := p_amount;
+  elsif p_operation in ('subtract', 'deduct', 'debit', 'withdraw') then
+    v_delta := -p_amount;
+  else
+    raise exception 'unknown wallet operation: %', p_operation;
+  end if;
+
+  if not exists (select 1 from public.wallet_accounts wa where wa.user_id = p_user_id) then
+    begin
+      insert into public.wallet_accounts (user_id, current_balance, currency)
+        values (p_user_id, 0, 'PHP');
+    exception when unique_violation then
+      null;
+    end;
+  end if;
+
+  select * into v_wallet from public.wallet_accounts
+    where user_id = p_user_id
+    for update;
+  if not found then
+    raise exception 'wallet not found for user %', p_user_id;
+  end if;
+
+  v_new := coalesce(v_wallet.current_balance, 0) + v_delta;
+  if v_new < 0 then
+    raise exception 'insufficient wallet balance';
+  end if;
+
+  update public.wallet_accounts
+    set current_balance = v_new, updated_at = now()
+    where id = v_wallet.id;
+
+  return v_new;
+end;
+$$;
+
+revoke all on function public.update_wallet_balance_atomic(uuid, numeric, text) from public, anon, authenticated;
+grant execute on function public.update_wallet_balance_atomic(uuid, numeric, text) to service_role;
+
+notify pgrst, 'reload schema';
+```
+
+✅ "Success. No rows returned" is correct.
+
+### 1E — Confirm all the money functions are installed
+
+**+ New query**, paste, **Run** — you should get **5 rows** back:
 
 ```sql
 select proname from pg_proc
-where proname in ('process_wallet_purchase', 'ensure_wallet');
+where proname in (
+  'process_wallet_purchase',      -- test C (buy with wallet)
+  'ensure_wallet',                -- wallet auto-create
+  'retire_credits_atomic',        -- test E (retire)
+  'update_wallet_balance_atomic', -- test B (top-up)
+  'process_marketplace_purchase'  -- tests A + D (card / cart), fixed 2026-07-02
+)
+order by proname;
 ```
 
-If you see the two names → **Step 1 done.** ✅
+If you see **all five** names → **Step 1 done.** ✅ (If any is missing, tell me
+which — don't continue past this.)
 
 ---
 
