@@ -1,12 +1,19 @@
 # 👉 Your Action Items (owner-only steps)
 
-> ## ✅ ALL COMPLETE (2026-07-01)
+> ## ✅ 2026-07-01 items complete · 🚦 new cutover testing open (2026-07-02)
 > §1 (4 features click-through), §2 (payout + refund edges, reconcile = 0), and
-> §3 (account-deletion deploy) are all **done and verified**. The money path is
-> fully proven end-to-end. The steps below are kept for reference / re-testing.
+> §3 (account-deletion deploy) are all **done and verified** on the pre-cutover path.
+>
+> 🚦 **New (2026-07-02):** the *server-authoritative money cutover* is now being
+> tested. ✅ **card purchase + subscription** verified end-to-end (0 drift, after
+> fixing the `credit_ownership.status` blocker + re-enabling the auto-disabled
+> PayMongo webhook). ⬜ **Still to do — Step 4 B–E:** wallet top-up, buy with
+> wallet, cart (2 items), retire credits. See [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md).
+> The **P1 RLS lockdown stays gated** until B–E pass.
 >
 > **Still to run:** migrations `20260701000200` (admin refund) and `20260701000300`
-> (admin KYC/role set) if not yet applied.
+> (admin KYC/role set) if not yet applied. _(Cutover migrations `20260701000400`,
+> `20260701000500`, `20260702000000` are applied.)_
 
 > **Created:** 2026-07-01. These are the things only you can do — they need a
 > running app, real accounts/roles, or the Supabase/PayMongo dashboards. Claude

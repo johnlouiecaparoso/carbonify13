@@ -1,9 +1,9 @@
 # Carbonify — Implementation Roadmap & Timeline
 
 > **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Carbonify scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
-> **Compiled:** 2026-06-06 · **Progress updated:** 2026-07-01
+> **Compiled:** 2026-06-06 · **Progress updated:** 2026-07-02
 >
-> **📍 Progress (2026-07-01):** **Phases 0–8 are code-complete; the money path (Phases 1–2) is now FULLY PROVEN** — purchase + subscription + **payout + refund** all reconcile to 0 drift (ESLint 0, 145 unit tests, build ✓). The 2026-07-01 session also runtime-verified the codeable-backlog features (seller earnings, pagination, additionality/permanence, saved searches) and shipped admin action consoles (KYB review, refunds/disputes) + a seller KYB form. **Next:** the only *code* left is the money-path gated cutover (server-authoritative Buy UI + RLS lockdown) and code hygiene ([`NOW_IMPLEMENTATION_PLAN.md`](NOW_IMPLEMENTATION_PLAN.md)); everything else needs an external partner (registry, AML data, PSP) or ops/legal. Per-phase status is marked inline below.
+> **📍 Progress (2026-07-02):** **Phases 0–8 are code-complete.** The **pre-cutover** money path (Phases 1–2) was proven — purchase + subscription + payout + refund all reconcile to 0 drift (ESLint 0, 145 unit tests, build ✓). The **server-authoritative money cutover** (server-side purchase/top-up/retirement RPCs) is now **partially runtime-verified**: ✅ **card purchase + subscription** settle via the webhook with 0 drift (2026-07-02, after fixing a `credit_ownership.status` constraint bug that had blocked every purchase and auto-disabled the PayMongo webhook), ⬜ **wallet top-up / wallet buy / cart / retire** still to test (Step 4 B–E, [`YOUR_CUTOVER_STEPS.md`](YOUR_CUTOVER_STEPS.md)). **Next:** finish Step 4 B–E, then the money-path **RLS lockdown** (gated on those), plus code hygiene ([`NOW_IMPLEMENTATION_PLAN.md`](NOW_IMPLEMENTATION_PLAN.md)); everything else needs an external partner (registry, AML data, PSP) or ops/legal. Per-phase status is marked inline below.
 
 ---
 
@@ -19,7 +19,7 @@
 | Phase | Theme | Solo-dev weeks | Cumulative | Status |
 |---|---|---|---|---|
 | **0** | Stabilize & clean up | 1–2 | Wk 2 | ✅ **Code-complete** |
-| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 | ✅ **PROVEN** (purchase + subscription, 0 drift) |
+| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 | ✅ **PROVEN** · 🚦 cutover: card+subscription verified 2026-07-02, wallet/cart/retire pending |
 | **2** | Get sellers paid 🔴 | 3 | Wk 9 | ✅ **PROVEN** (payout + refund settled, 0 drift, 2026-07-01) |
 | **3** | Real credits + buyer trust 🔴 | 3 | Wk 12 | 🆕 **Code-complete** (real registry/supplier needs a partner) |
 | **4** | Workflow completeness 🟠 | 3 | Wk 15 | 🆕 **Code-complete** (runtime-untested) |

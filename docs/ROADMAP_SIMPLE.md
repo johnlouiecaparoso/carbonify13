@@ -1,7 +1,15 @@
 # Carbonify — Simple Roadmap
 
-> **Updated:** 2026-07-01 · Plain-language plan. For the full detail see
+> **Updated:** 2026-07-02 · Plain-language plan. For the full detail see
 > [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) and [HANDOFF.md](HANDOFF.md).
+
+> 🚦 **2026-07-02 update:** the *server-authoritative money cutover* got its first
+> real test. **Buying with a card and upgrading to Pro now work end-to-end** (money
+> settles, books balance) — but this only worked after fixing a real bug that had
+> blocked every purchase. **Still to test: wallet top-up, buying with wallet, cart
+> (2 items), and retiring credits** (Step 4 B–E in
+> [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md)). The older "all of it, proven"
+> lines below describe the *earlier* (pre-cutover) version and are kept as history.
 
 ## The one-line goal
 Let a buyer pay for a carbon credit and have the money land safely — then make it trustworthy enough to go live.
@@ -104,8 +112,9 @@ Make listings believable.
 - "You" = a dashboard/admin step only the owner can do.
 - ✅ items are built & committed; most are now **runtime-verified** (2026-07-01).
 
-**Suggested order now:** ✅ money path fully proven (purchase + subscription + payout + refund),
-✅ `account-deletion` deployed, ✅ 2026-07-01 features + admin consoles verified. Next:
+**Suggested order now:** ✅ pre-cutover money path proven (purchase + subscription + payout + refund);
+🚦 **server-authoritative cutover now verified for card + subscription (2026-07-02), wallet/cart/retire
+(Step 4 B–E) still to test**; ✅ `account-deletion` deployed, ✅ 2026-07-01 features + admin consoles verified. Next:
 (1) **open the PR** `feature-user-onboarding-ux` → `main` to capture the proven work,
 (2) optional codeable hardening — the **money-path gated cutover** (server-authoritative Buy UI
 then RLS lockdown) and code hygiene (see [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md)),

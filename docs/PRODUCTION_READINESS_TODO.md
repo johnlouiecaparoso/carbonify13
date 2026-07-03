@@ -1,12 +1,17 @@
 # Carbonify — Production Readiness & Roadmap TODO
 
-> Created 2026-06-15 from the system analysis · **Updated 2026-07-01.**
+> Created 2026-06-15 from the system analysis · **Updated 2026-07-02.**
 > Check items off as they're completed.
 >
-> **Verdict (2026-07-01):** Strong, well-architected MVP with a **money core now PROVEN at runtime**
-> (purchase + subscription + payout + refund, 0 drift). Still missing the *trust/registry layer*.
-> Deployable to a **sandbox/closed beta** now; **real-money production** also needs the
-> legal/compliance track + a real registry integration.
+> **Verdict (2026-07-02):** Strong, well-architected MVP. The **pre-cutover** money core
+> was proven at runtime (purchase + subscription + payout + refund, 0 drift). The
+> **server-authoritative cutover** (server-side purchase/top-up/retirement RPCs) is now
+> **partially runtime-verified**: ✅ card purchase + subscription settle via the webhook
+> (0 drift, 2026-07-02, after fixing the `credit_ownership.status` blocker), ⬜ wallet
+> top-up / wallet buy / cart / retire still to test. The **P1 RLS lockdown stays gated**
+> until those pass. Still missing the *trust/registry layer*. Deployable to a
+> **sandbox/closed beta** now; **real-money production** also needs the legal/compliance
+> track + a real registry integration.
 
 Legend: 🔴 blocker · 🟠 important · 🟢 minor · 🏛️ business/legal (not code)
 
@@ -34,9 +39,9 @@ webhook that has **never settled a real sandbox transaction**. Prove it before a
 
 - [ ] 🔴 Integrate **error tracking** (Sentry or similar) + alerts on payment/ledger/payout failures _(needs a Sentry DSN — your key)_
 - [x] 🟠 Add **payment-path tests** — VAT-invoice math, weighted rubric, seller-withdrawal validation, webhook signature; +paginated-history test _(2026-06-26; 114 tests total)_
-- [ ] 🔴 Finish **P2 client cutover** — ensure no client code writes `credit_transactions`/`credit_ownership` directly (route all buys through the locked RPC; retire the legacy purchase path)
-- [ ] 🔴 Then run **`lockdown_financial_writes.sql`** (P1) to make financial tables server-write-only
-- [ ] 🟠 Derive checkout `user_id` from the **verified JWT** instead of request body (P3)
+- [x] 🔴 Finish **P2 client cutover** — no client code writes `credit_transactions`/`credit_ownership` directly; all buys route through the server RPCs (`process_marketplace_purchase` / `process_wallet_purchase`). _Code-complete + partially runtime-verified 2026-07-02 (card ✅; wallet/cart ⬜)_
+- [ ] 🔴 Then run **`lockdown_financial_writes.sql`** (P1) to make financial tables server-write-only _(🔒 gated: finish Step 4 B–E first — see [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md))_
+- [x] 🟠 Derive checkout `user_id` from the **verified JWT** instead of request body (P3) _(done — `getVerifiedUserId` in paymongo-checkout)_
 - [ ] 🟠 Add hot-path **indexes**: `credit_transactions(status, project_credit_id/created_at)`, `credit_listings(seller_id, status)`, `projects(status)`, `profiles(kyc_level)`, `wallet_transactions(account_id, created_at)`
 - [ ] 🟢 Validate the `NOT VALID` FKs once orphan-free; remove receipt/certificate fallback crutches
 

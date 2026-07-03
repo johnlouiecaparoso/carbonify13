@@ -1,20 +1,26 @@
 # Carbonify — "Build Now" Implementation Plan
 
-> **Created:** 2026-07-01 · **Updated:** 2026-07-01 · **Branch:** `feature-user-onboarding-ux`
+> **Created:** 2026-07-01 · **Updated:** 2026-07-02 · **Branch:** `feature-user-onboarding-ux`
 > Companion to [HANDOFF.md](HANDOFF.md) §3 (implemented vs not) and
 > [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md). This doc takes everything marked
 > **❌ not implemented** and sorts it into what we can **start in code today** vs what is
 > **blocked** on you (a key/account) or an outside party (partner/ops/legal).
 
-> ## ✅ Progress (2026-07-01)
+> ## ✅ Progress (2026-07-02)
 > - **Wave 0 (verify)** — DONE. Money edges (payout + refund) proven at 0 drift;
 >   `account-deletion` deployed; all 🆕 features click-through verified.
 > - **Wave 1 (codeable backlog)** — DONE. Pagination, seller per-project earnings,
 >   saved-search/price alerts, structured additionality/permanence — all shipped + verified.
 >   (Plus, beyond the original list: admin KYB-review + refunds consoles, seller KYB form,
 >   admin KYC-level override, and nav fixes surfacing Retire / Seller Earnings.)
-> - **Next:** Wave 2 (hygiene) and Wave 3 (money-path gated cutover) remain — both optional/
->   non-blocking. Waves below are kept for reference.
+> - **Wave 3 (money-path cutover)** — BUILT + partially verified (2026-07-02). The
+>   server-authoritative purchase/top-up/retirement RPCs are code-complete (commits
+>   `e4cfde9`…`fe52010`); a first sandbox pass verified ✅ **card purchase + subscription**
+>   (0 drift) after fixing the `credit_ownership.status` blocker (`a881294`). ⬜ **Still to
+>   test:** wallet top-up, wallet buy, cart, retire (Step 4 B–E). **P1 RLS lockdown
+>   remains gated** until B–E pass — see [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md).
+> - **Next:** finish Step 4 B–E → P1 lockdown; Wave 2 (hygiene) still optional/non-blocking.
+>   Waves below are kept for reference.
 
 ## The sorting rule
 
