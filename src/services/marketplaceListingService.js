@@ -290,22 +290,6 @@ export class MarketplaceListingService {
     return this.updateListing(listingId, userId, { status: 'cancelled' })
   }
 
-  /** Pause an active listing (hidden from the marketplace, not cancelled). */
-  async pauseListing(listingId, userId) {
-    return this.updateListing(listingId, userId, { status: 'paused' })
-  }
-
-  /** Re-activate a paused listing. */
-  async relistListing(listingId, userId) {
-    return this.updateListing(listingId, userId, { status: 'active' })
-  }
-
-  /** Update a listing's price per credit. */
-  async updateListingPrice(listingId, userId, pricePerCredit) {
-    if (!(pricePerCredit > 0)) throw new Error('Price must be positive')
-    return this.updateListing(listingId, userId, { price_per_credit: pricePerCredit })
-  }
-
   /**
    * Get user's available credits for listing
    * @param {string} userId - User ID

@@ -257,14 +257,7 @@ Your new payout appears in the **Withdrawals** table on `/sales` with its status
 
 ## 9. Managing your listings
 
-When credits are minted (on VER approval), a listing is published to the marketplace at the price the verifier set. On your listings you can:
-
-- **Pause** a listing — hides it from the marketplace without cancelling it.
-- **Relist** (reactivate) a paused listing.
-- **Edit the price per credit** — the new price must be greater than zero.
-- **Cancel** a listing you no longer want to sell.
-
-A listing's status is one of **active**, **paused**, **sold**, or **cancelled**.
+When credits are minted (on VER approval), a listing is **published automatically** to the marketplace at the price the verifier set. A listing's status is one of **active**, **paused**, **sold**, or **cancelled**.
 
 > **Free-plan limit:** free accounts can keep only a limited number of **active** listings at once. If you hit the cap, the platform tells you your current count and prompts you to **upgrade to Pro** for unlimited listings.
 

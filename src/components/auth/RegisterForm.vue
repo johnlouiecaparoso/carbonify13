@@ -185,11 +185,6 @@ async function handleSubmit() {
         <router-link to="/apply?role=verifier">Apply as a Verifier →</router-link>
       </div>
     </div>
-
-    <p class="lgu-register-hint">
-      Representing a local government unit?
-      <router-link to="/register/lgu">Register as an LGU →</router-link>
-    </p>
   </div>
 </template>
 
@@ -429,19 +424,6 @@ button[disabled] {
 .social-icon {
   width: 18px;
   height: 18px;
-}
-
-.lgu-register-hint {
-  margin-top: 1rem;
-  text-align: center;
-  font-size: 0.8rem;
-  color: #6b7280;
-}
-
-.lgu-register-hint a {
-  color: #069e2d;
-  font-weight: 600;
-  text-decoration: none;
 }
 
 .role-apply-box {
