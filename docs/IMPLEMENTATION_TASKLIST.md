@@ -1,5 +1,9 @@
 # Carbonify — Master Implementation Task List
 
+> 🗄️ **Superseded (2026-07-03) by [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md).** Kept for history. For the
+> current implemented-vs-not list by priority use **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**; current
+> state is **[HANDOFF.md](HANDOFF.md)**.
+
 **Purpose:** one place showing **what's already built** and **what still needs building**, prioritized.
 **Updated:** June 2026
 

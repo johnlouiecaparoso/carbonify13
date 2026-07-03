@@ -1,5 +1,11 @@
 # Carbonify — Production Readiness & Roadmap TODO
 
+> 🗄️ **Superseded (2026-07-03) by [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md).** Kept for history. The
+> money path is now **complete + hardened** and a pre-launch **security review** has run. Use
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)** for the current implemented-vs-not list by priority,
+> **[HANDOFF.md](HANDOFF.md)** for current state, and **[dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md)**
+> for the security go/no-go.
+
 > Created 2026-06-15 from the system analysis · **Updated 2026-07-02.**
 > Check items off as they're completed.
 >

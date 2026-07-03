@@ -1,5 +1,11 @@
 # Phase 1 — Money-Path Verification Runbook
 
+> ✅ **Historical / superseded (2026-07-03).** The money path is **done** — proven end-to-end and
+> hardened (RLS lockdown applied; all six flows reconcile to 0). This early runbook is kept for
+> history; the completed runbook of record is **[YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md)** and
+> the status is **[MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md)**. For next steps see
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**.
+
 > Goal: prove the financial core actually works end-to-end in sandbox before real users.
 > Run top to bottom. SQL goes in the **Supabase SQL Editor** (runs as a privileged role, which the
 > reconcile/balance objects require). Use PayMongo **test mode** keys + test cards throughout.

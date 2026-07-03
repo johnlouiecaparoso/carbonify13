@@ -1,5 +1,10 @@
 # 👉 Your Action Items (owner-only steps)
 
+> 🗄️ **Superseded (2026-07-03).** The owner steps here are done or rolled into the current plan.
+> For the live owner action list (security close-out + launch), use **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**
+> §4 and **[dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md)** §9 (go/no-go checklist).
+> Current state: **[HANDOFF.md](HANDOFF.md)**.
+
 > ## ✅ 2026-07-01 items complete · 🚦 new cutover testing open (2026-07-02)
 > §1 (4 features click-through), §2 (payout + refund edges, reconcile = 0), and
 > §3 (account-deletion deploy) are all **done and verified** on the pre-cutover path.

@@ -1,5 +1,9 @@
 # Console errors after payment (PayMongo callback)
 
+> ✅ **Historical (2026-07-03).** The post-payment console errors documented here were **resolved**
+> (schema drift fixed; FKs/columns added). Kept for traceability. Current status:
+> **[HANDOFF.md](HANDOFF.md)** · **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**.
+
 After a successful payment you may see several console messages. Here’s what they mean and how to fix them.
 
 ---

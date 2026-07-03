@@ -1,5 +1,9 @@
 # 🧭 Carbonify / Carbonify — Updated Development Board
 
+> 🗄️ **Historical / superseded (2026-07-03).** This board compares the codebase to the original
+> 14-week MVP plan and is kept for history. For the current status and plan use
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)** and **[HANDOFF.md](HANDOFF.md)**.
+
 > **Updated:** 2026-06-05
 > **Source:** Reconciled against the original `Carbonify_Notion_Template.md` and the original `Carbonify_Development_Plan.pdf`.
 > **Purpose:** Show what the codebase **actually implements today** vs. the original 14-week MVP plan, then re-plan the remaining work.

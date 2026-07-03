@@ -1,5 +1,9 @@
 # Carbonify — "Build Now" Implementation Plan
 
+> 🗄️ **Superseded (2026-07-03) by [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md).** Kept for history. The
+> money cutover this plan sequenced is **done + hardened**. For the current prioritized plan see
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**; for state see **[HANDOFF.md](HANDOFF.md)**.
+
 > **Created:** 2026-07-01 · **Updated:** 2026-07-02 · **Branch:** `feature-user-onboarding-ux`
 > Companion to [HANDOFF.md](HANDOFF.md) §3 (implemented vs not) and
 > [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md). This doc takes everything marked

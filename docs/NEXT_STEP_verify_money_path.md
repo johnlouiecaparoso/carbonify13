@@ -1,5 +1,11 @@
 # 👉 NEXT STEP — Verify the Money Path (do this before any new feature)
 
+> ✅ **Historical / superseded (2026-07-03).** The money path is **done** — proven end-to-end and
+> hardened (RLS lockdown applied; all six flows reconcile to 0). This early "next step" note is kept
+> for history. The completed runbook of record is **[YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md)**;
+> status is **[MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md)**; what to do now is
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**.
+
 > **Why this is #1:** All of Phase 1 (checkout, ledger, escrow) and Phase 2 (payouts, refunds) are
 > written and pass locally, but **have never run for real even once.** One successful sandbox cycle
 > either proves the foundation or surfaces bugs — *before* everything else is built on top of it.

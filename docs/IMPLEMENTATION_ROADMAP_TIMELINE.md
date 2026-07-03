@@ -1,5 +1,10 @@
 # Carbonify — Implementation Roadmap & Timeline
 
+> 🗄️ **Superseded (2026-07-03) by [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md).** Kept for history. Since
+> this timeline was written the money cutover completed + hardened and a security review ran. Use
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)** for the current phased plan and **[HANDOFF.md](HANDOFF.md)**
+> for state.
+
 > **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Carbonify scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
 > **Compiled:** 2026-06-06 · **Progress updated:** 2026-07-02
 >
