@@ -1,23 +1,27 @@
 # Carbonify — Handoff (current state)
 
-> **Updated:** 2026-07-02 · **Branch:** `feature-user-onboarding-ux`
-> Server-authoritative money cutover is now **partially runtime-verified** — card
-> purchase + subscription settle end-to-end via the webhook (`reconcile_financials()`
-> = 0); wallet top-up / wallet buy / cart / retire (**Step 4 B–E**) are still to test.
-> See [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md) and
-> [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md) for the live status. Pair with
-> [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md) (plain-language roadmap),
-> [NOW_IMPLEMENTATION_PLAN.md](NOW_IMPLEMENTATION_PLAN.md) (build-now plan),
-> [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) (owner steps), and
-> [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) (full roadmap).
+> **Updated:** 2026-07-03 · **Branch:** `feature-user-onboarding-ux` · **PR #2 → `main`**
+> ✅ **Server-authoritative money cutover is COMPLETE and HARDENED.** All six money
+> flows (card, wallet top-up, wallet buy, cart, retire, subscription) settle
+> server-side and `reconcile_financials()` = 0 — **re-verified after** the P1 RLS
+> lockdown (financial tables are now server-write-only). See
+> [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md) and
+> [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md) for the completed runbook, and
+> [RELEASE_NOTES.md](RELEASE_NOTES.md) for the release summary. Pair with
+> [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md) and
+> [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md).
+>
+> **User & developer docs:** step-by-step per-role guides live in
+> [user-guide/](user-guide/README.md); developer onboarding/architecture/deploy
+> docs live in [dev/](dev/README.md).
 
-> ⚠️ **2026-07-02 correction:** earlier notes below say the money path was "fully
-> proven." That was true for the **pre-cutover client-write path**. The
-> **server-authoritative cutover** (commits `e4cfde9`/`5a8db56`/`fe52010`) had
-> **never actually settled a purchase** until 2026-07-02, and the first live pass
-> found real blockers (now fixed — commit `a881294`). Card + subscription are now
-> genuinely verified through the webhook; **B–E remain**. Treat the older
-> "fully proven" lines as historical.
+> ✅ **2026-07-03 — cutover done.** B–E passed after fixing four out-of-version-control
+> DB objects the live flows surfaced (migrations `20260703000000`–`20260703000200`):
+> `update_wallet_balance_atomic` (was in no migration), `wallet_transactions.external_reference`
+> (missing column), the RetireView `project_id` mapping, and a stray
+> `credit_ownership_quantity_positive` (> 0) constraint that blocked retirement. Then
+> the RLS lockdown was applied and all six flows re-verified at reconcile = 0. Older
+> "partially verified / B–E remain" notes below are historical.
 
 ## TL;DR
 
@@ -47,9 +51,10 @@ everything. Build green, ESLint 0, **145 tests** (~86 commits ahead of `main`).
 > additionality/permanence, saved-search/price alerts) were all runtime-verified, and the admin
 > KYB-review + refunds consoles + seller KYB form + KYC-level admin override were exercised.
 
-**What's left of the money path:** nothing to *prove* — only the gated cutover remains (switch the
-Buy UI fully to the server RPC, then run `supabase/cutover/lockdown_financial_writes.sql`).
-Everything else depends on an external partner (real registry, AML data, PSP) or ops/legal.
+**What's left of the money path:** ✅ **nothing** — as of 2026-07-03 the gated cutover is
+**done**: the Buy/top-up/retire UI runs fully server-side and the financial-table RLS lockdown
+has been applied and re-verified (all six flows reconcile to 0). Everything else depends on an
+external partner (real registry, AML data, PSP) or ops/legal.
 
 > ✅ **Migrations applied + audit clean** (2026-06-26). The live DB had drifted behind the
 > migrations all session; the §0 catch-up (`20260626000700`) + audit

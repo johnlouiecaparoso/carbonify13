@@ -3,13 +3,14 @@
 > **Updated:** 2026-07-02 · Plain-language plan. For the full detail see
 > [PRODUCTION_READINESS_TODO.md](PRODUCTION_READINESS_TODO.md) and [HANDOFF.md](HANDOFF.md).
 
-> 🚦 **2026-07-02 update:** the *server-authoritative money cutover* got its first
-> real test. **Buying with a card and upgrading to Pro now work end-to-end** (money
-> settles, books balance) — but this only worked after fixing a real bug that had
-> blocked every purchase. **Still to test: wallet top-up, buying with wallet, cart
-> (2 items), and retiring credits** (Step 4 B–E in
-> [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md)). The older "all of it, proven"
-> lines below describe the *earlier* (pre-cutover) version and are kept as history.
+> ✅ **2026-07-03 update — the money cutover is DONE.** All six flows now work
+> end-to-end (card, wallet top-up, buy-with-wallet, cart, retire, subscription),
+> the books balance (`reconcile_financials()` = 0), and the financial tables have
+> been **locked to server-write-only** (RLS) with every flow re-verified after the
+> lock. This is the finish line for the money path. See
+> [YOUR_CUTOVER_STEPS.md](YOUR_CUTOVER_STEPS.md) (completed runbook) and
+> [RELEASE_NOTES.md](RELEASE_NOTES.md). Everything remaining needs an outside
+> partner or ops/legal — not more code.
 
 ## The one-line goal
 Let a buyer pay for a carbon credit and have the money land safely — then make it trustworthy enough to go live.
