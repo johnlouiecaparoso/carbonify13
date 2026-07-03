@@ -23,6 +23,25 @@
 > the RLS lockdown was applied and all six flows re-verified at reconcile = 0. Older
 > "partially verified / B–E remain" notes below are historical.
 
+> 🔐 **2026-07-03 — SECURITY REVIEW DONE; NOT YET CLEARED FOR LIVE PAYMENT KEYS.**
+> Two adversarial reviews (payment path + auth/RLS/secrets) ran before real-user
+> deployment. Frontend hardening is **applied** (security headers, `v-html` XSS
+> escape, prod-log stripping, no client secret key). Higher-severity fixes are
+> **written and queued** — chiefly a **Critical** `profiles` privilege-escalation
+> lock (migration `20260703000300`), retirement identity (`20260703000400`), an
+> **open email relay** (`send-approval-email`), and **JWT-enforced checkout
+> identity**. **Full findings, exact fixes, and the go/no-go checklist:**
+> [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md). **What to do now, by
+> priority:** [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md). Run in **sandbox mode only**
+> until the 🔴/🟠 items + an independent penetration test are done.
+
+> 📚 **New docs this session:** product overview [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md);
+> per-role user guides [user-guide/](user-guide/README.md); developer docs
+> [dev/](dev/README.md); rebuild/finish prompt [CARBONIFY_BUILD_PROMPT.md](CARBONIFY_BUILD_PROMPT.md);
+> deployment readiness [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md);
+> go-live roadmap [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md). Also removed a dead
+> `/register/lgu` link + unwired listing methods.
+
 ## TL;DR
 
 Phases 0–8 are **code-complete** and the **money path is fully proven** (purchase + subscription
@@ -91,6 +110,18 @@ to confirm an empty result.
 > | 10 | `20260627000000_scale_composite_indexes.sql` | Composite hot-path indexes (sold-qty scan, history, seller listings). |
 > | 11 | `20260627000100_market_integrity.sql` | Double-claim serial guard + `public_market_stats()` RPC (powers `/market`). |
 > | 12 | `20260627000200_fix_admin_recent_transactions_casts.sql` | **Fixes a live 42804** — `admin_recent_transactions()` selected raw `credit_transactions` columns with no casts, so on a drifted DB (e.g. `quantity` integer ≠ declared numeric) the Finance Console RPC 400'd. Now casts each column to its declared type. |
+
+> 🆕 **2026-07-03 migrations.** The cutover fixes (13–16) were **applied + verified live** this
+> session. The security fixes (17–18) are **NEW and NOT yet applied** — apply them and re-test
+> before real users (see [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md)).
+> | # | Migration | Status | Purpose |
+> |---|---|---|---|
+> | 13 | `20260703000000_update_wallet_balance_atomic.sql` | ✅ applied | Wallet top-up settlement fn (was defined in no migration). |
+> | 14 | `20260703000100_wallet_transactions_external_reference.sql` | ✅ applied | Adds the missing top-up audit column + index. |
+> | 15 | `20260703000200_fix_credit_ownership_quantity_constraint.sql` | ✅ applied | Drops stray `> 0` constraint (blocked retirement); asserts `>= 0`. |
+> | 16 | `20260702000000_fix_marketplace_ownership_status.sql` | ✅ applied | `credit_ownership.status = 'owned'` (was `'active'`, rejected by constraint). |
+> | 17 | `20260703000300_harden_profiles_role_kyc.sql` | ⬜ **pending** | 🔴 Blocks direct client writes to `profiles.role`/`kyc_level` (privilege escalation). Admin RPCs still work. **Verify a normal user can't self-promote.** |
+> | 18 | `20260703000400_retire_credits_authuid.sql` | ⬜ **pending** | Binds retirement identity to `auth.uid()`. **Retest flow E → reconcile 0.** |
 
 ---
 
@@ -336,39 +367,32 @@ repeatedly surfaced as "missing column" 400s and broken PostgREST joins. Two new
 
 ## 4. Next steps
 
-Feature work is essentially done (Phases 0–8 code-complete; money path proven for purchase +
-subscription). What remains delivers value mostly via **you** or an **external dependency** —
-the priority is **validation** plus a thin codeable backlog (see §3's "codeable backlog" row).
+Feature work and the money cutover are **done**. The priority now is **security close-out
+before real users**, then launch. The authoritative, prioritized plan is
+**[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)** (implemented vs not, by priority, with a printable
+go/no-go gate); the security detail is **[dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md)**.
 
-### A. ✅ The #1 thing — money-path sandbox test — DONE (2026-06-26)
-1. ✅ Applied the §0 migrations + ran the schema audit (clean).
-2. ✅ Set the 3 PayMongo secrets in the Dashboard.
-3. ✅ Deployed the fixed **`paymongo-webhook`** from the Dashboard.
-4. ✅ Ran the **sandbox purchase** (test card `4343 4343 4343 4345`) on the Vercel preview →
-   **`reconcile_financials()` = 0 rows** (books balanced). Core money path **PROVEN**.
+### A. 🔴 P0 — security close-out (do before ANY real user pays)
+1. Apply migration `20260703000300` (lock `profiles.role`/`kyc_level`) → verify a normal user
+   can't self-promote to admin, and admin/verifier/KYC flows still work.
+2. Apply `20260703000400` (retirement identity = `auth.uid()`) → retest flow E, reconcile = 0.
+3. Redeploy `send-approval-email` with `verify_jwt=true` (close the open email relay).
+4. Redeploy `paymongo-checkout` to require the verified JWT (stop trusting client `user_id`) →
+   re-run the 6 money flows, reconcile = 0 each.
+5. Enable email confirmation + custom SMTP; confirm `ALLOW_UNSIGNED_WEBHOOKS` unset + secrets set.
+6. Remove the legacy/demo code paths (raw checkout branch, legacy webhook branches, `demo`
+   purchase, dead wallet mutators) → re-run flows.
+7. **Book an independent penetration test** before switching to live PayMongo keys.
 
-5. ✅ **Subscription** also verified — `/upgrade` → Pro paid → `profiles.plan` = `pro`.
+### B. Capture the work — ✅ done
+- **PR #2** is open (`feature-user-onboarding-ux` → `main`), ~100 commits. `gh` is authenticated.
+  Merge when Phase 0 is green (frontend ships the applied hardening; DB/edge fixes are the P0 list above).
 
-   **⏳ Remaining money-path edges** (same setup, no new deploy — runbook Step E):
-   - **KYB-gated payout:** approve seller KYB → Wallet → Withdraw → run `process-payouts` →
-     `payout_requests`: requested → processing → settled.
-   - **Cart + refund:** buy 2 listings, refund one → `reconcile_financials()` still 0 rows.
-
-   Also still to do: deploy the **`account-deletion`** edge function + set `ACCOUNT_DELETION_SECRET`
-   so DPA deletion requests can be processed. Full steps: [NEXT_STEP_verify_money_path.md](NEXT_STEP_verify_money_path.md).
-
-### B. Capture the work
-- Branch is **~75 commits ahead of `main`** — open a PR (`feature-user-onboarding-ux` → `main`)
-  or merge. A ready PR body is in the session scratchpad; `gh` is installed but unauthenticated,
-  so push + `gh pr create` (or the web UI) is a manual step.
-
-### C. Remaining work — all needs you or an external party
-- **Real registry/supplier fulfillment** (Phase 3) — needs an external registry partner.
-- **AML screening** (Phase 5) — needs a real sanctions/PEP data source to be meaningful.
-- **Pentest · backups/PITR · connection pooling · observability** (Phase 7) — ops/infra + a
-  monitoring provider key.
-- **Mobile / PWA** (Phase 8) — codeable, but lower value than testing what exists.
-- **BIR accreditation · legal entity · PSP/EMI partner** (Phase 9) — business/legal.
+### C. Remaining work — external party or ops/legal (parallel track)
+- **Real registry/supplier fulfillment** — needs an external registry partner (Carbonmark/Cloverly/Patch).
+- **AML screening** — needs a sanctions/PEP data vendor.
+- **Backups/PITR · connection pooling · observability (Sentry) · CSP · rate limiting** — ops/infra + keys.
+- **Legal entity · licensed PSP/EMI · BIR registration · DPO/AMLA · accredited verifier (VVB)** — business/legal.
 - **Favicon set** — generate square favicons from the logo (`scripts/create-favicons.js`).
 
 ---

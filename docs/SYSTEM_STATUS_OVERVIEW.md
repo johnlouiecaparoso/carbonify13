@@ -1,6 +1,16 @@
 # Carbonify — System Status Overview (Implemented vs. Not Implemented)
 
 > **What this is:** A single, plain-language summary of **everything that is built** and **everything that is not yet built** in Carbonify, compiled from all the analysis docs in this folder.
+>
+> ⚠️ **2026-07-03 — newer, authoritative status available.** This page predates the completed
+> money cutover and the pre-launch security review. For the current implemented-vs-not list
+> **by priority** and the go/no-go plan, use **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**;
+> for the money path see [MONEY_CUTOVER_STATUS.md](MONEY_CUTOVER_STATUS.md); for security
+> before real users see [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md). Net change
+> since this page was written: the **money path is now proven + hardened** (all flows reconcile
+> to 0, financial tables server-write-only) and a **security review** has queued the pre-live
+> fixes. The feature inventory below remains accurate.
+>
 > **Compiled:** 2026-06-06 · **Last updated:** 2026-06-13 (Phases 0–2 of the roadmap now code-complete)
 > **Sources:** `CARBONIFY_SYSTEM_ANALYSIS.md`, `IMPLEMENTATION_TASKLIST.md`, `CARBONIFY_BOARD_UPDATED.md`, `SYSTEM_GUIDE.md`, `PAYMENTS_ARCHITECTURE.md`, `REAL_WORLD_GOLIVE_PLAYBOOK.md`, `VENDOR_SCORECARD_AND_TECH_DESIGN.md`, `CONSOLE_ERRORS_AFTER_PAYMENT.md`, `handoff.md`, `DEFERRED_BACKLOG.md`
 
