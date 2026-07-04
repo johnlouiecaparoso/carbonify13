@@ -39,6 +39,35 @@ async function getVerifiedUserId(req: Request): Promise<string | null> {
   }
 }
 
+/**
+ * A9 — application-level rate limit. Calls the atomic check_rate_limit RPC
+ * (service role) before an expensive action. Returns true when the caller may
+ * proceed, false when it should be throttled (429). Fails OPEN on any limiter
+ * error so a limiter outage never blocks a legitimate checkout.
+ */
+async function underRateLimit(key: string, max: number, windowSeconds: number): Promise<boolean> {
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const { data, error } = await supabase.rpc('check_rate_limit', {
+      p_key: key,
+      p_max: max,
+      p_window_seconds: windowSeconds,
+    })
+    if (error) {
+      console.warn('rate limit check failed (allowing):', error.message)
+      return true
+    }
+    return data !== false
+  } catch (e) {
+    console.warn('rate limit check threw (allowing):', (e as Error)?.message)
+    return true
+  }
+}
+
+// Per-user cap on checkout-session creation (each call hits PayMongo).
+const CHECKOUT_RATE_MAX = 20
+const CHECKOUT_RATE_WINDOW_SECONDS = 300
+
 // CORS headers required when invoking from browser (localhost or production).
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -462,6 +491,12 @@ serve(async (req) => {
     // listing, not trusted from the client (Phase 1.2). Identity from JWT (P3).
     if (body.action === 'create_marketplace_checkout') {
       const verifiedUserId = await getVerifiedUserId(req)
+      if (verifiedUserId && !(await underRateLimit(`checkout:${verifiedUserId}`, CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_SECONDS))) {
+        return new Response(
+          JSON.stringify({ error: 'Too many checkout attempts. Please wait a minute and try again.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
       const result = await createMarketplaceCheckout(body, verifiedUserId)
       return new Response(JSON.stringify(result), {
         status: 200,
@@ -473,6 +508,12 @@ serve(async (req) => {
     // never the client. Identity from JWT (P3).
     if (body.action === 'create_subscription_checkout') {
       const verifiedUserId = await getVerifiedUserId(req)
+      if (verifiedUserId && !(await underRateLimit(`checkout:${verifiedUserId}`, CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_SECONDS))) {
+        return new Response(
+          JSON.stringify({ error: 'Too many checkout attempts. Please wait a minute and try again.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
       const result = await createSubscriptionCheckout(body, verifiedUserId)
       return new Response(JSON.stringify(result), {
         status: 200,
@@ -484,6 +525,12 @@ serve(async (req) => {
     // credits the balance. Identity from JWT (P3).
     if (body.action === 'create_wallet_topup_checkout') {
       const verifiedUserId = await getVerifiedUserId(req)
+      if (verifiedUserId && !(await underRateLimit(`checkout:${verifiedUserId}`, CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_SECONDS))) {
+        return new Response(
+          JSON.stringify({ error: 'Too many top-up attempts. Please wait a minute and try again.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
       const result = await createWalletTopupCheckout(body, verifiedUserId)
       return new Response(JSON.stringify(result), {
         status: 200,
