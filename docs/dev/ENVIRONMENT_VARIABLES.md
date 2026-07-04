@@ -23,7 +23,9 @@ Read via `import.meta.env.*`, primarily in `src/config/environment.js`, `src/con
 | `VITE_ENABLE_ANALYTICS` | Optional | Feature flag; enables analytics when `=== 'true'` (`environment.js`, `production.js`). | `false` |
 | `VITE_ENABLE_ERROR_REPORTING` | Optional | Feature flag; enables error reporting when `=== 'true'`. | `false` |
 | `VITE_ENABLE_PERFORMANCE_MONITORING` | Optional | Feature flag; enables perf monitoring when `=== 'true'` (`production.js`). | `false` |
-| `VITE_SENTRY_DSN` | Optional | Sentry DSN for error tracking (`production.js` → `MONITORING.ERROR_TRACKING`). | `https://...@sentry.io/...` |
+| `VITE_SENTRY_DSN` | Optional | **Enables Sentry error tracking.** When set, `src/utils/sentry.js` dynamically loads `@sentry/vue` and initializes it (errors + traces). When unset, Sentry is fully dormant (SDK never loaded). | `https://...@sentry.io/...` |
+| `VITE_SENTRY_ENVIRONMENT` | Optional | Sentry environment tag (defaults to the Vite mode, e.g. `production`). | `production` |
+| `VITE_SENTRY_TRACES_SAMPLE_RATE` | Optional | Fraction of transactions traced (0–1); defaults to `0.1`. | `0.1` |
 | `VITE_GA_TRACKING_ID` | Optional | Google Analytics ID (`production.js`, `analytics.js`). | `G-XXXXXXXXXX` |
 
 > Vite only reads env at process start — restart `npm run dev` after changing `.env.local`.

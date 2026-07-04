@@ -32,6 +32,7 @@
     "deploy:webhook": "supabase functions deploy paymongo-webhook --no-verify-jwt"
   },
   "dependencies": {
+    "@sentry/vue": "^8.55.2",
     "@supabase/supabase-js": "^2.57.4",
     "chart.js": "^4.5.0",
     "dotenv": "^17.2.3",
