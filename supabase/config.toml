@@ -52,3 +52,9 @@ verify_jwt = false
 # (x-worker-secret header) inside the function.
 [functions.process-payouts]
 verify_jwt = false
+
+# External settlement reconciliation (system-vs-PayMongo). Like the payout
+# worker, it's a scheduled/admin job with no Supabase JWT — gated by
+# RECONCILE_WORKER_SECRET (falls back to PAYOUT_WORKER_SECRET) via x-worker-secret.
+[functions.paymongo-reconcile]
+verify_jwt = false
