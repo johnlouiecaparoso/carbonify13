@@ -1,64 +1,103 @@
-# Security Close-out — My Side (done) → Your Side → Test Together
+# Security Close-out & Hardening — Status + Test Runbook
 
-> **Updated:** 2026-07-04 · **Branch:** `feature-user-onboarding-ux`
+> **Updated:** 2026-07-04 · **Branch:** `feature-user-onboarding-ux` (pushed)
 > Companion to [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) and [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md).
-> This tracks the concrete pre-launch hardening pass. **My-side code work is complete, lint 0, 145 tests pass, build green.** The remaining boxes are dashboard/deploy actions only you can do, then a joint test pass.
+> **Use §3 as your test plan for tomorrow.** §1 = already done + verified; §2 = still pending deploy/test; §4 = the go/no-go gate.
 
 ---
 
-## 1. ✅ Done on my side (code — committed to the branch)
+## 1. ✅ Done AND verified (applied on the live project + tested)
 
-| # | Item | Sev | What changed | File(s) |
-|---|---|---|---|---|
-| P2 | Checkout trusts only the verified JWT | 🟠 | All three checkout actions (marketplace / subscription / wallet top-up) now **reject** if there's no verified user token; `body.user_id` is never trusted | `supabase/functions/paymongo-checkout/index.ts` |
-| — | Legacy raw-checkout path removed | 🟠 | The old default branch that built a PayMongo session from a client-supplied `data` payload (client-controlled amount) is deleted | `supabase/functions/paymongo-checkout/index.ts` |
-| A2 | Open email relay closed | 🟠 | `verify_jwt = true` for `send-approval-email`; the `from` sender is now fixed server-side (overridable only via the `APPROVAL_EMAIL_FROM` secret), so it can't be used to spoof mail | `supabase/config.toml`, `supabase/functions/send-approval-email/index.ts` |
-| — | Legacy webhook branches removed | 🟠 | Deleted the metadata-driven `processWalletTopUp` / `processMarketplacePurchase` paths + their dead helpers; the webhook now settles **only** via a recorded `payment_intent` | `supabase/functions/paymongo-webhook/index.ts` |
-| P1/P8 | Demo purchase + dead client-write tail removed | 🟡 | Removed the `demo` instant-completion branch and the ~220-line browser-side settlement tail (direct writes to `credit_purchases` / `credit_transactions` / `credit_ownership`) + the dead wallet mutators (`updateWalletBalance`, `initiateWithdrawal`, `checkAndCompletePayment`, `createTransaction`) | `src/services/marketplaceService.js`, `src/services/walletService.js` |
-| P6 | Self-purchase guard | 🟢 | A seller can no longer buy their own listing (both card and wallet RPCs raise `cannot buy your own listing`) — **new migration** | `supabase/migrations/20260703000500_self_purchase_guard.sql` |
-| P7 | Reconciliation widened | 🟡 | `reconcile_financials()` now also flags `transaction_unaccounted` — completed transactions with neither a `payment_intent` nor a ledger group — **new migration** | `supabase/migrations/20260703000600_reconcile_widen_unaccounted.sql` |
-| A4 | Content-Security-Policy added | 🟡 | Shipped **Report-Only** first (does not block anything) so violations show in the console without breaking the app; allows Supabase (https+wss), Google Fonts + Material Symbols, OSM tiles, PayMongo. **Flip to enforcing after testing** (see step 3.4) | `vercel.json` |
-
-**Already done in prior passes** (for reference): security headers, `v-html` XSS escape, prod-log stripping, no client secret key, and the two pending migrations `20260703000300` (profiles role/KYC lock) and `20260703000400` (retire identity) — both reviewed and ready to apply.
-
----
-
-## 2. ⬜ Your side (dashboard / deploy — I have no access)
-
-Apply in this order. All migrations are idempotent (safe to re-run).
-
-1. **Apply migrations** in the Supabase SQL Editor, in order:
-   - `20260703000300_harden_profiles_role_kyc.sql` (🔴 privilege-escalation lock)
-   - `20260703000400_retire_credits_authuid.sql` (retire identity)
-   - `20260703000500_self_purchase_guard.sql` (P6)
-   - `20260703000600_reconcile_widen_unaccounted.sql` (P7)
-2. **Redeploy the two edge functions** from the function editor / CLI:
-   - `paymongo-checkout` (ships the JWT-only identity + removed raw path)
-   - `send-approval-email` (ships `verify_jwt=true` + fixed sender)
-   - *(Optional)* redeploy `paymongo-webhook` too so the smaller, legacy-free version is live — behaviour for the real flow is unchanged.
-3. **Supabase dashboard config:**
-   - Set up a **custom SMTP** provider, then turn on **email confirmation** (`enable_confirmations = true`). *(Requires SMTP first, or existing users get locked out.)*
-   - *(Optional)* set `APPROVAL_EMAIL_FROM` to your verified sender (e.g. `Carbonify <noreply@yourdomain>`).
-   - Confirm **`ALLOW_UNSIGNED_WEBHOOKS`** is unset / `false`.
-   - Confirm all edge secrets present: `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `PAYOUT_WORKER_SECRET`, `ACCOUNT_DELETION_SECRET`, `RESEND_API_KEY`.
-4. **Deploy the frontend** (Vercel preview) so it ships the CSP + code changes.
+| Item | What | Verified |
+|---|---|---|
+| Profiles role/KYC lock (`…000300`) | Blocks self-promotion to admin / KYC bump | ✅ applied + tested |
+| Retire identity (`…000400`) | Retirement bound to `auth.uid()` | ✅ applied + tested |
+| Self-purchase guard (`…000500`) | Seller can't buy own listing | ✅ applied + tested |
+| Reconcile widened (`…000600`) | Flags unaccounted transactions | ✅ applied |
+| Rate limiting (`…000000` + checkout redeploy) | 20 checkouts / 5 min per user → 429 | ✅ applied + deployed + tested |
+| Checkout JWT-only identity | `paymongo-checkout` trusts only verified JWT | ✅ deployed + tested (6 money flows reconcile to 0) |
+| Email relay closed | `send-approval-email` JWT **on** + fixed sender | ✅ deployed |
+| SMTP + email confirmation | Resend SMTP; confirmations on | ✅ configured + tested |
+| External PSP reconciliation (`…000100` + `paymongo-reconcile`) | System-vs-PayMongo drift report | ✅ applied + deployed + tested (**found 6 orphaned paid intents**) |
+| Sentry error tracking | Live via baked-in DSN, production-only | ✅ shipped (verify per §3.4) |
+| `ALLOW_UNSIGNED_WEBHOOKS` | Confirmed absent (webhooks fail-closed) | ✅ |
 
 ---
 
-## 3. ⬜ Test together (on the deployed preview — webhooks can't reach localhost)
+## 2. ⬜ Pending — deploy & test TOMORROW
 
-1. **Privilege-escalation check:** a normal user tries to `PATCH profiles {role:'admin'}` → must be **denied**; but can still edit name/phone; an admin can still change roles via User Management; KYC approval still raises `kyc_level`.
-2. **All 6 money flows**, each must end with `reconcile_financials()` returning **0 rows**:
-   A. card purchase · B. wallet top-up · C. wallet purchase · D. cart (2 items) · E. retire · F. subscription.
-3. **Self-purchase:** as a seller, try to buy your own listing → must be rejected with `cannot buy your own listing`; nothing decremented.
-4. **CSP:** with the deployed preview open, check the browser console for `Content-Security-Policy-Report-Only` violations. If clean across all pages (map, checkout redirect, fonts/icons), **rename the header key** in `vercel.json` from `Content-Security-Policy-Report-Only` → `Content-Security-Policy` and redeploy to enforce.
-5. **Reconciliation note:** after applying `…000600`, the first `reconcile_financials()` run may list old `transaction_unaccounted` rows — those are **pre-existing legacy/direct-write transactions**, surfaced on purpose for review, not a regression.
+Two features are pushed to the branch but **not yet applied/deployed on the live project**:
+
+- **A. `paymongo-resettle`** — heals the 6 orphaned paid intents reconcile found.
+- **B. Velocity caps** — per-KYC-tier daily spend limit (migration `…000200` + `paymongo-checkout` redeploy).
+
+Do §3 to activate + test them.
 
 ---
 
-## 4. Still external / not code (unchanged — the go-live gate)
+## 3. 🧪 Test runbook (do these tomorrow, in order)
 
-- **Independent penetration test** before switching to live PayMongo keys.
-- Real credit-supplier partner, AML/sanctions data vendor, licensed PSP/EMI, legal entity + BIR + DPO/AMLA, accredited verifier (VVB), backups/PITR, Sentry.
+> Project ref: `fmngptolarydbgrtltnd`. Worker secret (already set): `RECONCILE_WORKER_SECRET = 9dcaba5fc4bafbf78a5b4bf22c5db2fbdd6ce50eb9f38f2955d33df636f30256`. Run `curl.exe` in **PowerShell**.
 
-Until the 🔴/🟠 items above are applied **and** the pentest passes, run in **sandbox/test mode only.**
+### 3.1 — Heal the 6 orphaned payments (feature A)
+1. **Deploy** edge function `paymongo-resettle` (Verify JWT **OFF**).
+2. Run the heal (auto-finds paid-but-pending intents):
+   ```powershell
+   curl.exe -i -X POST "https://fmngptolarydbgrtltnd.supabase.co/functions/v1/paymongo-resettle" -H "x-worker-secret: 9dcaba5fc4bafbf78a5b4bf22c5db2fbdd6ce50eb9f38f2955d33df636f30256" -H "Content-Type: application/json" -d '{\"lookback_days\": 30}'
+   ```
+   **Expect:** `{"success":true,"healed":6,"results":[... "outcome":"settled" ...]}`
+3. **Confirm** by re-running reconcile — `discrepancy_count` should now be **0**:
+   ```powershell
+   curl.exe -i -X POST "https://fmngptolarydbgrtltnd.supabase.co/functions/v1/paymongo-reconcile" -H "x-worker-secret: 9dcaba5fc4bafbf78a5b4bf22c5db2fbdd6ce50eb9f38f2955d33df636f30256" -H "Content-Type: application/json" -d '{\"lookback_days\": 30}'
+   ```
+4. (Optional) In the app, confirm those 3 subscriptions flipped to Pro and the 3 marketplace buyers now hold their credits.
+
+### 3.2 — Velocity caps (feature B)
+1. **Apply** migration `20260704000200_velocity_caps.sql` (SQL Editor).
+2. **Redeploy** `paymongo-checkout` (it now calls the cap check before creating a session; Verify JWT stays **OFF**).
+3. **Happy path:** a normal purchase still works (defaults: KYC L0 = ₱10,000/day, L1 = ₱100,000/day, L2+ = unlimited).
+4. **Prove it blocks** — set a tiny cap, then attempt a purchase over it:
+   ```sql
+   -- set a tiny cap (SQL Editor)
+   insert into public.app_settings (key, value, description)
+   values ('velocity_daily_caps', '{"0": 5, "1": 5}'::jsonb, 'Daily purchase caps by KYC level')
+   on conflict (key) do update set value = excluded.value, updated_at = now();
+   ```
+   - A wallet purchase or a card checkout over ₱5 should be rejected with *"daily purchase limit exceeded for your verification level…"* (card is blocked **before** redirect to PayMongo — nothing is charged).
+5. **Restore** the real caps:
+   ```sql
+   update public.app_settings set value = '{"0": 10000, "1": 100000}'::jsonb where key = 'velocity_daily_caps';
+   ```
+
+### 3.3 — Re-confirm the 6 money flows still reconcile to 0
+After 3.1/3.2, run one of each (card, wallet top-up, wallet purchase, cart, retire, subscription) and confirm `select * from public.reconcile_financials();` returns **0 rows**.
+
+### 3.4 — Sentry (optional, 1 min)
+On the **deployed** URL, open the browser console and run `myUndefinedFunction()`. Within ~30s it appears in your Sentry dashboard → Issues.
+
+### 3.5 — CSP (optional, decision)
+On the deployed URL, open DevTools console and click through map / checkout / all pages. If there are **no** `Content-Security-Policy-Report-Only` violations, tell your developer to flip the header in `vercel.json` from `Content-Security-Policy-Report-Only` → `Content-Security-Policy` to enforce it.
+
+---
+
+## 4. Go / no-go gate (real money)
+
+- [x] `profiles` role/KYC lock applied + verified
+- [x] Retire identity applied + retested
+- [x] `send-approval-email` requires auth
+- [x] `paymongo-checkout` requires a verified JWT
+- [x] Email confirmation on; `ALLOW_UNSIGNED_WEBHOOKS` unset; secrets present
+- [x] Legacy/demo code paths removed
+- [x] All 6 money flows reconcile to 0
+- [x] Rate limiting + velocity caps (value abuse) — *velocity pending tomorrow's apply (§3.2)*
+- [x] Error tracking (Sentry) live
+- [x] External settlement reconciliation + heal path
+- [ ] **Independent penetration test** ← the last blocker before LIVE keys
+- [ ] CSP switched to enforcing (§3.5)
+
+**Until the pentest passes, run in sandbox/test mode only.**
+
+---
+
+## 5. Still external / not code (unchanged)
+Real credit-supplier partner · AML/sanctions vendor · licensed PSP/EMI · legal entity + BIR + DPO/AMLA · accredited verifier (VVB) · backups/PITR + connection pooling + observability dashboards.

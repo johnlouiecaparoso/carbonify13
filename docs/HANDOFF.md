@@ -1,5 +1,20 @@
 # Carbonify — Handoff (current state)
 
+> 🔒 **2026-07-04 — SECURITY CLOSE-OUT + INTEGRITY HARDENING (this session).**
+> The P0 security items are now **applied + tested on the live project**: profiles
+> role/KYC lock (`20260703000300`), retire identity (`…000400`), self-purchase
+> guard (`…000500`), widened reconcile (`…000600`), **rate limiting**
+> (`20260704000000` + checkout redeploy), JWT-only checkout identity, closed email
+> relay + **SMTP/email confirmation live**, and legacy/demo code removed. New
+> capabilities shipped + verified: **Sentry error tracking** (live), **external PSP
+> settlement reconciliation** (`paymongo-reconcile` — already caught 6 orphaned
+> paid intents in sandbox). **Two features are pushed but await tomorrow's
+> deploy/test:** (A) **`paymongo-resettle`** (heals orphaned paid intents) and
+> (B) **velocity caps by KYC tier** (`20260704000200` + checkout redeploy).
+> 👉 **The step-by-step test plan for tomorrow is
+> [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) §3.**
+> Only P0 item left before LIVE keys: an **independent penetration test**.
+
 > **Updated:** 2026-07-03 · **Branch:** `feature-user-onboarding-ux` · **PR #2 → `main`**
 > ✅ **Server-authoritative money cutover is COMPLETE and HARDENED.** All six money
 > flows (card, wallet top-up, wallet buy, cart, retire, subscription) settle

@@ -9,6 +9,7 @@ traceability. Use the current set below; anything under "Historical" carries a s
 |---|---|
 | [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Plain-language "what is this system" — product, roles, credit lifecycle, money model |
 | [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | **Implemented vs not, by priority, + what to do now** — the current plan with a go/no-go gate |
+| [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) | **Security close-out status + the step-by-step TEST RUNBOOK** (what's done vs pending deploy/test) |
 | [HANDOFF.md](HANDOFF.md) | Current state / handoff — where things stand and the next steps |
 | [RELEASE_NOTES.md](RELEASE_NOTES.md) | Release summary for the 2026-07-03 server-authoritative money cutover |
 

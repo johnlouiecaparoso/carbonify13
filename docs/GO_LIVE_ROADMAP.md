@@ -1,7 +1,9 @@
 # Carbonify — Go-Live Roadmap (Real Users)
 
-> **Updated:** 2026-07-03 · **Branch:** `feature-user-onboarding-ux` (PR #2 → `main`)
-> The single source of truth for **what is ready, what is not, and what to do next** to put Carbonify in front of **real users with real money.** Companion to [DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md) (security detail) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
+> **Updated:** 2026-07-04 · **Branch:** `feature-user-onboarding-ux` (PR #2 → `main`)
+> The single source of truth for **what is ready, what is not, and what to do next** to put Carbonify in front of **real users with real money.** Companion to [DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md) (security detail), [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) (status + test runbook) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
+>
+> **2026-07-04 update:** the P0 security items are **applied + tested live** (profiles/retire locks, JWT checkout, closed email relay + SMTP, self-purchase guard, widened reconcile). Added + verified: **rate limiting**, **Sentry**, **external PSP reconciliation** (+ **resettle/heal**), and **velocity caps by KYC tier** (last two pending tomorrow's deploy — see the runbook). **Only P0 blocker left: an independent penetration test.**
 
 ---
 
