@@ -173,6 +173,21 @@ async function createMarketplaceCheckout(body: any, verifiedUserId: string | nul
   const amount = Math.round(unitAmount * quantity * 100) / 100 // server-computed total
   const currency = listing.currency || 'PHP'
 
+  // Velocity cap (per KYC tier) — enforced HERE, before a PayMongo session
+  // exists, so a rejection never happens after the customer has paid. The wallet
+  // path enforces the same limit inside process_wallet_purchase.
+  const { error: velocityErr } = await supabase.rpc('check_velocity_limit', {
+    p_user_id: userId,
+    p_amount: amount,
+  })
+  if (velocityErr) {
+    throw new Error(
+      /daily purchase limit/i.test(velocityErr.message || '')
+        ? velocityErr.message
+        : 'Purchase could not be authorized. Please try again later.',
+    )
+  }
+
   // Record the authoritative intent BEFORE creating the provider session.
   const { data: intent, error: intentErr } = await supabase
     .from('payment_intents')

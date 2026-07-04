@@ -58,3 +58,8 @@ verify_jwt = false
 # RECONCILE_WORKER_SECRET (falls back to PAYOUT_WORKER_SECRET) via x-worker-secret.
 [functions.paymongo-reconcile]
 verify_jwt = false
+
+# Heal orphaned paid intents (companion to paymongo-reconcile). Mutating +
+# secret-gated; JWT off (no browser caller), same x-worker-secret as reconcile.
+[functions.paymongo-resettle]
+verify_jwt = false
