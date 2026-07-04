@@ -14,9 +14,20 @@
  *
  * Never throws — error tracking must not be able to break app startup.
  */
+// Project DSN. A Sentry DSN is a PUBLIC identifier (it only permits *sending*
+// events, never reading) and is designed to ship in client code — so baking it
+// in is safe. Override per-environment with VITE_SENTRY_DSN if needed.
+const DEFAULT_SENTRY_DSN =
+  'https://ef7e180b2677dcf5083f9f26e7b98841@o4511677442228224.ingest.us.sentry.io/4511677445373952'
+
 export async function initSentry(app, router) {
-  const dsn = import.meta.env.VITE_SENTRY_DSN
+  const dsn = import.meta.env.VITE_SENTRY_DSN || DEFAULT_SENTRY_DSN
   if (!dsn) return // disabled: no DSN configured
+
+  // Only report from production builds by default, so local `npm run dev`
+  // errors don't flood the Sentry project. Set VITE_SENTRY_DSN explicitly to
+  // force-enable in any environment (e.g. a staging build).
+  if (!import.meta.env.PROD && !import.meta.env.VITE_SENTRY_DSN) return
 
   try {
     const Sentry = await import('@sentry/vue')
