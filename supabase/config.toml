@@ -32,8 +32,14 @@ enable_confirmations = false
 [functions.paymongo-checkout]
 verify_jwt = false
 
+# A2 hardening — this function sends mail via Resend. With verify_jwt = false it
+# was an OPEN RELAY: anyone on the internet could POST arbitrary to/subject/html
+# and send spoofed "Carbonify" email from the domain. Require a valid Supabase
+# JWT so only signed-in users (role applicants) can trigger it. The app already
+# invokes it via supabase.functions.invoke, which forwards the user's token.
+# Redeploy with:  supabase functions deploy send-approval-email
 [functions.send-approval-email]
-verify_jwt = false
+verify_jwt = true
 
 # PayMongo calls this URL directly with no Supabase JWT, so JWT verification must
 # be OFF or every webhook is rejected with 401. Security is enforced inside the

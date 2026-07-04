@@ -113,11 +113,12 @@ async function createMarketplaceCheckout(body: any, verifiedUserId: string | nul
 
   const listingId = body.listing_id
   const quantity = Number(body.quantity)
-  // P3: authoritative id from the verified JWT; the request body is no longer
-  // trusted for identity. Fall back to the body only when no user token was
-  // presented (keeps mock/local dev working); reject anonymous purchases.
-  const userId = verifiedUserId ?? body.user_id ?? null
-  if (!userId) throw new Error('Authentication required to check out')
+  // P2: identity comes ONLY from the verified JWT. A client-supplied user_id is
+  // never trusted, so a caller can't attribute a paid purchase to another
+  // account. The app always forwards the signed-in user's token via
+  // supabase.functions.invoke, so legitimate checkout is unaffected.
+  if (!verifiedUserId) throw new Error('Authentication required to check out')
+  const userId = verifiedUserId
   const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
 
   if (!listingId || !Number.isFinite(quantity) || quantity <= 0) {
@@ -236,11 +237,11 @@ async function createSubscriptionCheckout(body: any, verifiedUserId: string | nu
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   const planKey = String(body.plan || '')
-  // P3: identity comes from the verified JWT, not the client body.
-  const userId = verifiedUserId ?? body.user_id ?? null
+  // P2: identity from the verified JWT only; the client body is never trusted.
   const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
 
-  if (!userId) throw new Error('Authentication required to subscribe')
+  if (!verifiedUserId) throw new Error('Authentication required to subscribe')
+  const userId = verifiedUserId
   if (!['pro', 'business'].includes(planKey)) throw new Error('Unknown plan')
 
   // Authoritative price from the catalog.
@@ -349,11 +350,12 @@ async function createSubscriptionCheckout(body: any, verifiedUserId: string | nu
 async function createWalletTopupCheckout(body: any, verifiedUserId: string | null) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-  const userId = verifiedUserId ?? body.user_id ?? null
+  // P2: identity from the verified JWT only; the client body is never trusted.
   const origin = typeof body.origin === 'string' ? body.origin.replace(/\/$/, '') : ''
   const amount = Number(body.amount)
 
-  if (!userId) throw new Error('Authentication required to top up')
+  if (!verifiedUserId) throw new Error('Authentication required to top up')
+  const userId = verifiedUserId
   if (!Number.isFinite(amount) || amount <= 0) throw new Error('A positive amount is required')
 
   const currency = 'PHP'
@@ -489,28 +491,11 @@ serve(async (req) => {
       })
     }
 
-    // Default (legacy): create checkout session from a client-supplied payload.
-    // INSECURE for marketplace purchases (amount is client-controlled) — retained
-    // only for wallet top-ups (where the amount is the user's own deposit).
-    // Marketplace flows must use action 'create_marketplace_checkout' above.
-    const { data } = body
-    if (!data) throw new Error('Missing data for checkout session')
-
-    const response = await fetch(`${PAYMONGO_API_URL}/checkout_sessions`, {
-      method: 'POST',
-      headers: authHeader(),
-      body: JSON.stringify({ data }),
-    })
-
-    const result = await response.json()
-    if (!response.ok) {
-      throw new Error(result.errors?.[0]?.detail || 'Failed to create checkout session')
-    }
-
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    // No legacy raw-payload path. The old default branch created a PayMongo
+    // session from a client-supplied `data` payload with a client-controlled
+    // amount — removed as part of the pre-launch hardening. Every real flow uses
+    // one of the server-authoritative actions above.
+    throw new Error('Unknown or unsupported checkout action')
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,

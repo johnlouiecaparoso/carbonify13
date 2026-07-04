@@ -1,11 +1,7 @@
 import { getSupabase } from '@/services/supabaseClient'
 import { logUserAction } from '@/services/auditService'
-import { notifyCreditPurchased } from '@/services/emailService'
-import { notifyMarketplacePurchaseAndStock } from '@/services/notificationService'
-// import { realPaymentService } from '@/services/realPaymentService'
 // Import real payment service
 import { realPaymentService } from './realPaymentService.js'
-import { creditOwnershipService } from '@/services/creditOwnershipService'
 import { getCurrentUserId } from '@/utils/authHelper'
 import { normalizeCoBenefits } from '@/constants/sdgs'
 
@@ -755,8 +751,11 @@ export async function purchaseCredits(listingId, purchaseData) {
       project_title: listing.project_credits.projects.title,
     })
 
-    // Handle different payment methods
-    let paymentResult
+    // Handle different payment methods. Both live methods settle server-side and
+    // return here: 'wallet' via the process_wallet_purchase RPC, and
+    // card/gcash/maya via the paymongo-checkout → webhook →
+    // process_marketplace_purchase path. There is no client-side settlement
+    // fallback (the old 'demo' branch + browser-write tail were removed).
     if (purchaseData.paymentMethod === 'wallet') {
       // Server-authoritative wallet purchase (Phase 1 P2 cutover). A single
       // atomic RPC checks the buyer's wallet balance, decrements the pool,
@@ -814,15 +813,6 @@ export async function purchaseCredits(listingId, purchaseData) {
         },
         message: 'Purchase completed from wallet balance.',
       }
-    } else if (purchaseData.paymentMethod === 'demo') {
-      // Demo mode - instant completion
-      paymentResult = {
-        success: true,
-        transactionId: `demo_${Date.now()}`,
-        checkoutUrl: null,
-        sessionId: null,
-        status: 'completed',
-      }
     } else if (
       purchaseData.paymentMethod === 'card' ||
       purchaseData.paymentMethod === 'gcash' ||
@@ -871,227 +861,6 @@ export async function purchaseCredits(listingId, purchaseData) {
       }
     } else {
       throw new Error(`Invalid payment method: ${purchaseData.paymentMethod}`)
-    }
-
-    // Create credit purchase transaction
-    // Note: Schema matches complete-carbonify-setup.sql - no currency or payment_reference columns
-    const purchaseDataToInsert = {
-      listing_id: listingId,
-      buyer_id: user.id,
-      seller_id: listing.seller_id,
-      credits_amount: purchaseData.quantity,
-      price_per_credit: actualPricePerCredit, // Use the correct price (developer-set)
-      total_amount: totalCost,
-      payment_method: purchaseData.paymentMethod,
-      payment_status: 'completed', // Note: schema has both payment_status and status
-      status: 'completed',
-      completed_at: new Date().toISOString(), // Schema has completed_at field
-    }
-
-    const { data: purchase, error: purchaseError } = await supabase
-      .from('credit_purchases')
-      .insert(purchaseDataToInsert)
-      .select()
-      .single()
-
-    // Don't throw error if purchase record creation fails - purchase already succeeded
-    // Wallet is deducted and credits are added, so the purchase is valid
-    if (purchaseError) {
-      console.warn('Warning: Error creating purchase record (non-critical):', purchaseError)
-      console.warn('Warning: Purchase was successful - wallet deducted, credits added')
-      console.warn('Warning: This is a tracking issue only, purchase transaction completed successfully')
-      // Continue execution - purchase is valid even without purchase record
-    } else {
-      console.log('Purchase record created:', purchase.id)
-    }
-
-    // Add credits to user's portfolio using real service
-    // Use purchase ID if available, otherwise use transaction ID from payment
-    const purchaseId = purchase?.id || paymentResult.transactionId || `wallet_${Date.now()}`
-    try {
-      // Get purchase price and project credit ID from listing
-      const purchasePrice = listing.price_per_credit || listing.price || 0
-      const projectCreditId = listing.project_credits?.id || null
-
-      await creditOwnershipService.addCreditsToPortfolio(
-        user.id,
-        listing.project_credits.project_id,
-        purchaseData.quantity,
-        'purchased',
-        purchaseId,
-        projectCreditId,
-        purchasePrice,
-      )
-    console.log('Credits added to user portfolio')
-  } catch (ownershipError) {
-    console.error('Error adding credits to portfolio:', ownershipError)
-      // Continue - purchase is still valid, but ownership might need manual fix
-    }
-
-    // Update marketplace stock (project_credits.credits_available + all credit_listings) and invalidate cache
-    const remainingCredits = await updateMarketplaceAvailabilityAfterPurchase(
-      listing.project_credits.id,
-      purchaseData.quantity,
-      {
-      listingQuantity: listing.quantity,
-      },
-    )
-
-    try {
-      await notifyMarketplacePurchaseAndStock(listing.project_credits.projects, {
-        projectCreditId: listing.project_credits.id,
-        listingId,
-        buyerId: user.id,
-        sellerId: listing.seller_id,
-        remainingCredits,
-      })
-    } catch (notificationError) {
-      console.error('Failed to create marketplace purchase/sold-out notifications:', notificationError)
-    }
-
-    // Create credit_transaction record (required for certificates and receipts)
-    // This is CRITICAL - transaction must be created for certificates and history
-    let transactionId = null
-    try {
-      const { data: transaction, error: transactionError } = await supabase
-        .from('credit_transactions')
-        .insert({
-          buyer_id: user.id,
-          seller_id: listing.seller_id,
-          project_credit_id: listing.project_credits.id,
-          listing_id: listingId,
-          quantity: purchaseData.quantity,
-          price_per_credit: actualPricePerCredit, // Use the correct price (developer-set)
-          total_amount: totalCost,
-          currency: listing.currency || 'PHP',
-          payment_method: purchaseData.paymentMethod || 'wallet',
-          payment_reference:
-            paymentResult.transactionId || paymentResult.sessionId || `wallet_${Date.now()}`,
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
-
-      if (!transactionError && transaction) {
-        transactionId = transaction.id
-        console.log('Credit transaction created:', transactionId)
-      } else {
-        console.error('CRITICAL: Failed to create credit_transaction:', transactionError)
-        // Try to create transaction with minimal required fields
-        console.log('Attempting to create transaction with minimal fields...')
-        const { data: minimalTransaction, error: minimalError } = await supabase
-          .from('credit_transactions')
-          .insert({
-            buyer_id: user.id,
-            seller_id: listing.seller_id,
-            project_credit_id: listing.project_credits.id,
-            quantity: purchaseData.quantity,
-            price_per_credit: actualPricePerCredit,
-            total_amount: totalCost,
-            currency: listing.currency || 'PHP',
-            payment_method: purchaseData.paymentMethod || 'wallet',
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .select()
-          .single()
-
-        if (!minimalError && minimalTransaction) {
-          transactionId = minimalTransaction.id
-          console.log('Credit transaction created with minimal fields:', transactionId)
-        } else {
-          console.error(
-            'CRITICAL: Failed to create transaction even with minimal fields:',
-            minimalError,
-          )
-          throw new Error(
-            'Failed to create transaction record. Purchase may not appear in history.',
-          )
-        }
-      }
-    } catch (transError) {
-      console.error('CRITICAL ERROR creating credit transaction:', transError)
-      // Don't throw - purchase is still valid, but user should be notified
-      console.error('Warning: Purchase completed but transaction record failed. History may not show.')
-    }
-
-    // Generate certificate automatically when credits are purchased
-    // This ensures certificate appears in certificate dashboard immediately
-    if (transactionId) {
-      try {
-        const { generateCreditCertificate } = await import('@/services/certificateService')
-        const certificate = await generateCreditCertificate(transactionId, 'purchase')
-        console.log(
-          'Purchase certificate generated automatically:',
-          certificate?.certificate_number,
-        )
-        console.log('Certificate will appear in certificate dashboard and retire dashboard')
-      } catch (certError) {
-        console.error('Error generating certificate:', certError)
-        console.error(
-          'Warning: Certificate generation failed. Purchase completed but certificate may be missing.',
-        )
-        // Continue - certificate generation failure shouldn't break purchase
-      }
-    } else {
-      console.error('CRITICAL: Cannot generate certificate - no transactionId available')
-      console.error('Warning: Purchase completed but certificate will not be generated.')
-    }
-
-    // Generate receipt automatically when credits are purchased
-    if (transactionId) {
-      try {
-        const { generateReceipt } = await import('@/services/receiptService')
-        const receipt = await generateReceipt(transactionId)
-        console.log('Receipt generated automatically:', receipt?.receiptNumber)
-      } catch (receiptError) {
-        console.error('Error generating receipt:', receiptError)
-        // Continue - receipt generation failure shouldn't break purchase
-      }
-    }
-
-    // Log the purchase action (use purchaseId if purchase record was created)
-    try {
-      await logUserAction('PURCHASE_CREDITS', 'purchase', user.id, purchaseId, {
-        listing_id: listingId,
-        quantity: purchaseData.quantity,
-        total_cost: totalCost,
-        payment_method: purchaseData.paymentMethod,
-      })
-    } catch (logError) {
-      console.warn('Warning: Error logging purchase action:', logError)
-      // Continue - logging failure shouldn't break purchase
-    }
-
-    // Send notification email (only if purchase record was created)
-    if (purchase?.id) {
-      try {
-        await notifyCreditPurchased(purchase.id, user.id)
-      } catch (emailError) {
-        console.warn('Warning: Failed to send purchase notification:', emailError)
-        // Continue - email failure shouldn't break purchase
-      }
-    } else {
-      console.log('Skipping email notification - purchase record not created')
-    }
-
-    console.log('Credit purchase completed successfully')
-
-    return {
-      success: true,
-      purchase_id: purchase?.id || purchaseId,
-      transaction_id: transactionId || paymentResult.transactionId || purchaseId,
-      credits_purchased: purchaseData.quantity,
-      total_cost: totalCost,
-      currency: listing.currency || 'PHP',
-      message: `Successfully purchased ${purchaseData.quantity} credits`,
-      transaction: {
-        id: purchase?.id || purchaseId,
-        total_amount: totalCost,
-        currency: listing.currency || 'PHP',
-      },
     }
   } catch (error) {
     console.error('Error in purchaseCredits:', error)
