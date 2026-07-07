@@ -97,18 +97,18 @@
               <fieldset :disabled="!isEditable" class="editor-body">
                 <div class="form-grid">
                   <div class="form-group">
-                    <label class="form-label">Period Type</label>
-                    <select v-model="form.periodType" class="form-select">
+                    <label class="form-label" for="mrv-period-type">Period Type</label>
+                    <select id="mrv-period-type" v-model="form.periodType" class="form-select">
                       <option v-for="pt in periodTypes" :key="pt.value" :value="pt.value">{{ pt.label }}</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Period Start</label>
-                    <input type="date" v-model="form.periodStart" class="form-input" />
+                    <label class="form-label" for="mrv-period-start">Period Start</label>
+                    <input id="mrv-period-start" type="date" v-model="form.periodStart" class="form-input" />
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Period End</label>
-                    <input type="date" v-model="form.periodEnd" class="form-input" />
+                    <label class="form-label" for="mrv-period-end">Period End</label>
+                    <input id="mrv-period-end" type="date" v-model="form.periodEnd" class="form-input" />
                   </div>
                 </div>
 
@@ -118,8 +118,9 @@
                   No metrics defined for this project type.
                 </p>
                 <div v-for="m in metrics" :key="m.metric_key" class="form-group">
-                  <label class="form-label">{{ m.label }} ({{ m.unit }})</label>
+                  <label class="form-label" :for="`mrv-activity-${m.metric_key}`">{{ m.label }} ({{ m.unit }})</label>
                   <input
+                    :id="`mrv-activity-${m.metric_key}`"
                     type="number"
                     min="0"
                     step="any"
@@ -130,26 +131,33 @@
                 </div>
 
                 <!-- Evidence -->
-                <h4 class="section-title">Evidence (photos / logs)</h4>
+                <h4 class="section-title" id="mrv-evidence-label">Evidence (photos / logs)</h4>
                 <div class="evidence-grid">
                   <div v-for="ev in currentReport.evidence" :key="ev.id" class="evidence-item">
-                    <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" />
+                    <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" loading="lazy" />
                     <span v-else class="material-symbols-outlined file-icon">description</span>
                     <span class="evidence-caption">{{ ev.caption || 'Evidence' }}</span>
                     <button v-if="isEditable" class="evidence-remove" @click="removeEvidence(ev.id)">×</button>
                   </div>
                 </div>
                 <div v-if="isEditable" class="evidence-upload">
-                  <input ref="fileInput" type="file" accept="image/*,.pdf" @change="onEvidenceSelected" />
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*,.pdf"
+                    aria-labelledby="mrv-evidence-label"
+                    @change="onEvidenceSelected"
+                  />
                   <span class="upload-hint">JPEG/PNG/PDF up to 2MB</span>
                 </div>
 
                 <!-- Notes -->
-                <h4 class="section-title">Notes</h4>
+                <h4 class="section-title" id="mrv-notes-label">Notes</h4>
                 <textarea
                   v-model="form.notes"
                   class="form-textarea"
                   rows="3"
+                  aria-labelledby="mrv-notes-label"
                   placeholder="Any context for the verifier…"
                 ></textarea>
               </fieldset>

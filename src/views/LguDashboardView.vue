@@ -34,25 +34,25 @@
 
           <div class="form-grid">
             <div class="form-group">
-              <label class="form-label">Municipality / City</label>
-              <input v-model="calc.municipality" class="form-input" placeholder="e.g., Cabanatuan City" />
+              <label class="form-label" for="lgu-municipality">Municipality / City</label>
+              <input id="lgu-municipality" v-model="calc.municipality" class="form-input" placeholder="e.g., Cabanatuan City" />
             </div>
             <div class="form-group">
-              <label class="form-label">Reporting period</label>
-              <input v-model="calc.periodLabel" class="form-input" placeholder="e.g., 2026 or 2026 Q1" />
+              <label class="form-label" for="lgu-period">Reporting period</label>
+              <input id="lgu-period" v-model="calc.periodLabel" class="form-input" placeholder="e.g., 2026 or 2026 Q1" />
             </div>
             <div class="form-group">
-              <label class="form-label">Population (optional)</label>
-              <input v-model.number="calc.population" type="number" min="0" class="form-input" @input="suggestWaste" />
+              <label class="form-label" for="lgu-population">Population (optional)</label>
+              <input id="lgu-population" v-model.number="calc.population" type="number" min="0" class="form-input" @input="suggestWaste" />
             </div>
             <div class="form-group">
-              <label class="form-label">Waste generated (tonnes/period)</label>
-              <input v-model.number="calc.wasteGenerated" type="number" min="0" step="any" class="form-input" />
+              <label class="form-label" for="lgu-generated">Waste generated (tonnes/period)</label>
+              <input id="lgu-generated" v-model.number="calc.wasteGenerated" type="number" min="0" step="any" class="form-input" />
               <span v-if="suggested" class="hint">Estimated from population: {{ suggested }} t/yr</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Waste diverted (tonnes)</label>
-              <input v-model.number="calc.wasteDiverted" type="number" min="0" step="any" class="form-input" />
+              <label class="form-label" for="lgu-diverted">Waste diverted (tonnes)</label>
+              <input id="lgu-diverted" v-model.number="calc.wasteDiverted" type="number" min="0" step="any" class="form-input" />
             </div>
           </div>
 
@@ -76,8 +76,8 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Notes (optional)</label>
-            <textarea v-model="calc.notes" class="form-textarea" rows="2"></textarea>
+            <label class="form-label" for="lgu-notes">Notes (optional)</label>
+            <textarea id="lgu-notes" v-model="calc.notes" class="form-textarea" rows="2"></textarea>
           </div>
 
           <p v-if="message" class="message" :class="{ error: isError }">{{ message }}</p>

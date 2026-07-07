@@ -83,17 +83,17 @@
           <!-- Decision -->
           <div class="decision">
             <div class="form-group">
-              <label class="form-label">Approved credits (tCO₂e)</label>
-              <input type="number" min="0" step="any" v-model="approvedQuantity" class="form-input" />
+              <label class="form-label" for="mrv-approved-qty">Approved credits (tCO₂e)</label>
+              <input id="mrv-approved-qty" type="number" min="0" step="any" v-model="approvedQuantity" class="form-input" />
               <span class="hint">Defaults to the platform calculation; adjust if your review differs.</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Vintage year</label>
-              <input type="number" v-model="vintageYear" class="form-input" />
+              <label class="form-label" for="mrv-vintage">Vintage year</label>
+              <input id="mrv-vintage" type="number" v-model="vintageYear" class="form-input" />
             </div>
             <div class="form-group">
-              <label class="form-label">Notes</label>
-              <textarea v-model="notes" class="form-textarea" rows="2" placeholder="Verification notes / rejection reason"></textarea>
+              <label class="form-label" for="mrv-notes">Notes</label>
+              <textarea id="mrv-notes" v-model="notes" class="form-textarea" rows="2" placeholder="Verification notes / rejection reason"></textarea>
             </div>
 
             <div class="decision-actions">
