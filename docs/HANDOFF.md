@@ -155,6 +155,7 @@ to confirm an empty result.
 > | # | Migration | Status | Purpose |
 > |---|---|---|---|
 > | 19 | `20260707000000_project_documents_bucket.sql` | ⬜ **pending** | 🔴 Creates the `project-documents` storage bucket + RLS so developer compliance PDFs actually upload and are retrievable (were never stored before — dead links). **Apply before any real project submission.** |
+> | 20 | `20260707000100_project_documents_private.sql` | ⬜ **pending** | Makes that bucket **private** (compliance PDFs = sensitive PII) + authenticated SELECT for signed URLs. App resolves short-lived signed URLs; anon can no longer open raw docs. **Apply right after #19.** |
 
 ---
 

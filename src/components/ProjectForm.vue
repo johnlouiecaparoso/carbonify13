@@ -719,18 +719,25 @@ async function handleSubmit() {
     // dead and verifiers could not open the evidence they must review.
     const uploadDoc = async (file, label) => {
       if (!file) return
-      // Edit mode may hold an already-uploaded doc object (has a url) — keep it.
-      if (file.url && !(file instanceof File)) {
-        projectData.documents.push({ name: file.name, size: file.size, type: file.type, label, url: file.url })
+      // Edit mode may hold an already-uploaded doc object (has a path/url) — keep it.
+      if ((file.path || file.url) && !(file instanceof File)) {
+        projectData.documents.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          label,
+          path: file.path || null,
+          url: file.url || null,
+        })
         return
       }
-      const url = await uploadProjectDocument(file, uploaderId, label)
+      const path = await uploadProjectDocument(file, uploaderId, label)
       projectData.documents.push({
         name: file.name,
         size: file.size,
         type: file.type,
         label,
-        url,
+        path,
         uploadDate: new Date().toISOString(),
       })
     }
@@ -742,13 +749,13 @@ async function handleSubmit() {
       // Include any generic drag-and-drop uploads as well.
       for (const f of uploadedFiles.value) {
         if (f?.file instanceof File) {
-          const url = await uploadProjectDocument(f.file, uploaderId, 'other')
+          const path = await uploadProjectDocument(f.file, uploaderId, 'other')
           projectData.documents.push({
             name: f.name,
             size: f.size,
             type: f.type,
             label: 'other',
-            url,
+            path,
             uploadDate: f.uploadDate,
           })
         }

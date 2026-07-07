@@ -107,7 +107,8 @@ export class ProjectService {
               name: doc.name,
               type: doc.type,
               size: doc.size,
-              url: doc.url,
+              path: doc.path || null,
+              url: doc.url || null,
             })),
           ),
         }),
@@ -262,7 +263,8 @@ export class ProjectService {
               name: doc.name,
               type: doc.type,
               size: doc.size,
-              url: doc.url,
+              path: doc.path || null,
+              url: doc.url || null,
             })),
           )
         }

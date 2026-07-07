@@ -99,9 +99,12 @@
               <h2>Documents</h2>
               <ul v-if="documents.length" class="docs">
                 <li v-for="(doc, i) in documents" :key="i">
-                  <a :href="doc.url" target="_blank" rel="noopener noreferrer">
+                  <a v-if="doc.url" :href="doc.url" target="_blank" rel="noopener noreferrer">
                     {{ doc.name || 'Document ' + (i + 1) }}
                   </a>
+                  <span v-else class="muted" title="Sign in to view project documents">
+                    🔒 {{ doc.name || 'Document ' + (i + 1) }} (sign in to view)
+                  </span>
                   <span v-if="doc.type" class="muted"> · {{ doc.type }}</span>
                 </li>
               </ul>
@@ -163,6 +166,7 @@ import 'leaflet/dist/leaflet.css'
 import { getProject } from '@/services/projectService'
 import { marketplaceIntegrationService } from '@/services/marketplaceIntegrationService'
 import { getSupabase } from '@/services/supabaseClient'
+import { resolveDocumentUrls } from '@/services/storageService'
 import {
   additionalityLabel,
   reversalRiskLabel,
@@ -179,10 +183,9 @@ const developer = ref(null)
 const mapEl = ref(null)
 let map = null
 
-const documents = computed(() => {
-  const docs = project.value?.supporting_documents
-  return Array.isArray(docs) ? docs : []
-})
+// Documents live in a private bucket; resolve each to a short-lived signed URL
+// after the project loads. Anonymous viewers get null URLs (shown as locked).
+const documents = ref([])
 
 const coBenefits = computed(() => {
   const cb = project.value?.co_benefits
@@ -313,6 +316,11 @@ async function loadDeveloper(userId) {
 onMounted(async () => {
   try {
     project.value = await getProject(props.id, { includeAll: true })
+    try {
+      documents.value = await resolveDocumentUrls(project.value?.supporting_documents)
+    } catch {
+      documents.value = []
+    }
     try {
       listings.value = (await marketplaceIntegrationService.getProjectListings(props.id)) || []
     } catch {

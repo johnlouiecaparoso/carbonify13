@@ -21,7 +21,7 @@ Real money must not be enabled until **all** of these are true:
 - [ ] Email confirmation ON; `ALLOW_UNSIGNED_WEBHOOKS` unset; Sentry live. ✅
 - [ ] **Independent penetration test passed.** ⛔ **This is the last hard blocker.**
 - [ ] CSP switched to enforcing (Step 8).
-- [ ] (Recommended) `project-documents` bucket switched to private + signed URLs — sensitive legal docs.
+- [x] `project-documents` bucket private + signed URLs — done (apply migrations `20260707000000` **and** `20260707000100`).
 
 > **Business/legal (parallel track, required to lawfully hold funds in PH):** registered
 > legal entity, licensed PSP/EMI arrangement with PayMongo, BIR registration, DPO/AMLA

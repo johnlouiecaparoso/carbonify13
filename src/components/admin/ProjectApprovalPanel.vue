@@ -155,7 +155,7 @@
           </div>
 
           <div
-            v-if="activeProject.project_image || parsedSupportingDocuments(activeProject).length"
+            v-if="activeProject.project_image || resolvedDocuments.length"
             class="detail-section"
           >
             <h4>
@@ -171,8 +171,8 @@
               />
             </div>
 
-            <ul v-if="parsedSupportingDocuments(activeProject).length" class="submitted-doc-list">
-              <li v-for="(doc, index) in parsedSupportingDocuments(activeProject)" :key="`${doc.name || 'doc'}-${index}`">
+            <ul v-if="resolvedDocuments.length" class="submitted-doc-list">
+              <li v-for="(doc, index) in resolvedDocuments" :key="`${doc.name || 'doc'}-${index}`">
                 <a v-if="doc.url" :href="doc.url" target="_blank" rel="noopener noreferrer">
                   {{ doc.name || `Document ${index + 1}` }}
                 </a>
@@ -413,6 +413,7 @@ import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 import { addProjectComment } from '@/services/projectCommentService'
 import ValidationChecklist from '@/components/verifier/ValidationChecklist.vue'
 import { getSlaDays, projectAgeDays, isOverdue } from '@/services/verificationService'
+import { resolveDocumentUrls } from '@/services/storageService'
 
 const { promptState, confirm, success, error: showErrorPrompt, handleConfirm, handleCancel, handleClose } = useModernPrompt()
 
@@ -445,6 +446,19 @@ const displayedProjects = computed(() => {
 
 const activeProject = computed(() =>
   displayedProjects.value.find((project) => project.id === activeProjectId.value) || null,
+)
+
+// Supporting docs live in a private bucket → resolve signed URLs for the active
+// project whenever it changes (verifiers are authenticated, so signing works).
+const resolvedDocuments = ref([])
+watch(
+  activeProject,
+  async (proj) => {
+    resolvedDocuments.value = proj?.supporting_documents
+      ? await resolveDocumentUrls(proj.supporting_documents)
+      : []
+  },
+  { immediate: true },
 )
 
 const slaDays = ref(5)
@@ -696,22 +710,6 @@ function getStatusLabel(status) {
       return 'Rejected'
     default:
       return normalized.toUpperCase()
-  }
-}
-
-function parsedSupportingDocuments(project) {
-  if (!project?.supporting_documents) return []
-
-  try {
-    const parsed =
-      typeof project.supporting_documents === 'string'
-        ? JSON.parse(project.supporting_documents)
-        : project.supporting_documents
-
-    return Array.isArray(parsed) ? parsed : []
-  } catch (error) {
-    console.warn('Failed to parse supporting documents:', error)
-    return []
   }
 }
 

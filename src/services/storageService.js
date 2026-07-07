@@ -135,7 +135,8 @@ export async function uploadProfilePhoto(file, userId) {
  * @param {File} file - The document file to upload
  * @param {string} userId - The uploading user's ID (namespaces the path)
  * @param {string} [label] - Optional document label (e.g. 'pdd', 'ecc')
- * @returns {Promise<string>} - The public URL of the uploaded document
+ * @returns {Promise<string>} - The storage object PATH (bucket is private; use
+ *   getSignedProjectDocumentUrl / resolveDocumentUrls to render a link).
  */
 export async function uploadProjectDocument(file, userId, label = 'doc') {
   const { getSupabaseAsync } = await import('@/services/supabaseClient')
@@ -200,15 +201,67 @@ export async function uploadProjectDocument(file, userId, label = 'doc') {
       throw new Error(error.message || `Failed to upload "${file.name}".`)
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('project-documents').getPublicUrl(filePath)
-
-    return publicUrl
+    // Private bucket → return the object path; links are minted as signed URLs.
+    return filePath
   } catch (error) {
     console.error('Error in uploadProjectDocument:', error)
     throw error
   }
+}
+
+/**
+ * Create a short-lived signed URL for a project document stored in the private
+ * `project-documents` bucket. Requires an authenticated session (RLS).
+ * @param {string} path - The storage object path returned by uploadProjectDocument
+ * @param {number} [expiresIn] - Lifetime in seconds (default 1 hour)
+ * @returns {Promise<string|null>} - A signed URL, or null if it can't be created
+ */
+export async function getSignedProjectDocumentUrl(path, expiresIn = 3600) {
+  if (!path) return null
+  try {
+    const { getSupabaseAsync } = await import('@/services/supabaseClient')
+    const supabase = await getSupabaseAsync()
+    if (!supabase) return null
+    const { data, error } = await supabase.storage
+      .from('project-documents')
+      .createSignedUrl(path, expiresIn)
+    if (error) {
+      // Anonymous viewers (no RLS SELECT) land here — that's expected.
+      return null
+    }
+    return data?.signedUrl || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resolve a list of supporting-document records into renderable links.
+ * Accepts a JSON string or array. For each doc, fills `.url` with a signed URL
+ * derived from its `.path`; falls back to any legacy public `.url` already stored.
+ * @param {Array|string} docs
+ * @returns {Promise<Array>} docs with a usable (possibly null) `.url`
+ */
+export async function resolveDocumentUrls(docs) {
+  let list = docs
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list)
+    } catch {
+      list = []
+    }
+  }
+  if (!Array.isArray(list)) return []
+  return Promise.all(
+    list.map(async (doc) => {
+      if (!doc) return doc
+      if (doc.path) {
+        const signed = await getSignedProjectDocumentUrl(doc.path)
+        return { ...doc, url: signed || doc.url || null }
+      }
+      return { ...doc, url: doc.url || null } // legacy public-URL docs
+    }),
+  )
 }
 
 /**
