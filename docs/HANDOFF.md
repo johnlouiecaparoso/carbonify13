@@ -4,11 +4,16 @@
 > was returning `500: Error sending confirmation email`. Auth logs showed
 > `550 "yourdomain.com domain is not verified"` — the Supabase custom SMTP (Resend) still
 > had the **placeholder `…@yourdomain.com` sender**, so every confirmation email was rejected.
-> **Temp fix:** "Confirm email" was turned **OFF** in Supabase Auth to unblock testing (must be
-> re-enabled before real users). **Permanent fix (P0 before launch):** register an owned domain
-> → verify it in Resend → set the Supabase SMTP sender + creds → re-enable confirmation. Full
-> steps in [TODAY_2026-07-07.md](TODAY_2026-07-07.md) §1c. No repo change — signup code is a
-> standard `supabase.auth.signUp()`.
+> **Temp fix (DONE):** "Confirm email" is now turned **OFF** in Supabase Auth — signups work
+> again for testing (must be re-enabled before real users). **Permanent fix (P0 before launch):**
+> register an owned domain → verify it in Resend → set the Supabase SMTP sender + creds →
+> re-enable confirmation. Full steps in [TODAY_2026-07-07.md](TODAY_2026-07-07.md) §1c. No repo
+> change — signup code is a standard `supabase.auth.signUp()`.
+>
+> ⬜ **Next: apply the 4 pending DB migrations (§0 #17–20).** Paste-ready consolidated SQL for all
+> four (profiles role/KYC lock, retire-identity, project-documents bucket + private) has been
+> prepared for the Supabase SQL Editor. **Still pending apply + verify** — until then the
+> privilege-escalation hole is open and developer compliance-doc uploads have no bucket.
 
 > 🚀 **2026-07-07 (earlier) — MERGED TO `main` + DEAD-CODE CLEANUP.** The full
 > `feature-user-onboarding-ux` branch (Phases 0–8, the proven money cutover, security
