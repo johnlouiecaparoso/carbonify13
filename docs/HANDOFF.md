@@ -1,6 +1,16 @@
 # Carbonify — Handoff (current state)
 
-> 🚀 **2026-07-07 (latest) — MERGED TO `main` + DEAD-CODE CLEANUP.** The full
+> 📧 **2026-07-07 (latest) — SIGNUP EMAIL BLOCKER (config, not code).** Account creation
+> was returning `500: Error sending confirmation email`. Auth logs showed
+> `550 "yourdomain.com domain is not verified"` — the Supabase custom SMTP (Resend) still
+> had the **placeholder `…@yourdomain.com` sender**, so every confirmation email was rejected.
+> **Temp fix:** "Confirm email" was turned **OFF** in Supabase Auth to unblock testing (must be
+> re-enabled before real users). **Permanent fix (P0 before launch):** register an owned domain
+> → verify it in Resend → set the Supabase SMTP sender + creds → re-enable confirmation. Full
+> steps in [TODAY_2026-07-07.md](TODAY_2026-07-07.md) §1c. No repo change — signup code is a
+> standard `supabase.auth.signUp()`.
+
+> 🚀 **2026-07-07 (earlier) — MERGED TO `main` + DEAD-CODE CLEANUP.** The full
 > `feature-user-onboarding-ux` branch (Phases 0–8, the proven money cutover, security
 > close-out, role-interface hardening, freemium analytics) was **merged into `main`**
 > via **PR #2** (merge `d3ee30d`) — `main` is no longer stale. Then a **dead-code sweep**
