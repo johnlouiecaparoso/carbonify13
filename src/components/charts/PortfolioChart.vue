@@ -8,6 +8,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import {
   Chart,
+  LineController,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -18,8 +19,11 @@ import {
   Filler,
 } from 'chart.js'
 
-// Register Chart.js components
+// Register Chart.js components. NOTE: the CONTROLLER (LineController) must be
+// registered too — registering only LineElement throws
+// "'line' is not a registered controller" on Chart.js v4.
 Chart.register(
+  LineController,
   CategoryScale,
   LinearScale,
   PointElement,
