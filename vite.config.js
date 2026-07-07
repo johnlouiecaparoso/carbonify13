@@ -44,7 +44,6 @@ export default defineConfig({
             './src/components/auth/RegisterForm.vue',
           ],
           marketplace: [
-            './src/views/MarketplaceView.vue',
             './src/views/MarketplaceViewEnhanced.vue',
             './src/components/search/AdvancedSearch.vue',
           ],
