@@ -445,6 +445,7 @@ const profileSections = computed(() => {
         items: [
           { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
           { path: '/retire', label: 'Retire Credits', icon: 'eco' },
+          { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
         ],
       },
       {

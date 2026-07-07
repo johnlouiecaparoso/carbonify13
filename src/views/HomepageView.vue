@@ -228,6 +228,7 @@
 <script>
 import { useUserStore } from '@/store/userStore'
 import OnboardingGuide from '@/components/OnboardingGuide.vue'
+import { getMarketStats } from '@/services/registryService'
 
 export default {
   name: 'HomepageView',
@@ -239,11 +240,14 @@ export default {
   data() {
     return {
       currentFeatured: 0,
+      // Live platform figures — filled from public_market_stats() on mount.
+      // `key` maps to the RPC field; `value` shows '—' until real data loads.
+      statsLoading: true,
       stats: [
-        { label: 'Carbon Credits Retired', value: '2.3M', icon: 'compost' },
-        { label: 'Active Projects', value: '150+', icon: 'track_changes' },
-        { label: 'Countries', value: '45', icon: 'public' },
-        { label: 'CO2 Reduced', value: '5.2M tonnes', icon: 'monitoring' },
+        { label: 'Carbon Credits Retired', value: '—', icon: 'compost', key: 'total_retired' },
+        { label: 'Active Projects', value: '—', icon: 'track_changes', key: 'listed_projects' },
+        { label: 'Credits Available', value: '—', icon: 'inventory_2', key: 'credits_available' },
+        { label: 'CO2 Reduced (tonnes)', value: '—', icon: 'monitoring', key: 'total_issued' },
       ],
       featuredProjects: [
         {
@@ -291,7 +295,31 @@ export default {
       ],
     }
   },
+  async mounted() {
+    await this.loadStats()
+  },
   methods: {
+    async loadStats() {
+      try {
+        const s = await getMarketStats()
+        this.stats = this.stats.map((stat) => ({
+          ...stat,
+          value: this.formatCompact(s?.[stat.key]),
+        }))
+      } catch (error) {
+        console.warn('Failed to load platform stats:', error?.message)
+        // Leave the '—' placeholders rather than showing fake numbers.
+      } finally {
+        this.statsLoading = false
+      }
+    },
+    formatCompact(n) {
+      const num = Number(n)
+      if (!Number.isFinite(num)) return '—'
+      if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(num % 1_000_000 === 0 ? 0 : 1)}M`
+      if (num >= 1_000) return `${(num / 1_000).toFixed(num % 1_000 === 0 ? 0 : 1)}K`
+      return num.toLocaleString()
+    },
     handleRoleApplication(role) {
       try {
         const roleParam = role === 'verifier' ? 'verifier' : 'project_developer'

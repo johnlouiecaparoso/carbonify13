@@ -300,7 +300,12 @@ const router = createRouter({
       component: () => import('@/views/VerifierPanel.vue'),
       meta: { requiresAuth: true, requiresVerifier: true },
     },
-    { path: '/analytics', redirect: '/' },
+    {
+      path: '/analytics',
+      name: 'analytics',
+      component: () => import('@/views/AnalyticsView.vue'),
+      meta: { requiresAuth: true },
+    },
     {
       path: '/sales',
       name: 'seller-earnings',

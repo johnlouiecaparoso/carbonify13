@@ -1,5 +1,14 @@
 # Carbonify — Handoff (current state)
 
+> 📊 **2026-07-07 (later) — LIVE STATS + ANALYTICS.** The homepage hero stats were
+> **hardcoded placeholders** (2.3M / 150+ / 45 / 5.2M) — now wired to **real data** via
+> `public_market_stats()` (Retired / Active Projects / Credits Available / CO2 Reduced;
+> show `—` until loaded). The prebuilt **Analytics dashboard was disabled** (route
+> redirected to `/`) — now **re-enabled at `/analytics`** (Buying tab free; Selling tab
+> Pro-gated) and linked in the profile menu. Document storage was also hardened to a
+> **private bucket + signed URLs** (migration `20260707000100`). Full analytics map +
+> tooling guidance: **[ANALYTICS.md](ANALYTICS.md)**. Build ✅ ESLint ✅ 150 tests ✅.
+
 > 🎨 **2026-07-07 — ROLE-INTERFACE HARDENING (this session).** Audited + fixed the
 > **Project Developer, Verifier, and LGU** interfaces so we can onboard real project
 > developers. **Critical fix:** compliance documents now actually upload to storage (they

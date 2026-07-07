@@ -251,7 +251,7 @@ onMounted(() => {
           </div>
           <div class="card-content">
             <div class="metric-value">
-              ${{ carbonImpactData?.summary?.totalAmountSpent?.toLocaleString() || '0' }}
+              {{ currency(carbonImpactData?.summary?.totalAmountSpent) }}
             </div>
             <div class="metric-change positive">
               {{ carbonImpactData?.summary?.totalTransactions || 0 }} transactions
