@@ -1,6 +1,20 @@
 # Carbonify — Handoff (current state)
 
-> 🖤 **2026-07-07 (latest) — FREEMIUM ANALYTICS + UI POLISH.** (1) **Analytics is now on
+> 🚀 **2026-07-07 (latest) — MERGED TO `main` + DEAD-CODE CLEANUP.** The full
+> `feature-user-onboarding-ux` branch (Phases 0–8, the proven money cutover, security
+> close-out, role-interface hardening, freemium analytics) was **merged into `main`**
+> via **PR #2** (merge `d3ee30d`) — `main` is no longer stale. Then a **dead-code sweep**
+> removed **23 verified-unimported files** (the entire `src/_hidden/` tree, the three
+> unused `MarketplaceView*.vue` variants — only `MarketplaceViewEnhanced.vue` is routed —
+> and `Header_backup.vue`) plus the stale `MarketplaceView.vue` entry in `vite.config`
+> `manualChunks`; merged via **PR #3** (merge `fb14e42`). Debug utils
+> (`debugAdminQueries`/`diagnoseAdminDashboard`/`verifyTestAccounts`) were **kept** — they
+> are still imported by `AdminDashboard.vue`/dev components. Build ✅ ESLint 0 ✅ **150 tests ✅**.
+> **No code/migrations were changed by the merge** — the 4 pending DB migrations below
+> (🔴 profiles role/KYC lock + project-documents bucket) are **still unapplied** and remain
+> the gate for real usage. Console-log emojis were intentionally left (dev-facing only).
+
+> 🖤 **2026-07-07 (earlier) — FREEMIUM ANALYTICS + UI POLISH.** (1) **Analytics is now on
 > for every role** (profile menu → Insights → Analytics) with a **freemium split**: free
 > users get the summary metric cards; **Pro** unlocks the trend charts, category breakdown,
 > full history, and the Selling tab. (2) **Fixed the analytics crash** — Chart.js v4
@@ -439,8 +453,10 @@ go/no-go gate); the security detail is **[dev/DEPLOYMENT_READINESS.md](dev/DEPLO
 7. **Book an independent penetration test** before switching to live PayMongo keys.
 
 ### B. Capture the work — ✅ done
-- **PR #2** is open (`feature-user-onboarding-ux` → `main`), ~100 commits. `gh` is authenticated.
-  Merge when Phase 0 is green (frontend ships the applied hardening; DB/edge fixes are the P0 list above).
+- **PR #2 is MERGED** (2026-07-07) — `feature-user-onboarding-ux` → `main` (merge `d3ee30d`),
+  ~121 commits. `main` now carries the full app. A follow-up **PR #3** (merge `fb14e42`) removed
+  23 dead files. `gh` is authenticated. The branch and `main` are in sync (0 unmerged commits).
+  Note: merging code does **not** apply the pending DB migrations (§0 #17–20) — do those separately.
 
 ### C. Remaining work — external party or ops/legal (parallel track)
 - **Real registry/supplier fulfillment** — needs an external registry partner (Carbonmark/Cloverly/Patch).
