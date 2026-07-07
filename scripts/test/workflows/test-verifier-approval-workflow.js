@@ -22,18 +22,18 @@ async function testVerifierApprovalWorkflow() {
     console.log('Step 2: Testing service imports...')
 
     try {
-      const marketplaceIntegrationService = await import(
+      await import(
         '/src/services/marketplaceIntegrationService.js'
       )
       console.log('✅ Marketplace integration service loaded')
 
-      const projectService = await import('/src/services/projectService.js')
+      await import('/src/services/projectService.js')
       console.log('✅ Project service loaded')
 
-      const certificateService = await import('/src/services/certificateService.js')
+      await import('/src/services/certificateService.js')
       console.log('✅ Certificate service loaded')
 
-      const emailService = await import('/src/services/emailService.js')
+      await import('/src/services/emailService.js')
       console.log('✅ Email service loaded')
     } catch (e) {
       console.log('❌ Service import failed:', e.message)

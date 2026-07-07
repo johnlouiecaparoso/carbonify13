@@ -20,6 +20,10 @@
             <p class="summary-label">Pending</p>
             <p class="summary-value">{{ stats.pending }}</p>
           </div>
+          <div class="summary-card revision">
+            <p class="summary-label">Needs Revision</p>
+            <p class="summary-value">{{ stats.needsRevision }}</p>
+          </div>
           <div class="summary-card approved">
             <p class="summary-label">Approved</p>
             <p class="summary-value">{{ stats.approved }}</p>
@@ -51,6 +55,19 @@
 
         <div v-if="loading" class="state-card">Loading your projects...</div>
         <div v-else-if="errorMessage" class="state-card error">{{ errorMessage }}</div>
+        <!-- First-run: developer has no projects at all -->
+        <div v-else-if="stats.total === 0" class="empty-hero">
+          <span class="material-symbols-outlined empty-hero__icon" aria-hidden="true">forest</span>
+          <h2 class="empty-hero__title">Submit your first carbon project</h2>
+          <p class="empty-hero__text">
+            List your project, attach the required documents, and a verifier will review it.
+            Once validated, your credits go on sale in the marketplace.
+          </p>
+          <button class="submit-btn" type="button" @click="goToSubmitProject">
+            Submit your first project
+          </button>
+        </div>
+        <!-- Have projects, but none match the active filter -->
         <div v-else-if="filteredProjects.length === 0" class="state-card">
           No projects found for this status.
         </div>
@@ -83,13 +100,62 @@
               <p>{{ project.verification_notes || 'No rejection note was provided by verifier.' }}</p>
             </div>
 
+            <div v-else-if="project.status === 'needs_revision'" class="notes-box revision-note">
+              <h4>Revisions Requested</h4>
+              <p>{{ project.verification_notes || 'The verifier asked for changes — see the conversation below.' }}</p>
+              <div class="revision-actions">
+                <button class="resubmit-btn" type="button" @click="goToEdit(project)">
+                  Edit details
+                </button>
+                <button
+                  class="resubmit-btn primary"
+                  type="button"
+                  :disabled="resubmittingId === project.id"
+                  @click="resubmit(project)"
+                >
+                  {{ resubmittingId === project.id ? 'Resubmitting…' : 'Resubmit for review' }}
+                </button>
+                <button
+                  class="resubmit-btn danger"
+                  type="button"
+                  :disabled="deletingId === project.id"
+                  @click="removeProject(project)"
+                >
+                  {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+                </button>
+              </div>
+            </div>
+
             <div
-              v-else-if="project.status === 'approved' && project.verification_notes"
+              v-else-if="['approved', 'validated'].includes(project.status) && project.verification_notes"
               class="notes-box approved-note"
             >
               <h4>Verifier Notes</h4>
               <p>{{ project.verification_notes }}</p>
             </div>
+
+            <!-- Edit / delete for submissions still pending review (the
+                 needs_revision card has its own action row above). -->
+            <div
+              v-if="canManage(project) && project.status !== 'needs_revision'"
+              class="project-actions"
+            >
+              <button class="action-link" type="button" @click="goToEdit(project)">
+                Edit
+              </button>
+              <button
+                class="action-link danger"
+                type="button"
+                :disabled="deletingId === project.id"
+                @click="removeProject(project)"
+              >
+                {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+              </button>
+            </div>
+
+            <!-- Conversation with the verifier (always available so threads persist
+                 across the needs_revision → resubmit → re-review cycle). -->
+            <ProjectCommentThread :project-id="project.id" :allow-internal="false" />
           </article>
         </div>
       </div>
@@ -101,7 +167,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { projectService } from '@/services/projectService'
+import { projectApprovalService } from '@/services/projectApprovalService'
 import ProjectProgressTracker from '@/components/ProjectProgressTracker.vue'
+import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 
 const router = useRouter()
 
@@ -109,24 +177,44 @@ const loading = ref(true)
 const errorMessage = ref('')
 const projects = ref([])
 const activeFilter = ref('all')
+const resubmittingId = ref(null)
+const deletingId = ref(null)
+
+const has = (project, ...statuses) => statuses.includes(project.status)
+
+// Statuses where the owner may still edit/delete their submission. Mirrors the
+// projects RLS policies and OWNER_EDITABLE_STATUSES in projectService.
+const OWNER_EDITABLE_STATUSES = ['draft', 'pending', 'submitted', 'needs_revision']
+const canManage = (project) => OWNER_EDITABLE_STATUSES.includes(project.status)
 
 const stats = computed(() => ({
   total: projects.value.length,
-  pending: projects.value.filter((project) => project.status === 'pending').length,
-  approved: projects.value.filter((project) => project.status === 'approved').length,
-  rejected: projects.value.filter((project) => project.status === 'rejected').length,
+  pending: projects.value.filter((p) => has(p, 'pending', 'submitted', 'in_review')).length,
+  needsRevision: projects.value.filter((p) => has(p, 'needs_revision')).length,
+  approved: projects.value.filter((p) => has(p, 'approved', 'validated')).length,
+  rejected: projects.value.filter((p) => has(p, 'rejected')).length,
 }))
 
 const tabs = computed(() => [
   { value: 'all', label: 'All', count: stats.value.total },
   { value: 'pending', label: 'Pending', count: stats.value.pending },
+  { value: 'needs_revision', label: 'Needs Revision', count: stats.value.needsRevision },
   { value: 'approved', label: 'Approved', count: stats.value.approved },
   { value: 'rejected', label: 'Rejected', count: stats.value.rejected },
 ])
 
+// Map legacy and canonical status values onto the tab buckets.
+const TAB_STATUSES = {
+  pending: ['pending', 'submitted', 'in_review'],
+  needs_revision: ['needs_revision'],
+  approved: ['approved', 'validated'],
+  rejected: ['rejected'],
+}
+
 const filteredProjects = computed(() => {
   if (activeFilter.value === 'all') return projects.value
-  return projects.value.filter((project) => project.status === activeFilter.value)
+  const allowed = TAB_STATUSES[activeFilter.value] || [activeFilter.value]
+  return projects.value.filter((project) => allowed.includes(project.status))
 })
 
 function formatDate(value) {
@@ -135,19 +223,67 @@ function formatDate(value) {
 }
 
 function statusLabel(status) {
-  if (status === 'pending') return 'Pending'
-  if (status === 'approved') return 'Approved'
-  if (status === 'rejected') return 'Rejected'
-  if (status === 'under_review') return 'Under Review'
-  return status || 'Unknown'
+  const labels = {
+    pending: 'Pending',
+    submitted: 'Pending',
+    in_review: 'Under Review',
+    under_review: 'Under Review',
+    needs_revision: 'Needs Revision',
+    approved: 'Approved',
+    validated: 'Approved',
+    rejected: 'Rejected',
+  }
+  return labels[status] || status || 'Unknown'
 }
 
 function statusClass(status) {
+  // Collapse canonical aliases onto the existing badge styles.
+  if (['submitted', 'in_review', 'under_review'].includes(status)) return 'pending'
+  if (status === 'validated') return 'approved'
   return status || 'unknown'
 }
 
 function goToSubmitProject() {
   router.push('/submit-project')
+}
+
+function goToEdit(project) {
+  // Best-effort: open the submission form for this project. The form reads an
+  // optional id query when editing an existing draft.
+  router.push({ path: '/submit-project', query: { id: project.id } })
+}
+
+async function removeProject(project) {
+  if (deletingId.value) return
+  const confirmed = window.confirm(
+    `Delete "${project.title}"? This permanently removes the submission and cannot be undone.`,
+  )
+  if (!confirmed) return
+
+  deletingId.value = project.id
+  errorMessage.value = ''
+  try {
+    await projectService.deleteProject(project.id)
+    projects.value = projects.value.filter((p) => p.id !== project.id)
+  } catch (error) {
+    console.error('Delete failed:', error)
+    errorMessage.value = error.message || 'Failed to delete project.'
+  } finally {
+    deletingId.value = null
+  }
+}
+
+async function resubmit(project) {
+  resubmittingId.value = project.id
+  try {
+    await projectApprovalService.resubmitProject(project.id)
+    await loadProjects()
+  } catch (error) {
+    console.error('Resubmit failed:', error)
+    errorMessage.value = error.message || 'Failed to resubmit project.'
+  } finally {
+    resubmittingId.value = null
+  }
 }
 
 async function loadProjects() {
@@ -185,7 +321,7 @@ onMounted(() => {
 
 .page-header {
   padding: 2rem 0;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {
@@ -256,14 +392,14 @@ onMounted(() => {
 }
 
 .status-tab.active {
-  border-color: var(--primary-color, #10b981);
-  color: var(--primary-color, #10b981);
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
   background: #ecfdf5;
 }
 
 .submit-btn {
   border: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: #fff;
   padding: 0.65rem 1rem;
   border-radius: 10px;
@@ -356,6 +492,52 @@ onMounted(() => {
   color: #075985;
 }
 
+.status-badge.needs_revision {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.submitted,
+.status-badge.in_review {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.status-badge.validated {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.draft {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.empty-hero {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  max-width: 560px;
+  margin: 1.5rem auto;
+}
+.empty-hero__icon {
+  font-size: 3rem;
+  color: var(--primary-color, #069e2d);
+}
+.empty-hero__title {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 1.35rem;
+  color: var(--text-primary, #111827);
+}
+.empty-hero__text {
+  margin: 0 auto 1.25rem;
+  max-width: 420px;
+  color: var(--text-secondary, #4a5568);
+  line-height: 1.6;
+}
+
 .notes-box {
   margin-top: 1rem;
   border-radius: 10px;
@@ -379,5 +561,70 @@ onMounted(() => {
 .approved-note {
   background: #ecfdf5;
   border: 1px solid #bbf7d0;
+}
+
+.revision-note {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.revision-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.resubmit-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.resubmit-btn.primary {
+  background: #069e2d;
+  border-color: #069e2d;
+  color: #fff;
+}
+
+.resubmit-btn.danger {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.resubmit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.project-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.action-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #069e2d;
+  cursor: pointer;
+}
+
+.action-link.danger {
+  color: #dc2626;
+}
+
+.action-link:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

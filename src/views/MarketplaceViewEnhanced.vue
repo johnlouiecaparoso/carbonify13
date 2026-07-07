@@ -26,6 +26,15 @@
               {{ category }}
             </option>
           </select>
+          <select v-model="selectedSource" class="filter-select" aria-label="Filter by credit source">
+            <option value="all">All Sources</option>
+            <option value="local">Local</option>
+            <option value="supplier">Registry</option>
+          </select>
+          <select v-model="selectedSdg" class="filter-select" aria-label="Filter by Sustainable Development Goal">
+            <option value="">All SDGs</option>
+            <option v-for="tag in SDG_TAGS" :key="tag" :value="tag">{{ tag }}</option>
+          </select>
           <select
             v-model="availabilityFilter"
             class="filter-select"
@@ -41,6 +50,16 @@
             <option value="price-high">Expensive to Cheapest</option>
           </select>
           <button
+            type="button"
+            class="save-search-button"
+            :disabled="savingSearch"
+            title="Save this search and get a bell alert when a new matching listing appears"
+            @click="handleSaveSearch"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span>
+            <span>{{ savingSearch ? 'Saving…' : 'Save search' }}</span>
+          </button>
+          <button
             v-if="userStore.isProjectDeveloper"
             @click="navigateToSubmitProject"
             class="submit-project-button"
@@ -48,6 +67,27 @@
             <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
             <span>Submit Project</span>
           </button>
+        </div>
+
+        <!-- Saved searches / price alerts -->
+        <div v-if="savedSearches.length" class="saved-searches">
+          <span class="saved-searches-label">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
+            Saved searches
+          </span>
+          <span v-for="s in savedSearches" :key="s.id" class="saved-chip">
+            <button type="button" class="saved-chip-apply" @click="applySavedSearch(s)">
+              {{ s.label }}
+            </button>
+            <button
+              type="button"
+              class="saved-chip-remove"
+              aria-label="Delete saved search"
+              @click="handleDeleteSavedSearch(s.id)"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </span>
         </div>
       </div>
     </div>
@@ -127,6 +167,11 @@
                   @click="viewProject(listing)"
                 >
                   <div v-if="isSoldOut(listing)" class="sold-out-badge">Not available</div>
+                  <WatchButton
+                    class="grid-watch"
+                    :watched="isWatched(listing)"
+                    @toggle="toggleWatch(listing)"
+                  />
                   <div class="project-grid-image">
                     <img
                       v-if="listing.project_image"
@@ -140,8 +185,20 @@
                     />
                   </div>
                   <div class="project-grid-content">
-                    <h3 class="project-grid-title">{{ listing.project_title }}</h3>
+                    <div class="project-grid-titlerow">
+                      <h3 class="project-grid-title">{{ listing.project_title }}</h3>
+                      <span class="source-badge" :class="listing.source === 'supplier' ? 'supplier' : 'local'">
+                        {{ listing.source === 'supplier' ? 'Registry' : 'Local' }}
+                      </span>
+                    </div>
                     <p class="project-grid-description">{{ listing.project_description }}</p>
+                    <router-link
+                      :to="`/projects/${listing.project_id}`"
+                      class="details-link"
+                      @click.stop
+                    >
+                      View project details →
+                    </router-link>
                     <div class="project-grid-meta">
                       <span class="material-symbols-outlined location-icon" aria-hidden="true"
                         >location_on</span
@@ -194,6 +251,17 @@
                         @click.stop="openPurchaseModal(listing)"
                       >
                         Purchase
+                      </UiButton>
+                      <UiButton
+                        v-if="!isSoldOut(listing)"
+                        variant="outline"
+                        size="sm"
+                        :title="inCart(listing) ? 'In cart' : 'Add to cart'"
+                        @click.stop="addListingToCart(listing)"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                          {{ inCart(listing) ? 'shopping_cart_checkout' : 'add_shopping_cart' }}
+                        </span>
                       </UiButton>
                       <UiButton
                         v-if="isUserAdmin"
@@ -268,6 +336,10 @@
                       <span v-else>{{ formatNumber(listing.available_quantity) }} credits left</span>
                     </div>
                     <div class="project-actions-buttons" @click.stop>
+                      <WatchButton
+                        :watched="isWatched(listing)"
+                        @toggle="toggleWatch(listing)"
+                      />
                       <UiButton
                         v-if="isSoldOut(listing)"
                         variant="secondary"
@@ -284,6 +356,17 @@
                         @click.stop="openPurchaseModal(listing)"
                       >
                         Purchase
+                      </UiButton>
+                      <UiButton
+                        v-if="!isSoldOut(listing)"
+                        variant="outline"
+                        size="sm"
+                        :title="inCart(listing) ? 'In cart' : 'Add to cart'"
+                        @click.stop="addListingToCart(listing)"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                          {{ inCart(listing) ? 'shopping_cart_checkout' : 'add_shopping_cart' }}
+                        </span>
                       </UiButton>
                       <UiButton
                         v-if="isUserAdmin"
@@ -359,6 +442,12 @@
               <div class="meta-item">
                 <span class="material-symbols-outlined" aria-hidden="true">label</span>
                 <span>{{ selectedListing?.category }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+                <span class="source-badge" :class="selectedListing?.source === 'supplier' ? 'supplier' : 'local'">
+                  {{ selectedListing?.source === 'supplier' ? 'Registry-backed' : 'Local credit' }}
+                </span>
               </div>
             </div>
           </div>
@@ -487,7 +576,22 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getMarketplaceListings, getMarketplaceStats } from '@/services/marketplaceService'
+import { SDG_TAGS } from '@/constants/sdgs'
 import { projectService } from '@/services/projectService'
+import {
+  getMyWatchlistIds,
+  addToWatchlist,
+  removeFromWatchlist,
+} from '@/services/watchlistService'
+import WatchButton from '@/components/ui/WatchButton.vue'
+import {
+  listMySavedSearches,
+  saveSearch,
+  deleteSavedSearch,
+  checkSavedSearchAlerts,
+  describeCriteria,
+} from '@/services/savedSearchService'
+import { useCartStore } from '@/store/cartStore'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import UiButton from '@/components/ui/Button.vue'
 import Pagination from '@/components/ui/Pagination.vue'
@@ -520,8 +624,11 @@ const isUserAdmin = computed(() => {
   return adminStatus
 })
 
+const cart = useCartStore()
+
 // State
 const listings = ref([])
+const watchedIds = ref(new Set())
 const loading = ref(false)
 const errorMessage = ref('')
 const marketplaceStats = ref({
@@ -531,11 +638,17 @@ const marketplaceStats = ref({
 })
 const searchQuery = ref('')
 const selectedCategory = ref('')
+const selectedSource = ref('all')
+const selectedSdg = ref('')
 const selectedCountry = ref('')
 const priceRange = ref({ min: '', max: '' })
 const sortBy = ref('name')
 const availabilityFilter = ref('all')
 const viewMode = ref('grid') // 'grid' or 'list'
+
+// Saved searches / price alerts
+const savedSearches = ref([])
+const savingSearch = ref(false)
 const currentPage = ref(1)
 const itemsPerPage = ref(12)
 const marketplaceRefreshTimer = ref(null)
@@ -597,6 +710,18 @@ const filteredListings = computed(() => {
   // Apply category filter
   if (selectedCategory.value) {
     filtered = filtered.filter((listing) => listing.category === selectedCategory.value)
+  }
+
+  // Apply credit-source filter (local vs registry/supplier)
+  if (selectedSource.value && selectedSource.value !== 'all') {
+    filtered = filtered.filter((listing) => (listing.source || 'local') === selectedSource.value)
+  }
+
+  // Apply SDG filter (listing tagged with the selected Sustainable Development Goal)
+  if (selectedSdg.value) {
+    filtered = filtered.filter((listing) =>
+      Array.isArray(listing.co_benefits) && listing.co_benefits.includes(selectedSdg.value),
+    )
   }
 
   // Apply availability filter
@@ -720,6 +845,16 @@ async function loadMarketplaceData(forceRefresh = false) {
       totalMarketValue: 0,
       recentTransactions: 0,
     }
+
+    // Fire saved-search price alerts against the freshly-loaded listings
+    // (best-effort; never blocks the render). Skipped on the silent 15s
+    // auto-refresh — the last_seen_at high-water mark already dedupes, and we
+    // don't need to poll saved searches every cycle.
+    if (!forceRefresh && userStore.session?.user?.id && listings.value.length) {
+      checkSavedSearchAlerts(listings.value).catch((err) =>
+        console.warn('Saved-search alert check failed:', err?.message),
+      )
+    }
   } catch (err) {
     console.error('Error loading marketplace data:', err)
     if (err.message?.includes('timed out')) {
@@ -740,9 +875,64 @@ async function loadMarketplaceData(forceRefresh = false) {
   }
 }
 
+// The current filter state, in the saved-search criteria shape.
+const currentCriteria = computed(() => ({
+  search: searchQuery.value || '',
+  category: selectedCategory.value || '',
+  source: selectedSource.value || 'all',
+  sdgs: selectedSdg.value ? [selectedSdg.value] : [],
+  country: selectedCountry.value || '',
+  minPrice: priceRange.value?.min || '',
+  maxPrice: priceRange.value?.max || '',
+}))
+
+async function loadSavedSearches() {
+  if (!userStore.session?.user?.id) return
+  savedSearches.value = await listMySavedSearches()
+}
+
+async function handleSaveSearch() {
+  if (!userStore.session?.user?.id) {
+    warning('Sign in required', 'Please sign in to save a search and get price alerts.')
+    return
+  }
+  savingSearch.value = true
+  try {
+    await saveSearch({ label: describeCriteria(currentCriteria.value), criteria: currentCriteria.value })
+    await loadSavedSearches()
+    success('Search saved', "You'll get a bell alert when a new matching listing appears.")
+  } catch (err) {
+    showErrorPrompt('Could not save search', err.message || 'Please try again.')
+  } finally {
+    savingSearch.value = false
+  }
+}
+
+async function handleDeleteSavedSearch(id) {
+  try {
+    await deleteSavedSearch(id)
+    savedSearches.value = savedSearches.value.filter((s) => s.id !== id)
+  } catch (err) {
+    showErrorPrompt('Could not delete', err.message || 'Please try again.')
+  }
+}
+
+function applySavedSearch(saved) {
+  const c = saved?.criteria || {}
+  searchQuery.value = c.search || ''
+  selectedCategory.value = c.category || ''
+  selectedSource.value = c.source || 'all'
+  selectedSdg.value = Array.isArray(c.sdgs) && c.sdgs.length ? c.sdgs[0] : ''
+  selectedCountry.value = c.country || ''
+  priceRange.value = { min: c.minPrice || '', max: c.maxPrice || '' }
+  currentPage.value = 1
+}
+
 function handleSearchReset() {
   searchQuery.value = ''
   selectedCategory.value = ''
+  selectedSource.value = 'all'
+  selectedSdg.value = ''
   selectedCountry.value = ''
   priceRange.value = { min: '', max: '' }
   availabilityFilter.value = 'all'
@@ -758,21 +948,6 @@ function viewProject(listing) {
   console.log('Viewing project:', listing)
   // Open purchase modal instead of navigating
   openPurchaseModal(listing)
-}
-
-function navigateToBuyCredits(listing) {
-  console.log('Navigating to marketplace for:', listing.project_title)
-  // Navigate to marketplace (buy credits functionality is now in marketplace)
-  router.push({
-    path: '/marketplace',
-    query: {
-      project: listing.project_id,
-      listing: listing.listing_id,
-      title: listing.project_title,
-      price: listing.price_per_credit,
-      currency: listing.currency,
-    },
-  })
 }
 
 function isSoldOut(listing) {
@@ -899,8 +1074,12 @@ async function handlePurchase() {
     // Handle redirect for PayMongo checkout
     if (result.redirect && result.checkoutUrl) {
       console.log('🔗 Redirecting to PayMongo checkout:', result.checkoutUrl)
-      // Store the pending purchase
+      // Store the pending purchase. The intent id lets the callback page find
+      // the webhook-settled transaction (server-authoritative path).
       localStorage.setItem('pending_purchase_session', result.sessionId)
+      if (result.paymentIntentId) {
+        localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
+      }
 
       // Redirect to PayMongo checkout immediately
       window.location.href = result.checkoutUrl
@@ -914,6 +1093,9 @@ async function handlePurchase() {
         result.checkoutUrl,
       )
       localStorage.setItem('pending_purchase_session', result.sessionId || '')
+      if (result.paymentIntentId) {
+        localStorage.setItem('pending_purchase_intent', result.paymentIntentId)
+      }
       window.location.href = result.checkoutUrl
       return
     }
@@ -934,7 +1116,7 @@ async function handlePurchase() {
     }
 
     await success({
-      title: 'Purchase Successful! 🎉',
+      title: 'Purchase Successful!',
       message: `You purchased ${purchaseQuantity.value} credits from "${selectedListing.value.project_title}" for ${formatCurrency(totalAmount, currency)}. Your carbon credits have been added to your portfolio!`,
       confirmText: 'OK',
     })
@@ -1068,6 +1250,53 @@ async function adminDeleteListing(listing) {
 }
 
 // Lifecycle
+// ── Watchlist ──────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  if (!userStore.isAuthenticated) {
+    watchedIds.value = new Set()
+    return
+  }
+  try {
+    watchedIds.value = await getMyWatchlistIds()
+  } catch (err) {
+    console.warn('Failed to load watchlist:', err?.message)
+  }
+}
+
+function isWatched(listing) {
+  return watchedIds.value.has(listing.listing_id)
+}
+
+function addListingToCart(listing) {
+  cart.addItem(listing, 1)
+}
+function inCart(listing) {
+  return cart.has(listing.listing_id)
+}
+
+async function toggleWatch(listing) {
+  if (!userStore.isAuthenticated) {
+    router.push({ name: 'login', query: { returnTo: '/marketplace' } })
+    return
+  }
+  const id = listing.listing_id
+  const next = new Set(watchedIds.value)
+  try {
+    if (next.has(id)) {
+      next.delete(id)
+      watchedIds.value = next // optimistic
+      await removeFromWatchlist(id)
+    } else {
+      next.add(id)
+      watchedIds.value = next
+      await addToWatchlist({ listingId: id, projectId: listing.project_id })
+    }
+  } catch (err) {
+    console.error('Watchlist toggle failed:', err?.message)
+    await loadWatchlist() // resync on failure
+  }
+}
+
 onMounted(() => {
   // Debug: Log admin status when component mounts
   console.log('🔍 [Marketplace] Component mounted - Admin status:', {
@@ -1079,6 +1308,8 @@ onMounted(() => {
   })
 
   loadMarketplaceData()
+  loadWatchlist()
+  loadSavedSearches()
 
   marketplaceRefreshTimer.value = setInterval(() => {
     loadMarketplaceData(true)
@@ -1191,6 +1422,90 @@ onUnmounted(() => {
   font-size: 1.25rem;
 }
 
+.save-search-button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.save-search-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.save-search-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-search-button .material-symbols-outlined {
+  font-size: 1.25rem;
+}
+
+.saved-searches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.saved-searches-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.saved-searches-label .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.saved-chip {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.saved-chip-apply {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.saved-chip-remove {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+}
+
+.saved-chip-remove:hover {
+  color: white;
+}
+
+.saved-chip-remove .material-symbols-outlined {
+  font-size: 1rem;
+}
+
 .marketplace-content {
   padding: 2rem 0;
 }
@@ -1257,6 +1572,13 @@ onUnmounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+.grid-watch {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 5;
 }
 
 .project-grid-card {
@@ -1355,12 +1677,51 @@ onUnmounted(() => {
   flex: 1;
 }
 
+.project-grid-titlerow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .project-grid-title {
   font-size: 1.125rem;
   font-weight: 600;
   color: #111827;
   margin: 0;
   line-height: 1.4;
+}
+
+.source-badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.source-badge.local {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.source-badge.supplier {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.details-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #069e2d;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.details-link:hover {
+  text-decoration: underline;
 }
 
 .project-grid-description {

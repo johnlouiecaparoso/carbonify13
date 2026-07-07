@@ -13,7 +13,7 @@ const ENVIRONMENT_CONFIG = {
   },
 
   production: {
-    API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api.ecolink.io',
+    API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api.carbonify.io',
     DEBUG: false,
     LOG_LEVEL: 'error',
     CACHE_DURATION: 300000, // 5 minutes

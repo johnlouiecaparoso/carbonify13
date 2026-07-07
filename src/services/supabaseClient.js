@@ -50,7 +50,7 @@ export async function initSupabase() {
           console.warn('Could not parse old session data:', e)
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore localStorage access errors
     }
 

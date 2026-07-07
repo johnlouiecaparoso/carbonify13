@@ -1,4 +1,4 @@
-# If I am a Project Developer — What I Need from Ecolink
+# If I am a Project Developer — What I Need from Carbonify
 
 **Who I am:** An RRCC/LGU/cooperative/MSME that registers climate projects, submits monitoring data, earns carbon credits, and sells them. My success = I can get my project validated, prove my impact through MRV, get credits issued, **sell them, and actually receive the money**.
 

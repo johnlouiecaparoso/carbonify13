@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import LoginForm from '@/components/auth/LoginForm.vue'
 
 // Fixed route injection issues - no route dependency
@@ -13,17 +13,16 @@ const showRegisteredBanner = ref(false)
       <div class="hero-card">
         <div class="brand">
           <div class="brand-badge">
-            <!-- New EcoLink Logo for Auth Pages -->
             <div class="auth-logo-container">
               <img
-                src="/src/assets/images/ecolink-logo.png"
-                alt="EcoLink Logo"
+                src="/carbonify-logo.png"
+                alt="Carbonify"
                 class="auth-logo-image"
               />
             </div>
           </div>
           <div class="brand-text">
-            <h1 class="brand-title">ECOLINK</h1>
+            <h1 class="brand-title">CARBONIFY</h1>
             <p class="brand-subtitle">Connecting projects, verifiers, and impact-driven capital.</p>
           </div>
         </div>
@@ -37,7 +36,7 @@ const showRegisteredBanner = ref(false)
         </div>
         <LoginForm />
         <div class="panel-footer">
-          <span class="panel-desc">New to EcoLink?</span>
+          <span class="panel-desc">New to Carbonify?</span>
           <router-link class="muted-link" to="/register">Create an account</router-link>
         </div>
       </div>
@@ -88,47 +87,49 @@ const showRegisteredBanner = ref(false)
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .brand-badge {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
 }
 
 /* Enhanced Logo Styling */
 .auth-logo-container {
-  width: 5rem !important;
-  height: 5rem !important;
-  min-width: 5rem !important;
-  min-height: 5rem !important;
-  max-width: 5rem !important;
-  max-height: 5rem !important;
-  border-radius: 50% !important;
-  border: 2px solid rgba(209, 250, 229, 0.9);
-  padding: 0.5rem;
-  background: rgba(209, 250, 229, 0.7);
-  display: flex;
+  height: 4.25rem !important;
+  width: auto !important;
+  max-width: 11rem !important;
+  min-height: 4.25rem !important;
+  max-height: 4.25rem !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(209, 250, 229, 0.9);
+  padding: 0.55rem 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  aspect-ratio: 1;
   position: relative;
   flex-shrink: 0;
 }
 
 .auth-logo-image {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  border-radius: 50% !important;
+  height: auto !important;
+  width: auto !important;
+  object-fit: contain !important;
   display: block !important;
   max-width: 100% !important;
   max-height: 100% !important;
@@ -298,11 +299,11 @@ const showRegisteredBanner = ref(false)
   }
 
   .auth-logo-container {
-    width: 5rem !important;
+    width: auto !important;
     height: 5rem !important;
-    min-width: 5rem !important;
+    min-width: 0 !important;
     min-height: 5rem !important;
-    max-width: 5rem !important;
+    max-width: 100% !important;
     max-height: 5rem !important;
   }
 
@@ -332,12 +333,12 @@ const showRegisteredBanner = ref(false)
   }
 
   .auth-logo-container {
-    width: 4rem !important;
-    height: 4rem !important;
-    min-width: 4rem !important;
-    min-height: 4rem !important;
-    max-width: 4rem !important;
-    max-height: 4rem !important;
+    width: auto !important;
+    height: 4.5rem !important;
+    min-width: 0 !important;
+    min-height: 4.5rem !important;
+    max-width: 100% !important;
+    max-height: 4.5rem !important;
   }
 
   .panel-footer {

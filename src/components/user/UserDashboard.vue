@@ -106,7 +106,7 @@ async function loadUserStats() {
   try {
     // Load project statistics
     const projects = await projectService.getUserProjects()
-    const stats = await projectService.getProjectStats()
+    await projectService.getProjectStats()
 
     // Load wallet balance
     let walletBalance = 0

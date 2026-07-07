@@ -57,11 +57,29 @@ function priceOf(listing) {
 }
 
 onMounted(async () => {
+  let listings = []
   try {
-    const listings = await getMarketplaceListings()
-    await nextTick()
+    listings = await getMarketplaceListings()
+  } catch (err) {
+    console.error('Map load error:', err)
+    error.value = 'Failed to load the project map.'
+    loading.value = false
+    return
+  }
 
-    // Center on the Philippines
+  // The map container lives in the v-else branch, so it is only in the DOM once
+  // loading is false. Reveal it first, then wait a tick before initializing
+  // Leaflet — otherwise mapEl is null and L.map() throws.
+  loading.value = false
+  await nextTick()
+
+  if (!mapEl.value) {
+    error.value = 'Failed to load the project map.'
+    return
+  }
+
+  try {
+    // Center on the Philippines. Tiles: OpenStreetMap — free, no API key.
     map = L.map(mapEl.value).setView([12.8797, 121.774], 6)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -83,8 +101,9 @@ onMounted(async () => {
       bounds.push([coords.lat, coords.lng])
 
       const price = priceOf(listing)
+      const title = project.title || project.project_title || 'Project'
       const popup = `
-        <strong>${escapeHtml(project.title || 'Project')}</strong><br/>
+        <strong>${escapeHtml(title)}</strong><br/>
         ${escapeHtml(project.category || '')}<br/>
         <span style="color:#6b7280">${escapeHtml(project.location || '')}</span><br/>
         ${price ? `<span style="color:#069e2d;font-weight:600">₱${Number(price).toLocaleString()}/credit</span><br/>` : ''}
@@ -108,10 +127,8 @@ onMounted(async () => {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 })
     }
   } catch (err) {
-    console.error('Map load error:', err)
+    console.error('Map render error:', err)
     error.value = 'Failed to load the project map.'
-  } finally {
-    loading.value = false
   }
 })
 
@@ -181,6 +198,19 @@ function escapeHtml(str) {
   border-radius: 0.75rem;
   border: 1px solid var(--border-color, #d1e7dd);
   overflow: hidden;
+  /* Contain Leaflet's high internal z-indexes (tiles ~200, controls ~800) in
+     their own stacking context so the map never paints over the sticky site
+     header (z-index 50) while scrolling. */
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
+/* Belt-and-braces: keep every Leaflet layer/control inside the map box. */
+.map :deep(.leaflet-pane),
+.map :deep(.leaflet-top),
+.map :deep(.leaflet-bottom) {
+  z-index: 1;
 }
 
 .state {

@@ -3,9 +3,11 @@
     <!-- Page Header -->
     <div class="page-header">
       <div class="container">
-        <h1 class="page-title">Submit a Project</h1>
+        <h1 class="page-title">{{ isEdit ? 'Edit Project' : 'Submit a Project' }}</h1>
         <p class="page-description">
-          Submit your environmental project for verification and potential carbon credit generation
+          {{ isEdit
+            ? 'Update your project and resubmit it for verification.'
+            : 'Submit your environmental project for verification and potential carbon credit generation' }}
         </p>
       </div>
     </div>
@@ -79,7 +81,15 @@
         <div v-else class="content-layout">
           <!-- Project Form -->
           <div class="form-section">
-            <ProjectForm @success="handleProjectSuccess" @cancel="handleProjectCancel" />
+            <div v-if="loadingProject" class="state-card">Loading project…</div>
+            <div v-else-if="loadError" class="state-card error">{{ loadError }}</div>
+            <ProjectForm
+              v-else
+              :mode="isEdit ? 'edit' : 'create'"
+              :project="editProject"
+              @success="handleProjectSuccess"
+              @cancel="handleProjectCancel"
+            />
           </div>
 
           <!-- Information Sidebar -->
@@ -128,7 +138,12 @@
                 Contact our support team for assistance with project submission or verification
                 requirements.
               </p>
-              <button class="help-button">Contact Support</button>
+              <a
+                class="help-button"
+                href="mailto:support@carbonify.com?subject=Project%20submission%20help"
+              >
+                Contact Support
+              </a>
             </div>
           </div>
         </div>
@@ -138,17 +153,33 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import ProjectForm from '@/components/ProjectForm.vue'
 import UiButton from '@/components/ui/Button.vue'
+import { projectService } from '@/services/projectService'
 
 const router = useRouter()
+const route = useRoute()
 const showSuccessCard = ref(false)
 const submittedProject = ref(null)
 
+// Edit mode: /submit-project?id=<projectId> loads the project for editing
+// (used by the developer "Edit details" action in the needs-revision loop).
+const editId = computed(() => route.query.id || null)
+const isEdit = computed(() => !!editId.value)
+const editProject = ref(null)
+const loadingProject = ref(false)
+const loadError = ref('')
+
 const handleProjectSuccess = (projectData) => {
-  console.log('Project submitted successfully:', projectData)
+  console.log('Project saved successfully:', projectData)
+  // Edits go straight back to the dashboard (the developer then resubmits there);
+  // new submissions show the success card with next steps.
+  if (isEdit.value) {
+    router.push('/developer/projects')
+    return
+  }
   submittedProject.value = projectData
   showSuccessCard.value = true
 }
@@ -174,12 +205,42 @@ const submitAnother = () => {
   // Reset form by reloading the component
   window.location.reload()
 }
+
+onMounted(async () => {
+  if (!isEdit.value) return
+  loadingProject.value = true
+  loadError.value = ''
+  try {
+    editProject.value = await projectService.getProject(editId.value)
+    if (!editProject.value) loadError.value = 'Project not found or you do not have access to it.'
+  } catch (err) {
+    console.error('Failed to load project for editing:', err)
+    loadError.value = err?.message || 'Failed to load the project for editing.'
+  } finally {
+    loadingProject.value = false
+  }
+})
 </script>
 
 <style scoped>
 .submit-project-page {
   min-height: 100vh;
   background: var(--bg-primary, #ffffff);
+}
+
+.state-card {
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+  color: #6b7280;
+  text-align: center;
+}
+
+.state-card.error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .container {
@@ -322,6 +383,9 @@ const submitAnother = () => {
 }
 
 .help-button {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
   background: var(--primary-color, #069e2d);
   color: white;
   border: none;

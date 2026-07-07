@@ -44,7 +44,7 @@ async function testSupabaseConnection() {
 
   try {
     // Test basic connection
-    const { data, error } = await supabase.auth.getSession()
+    const { error } = await supabase.auth.getSession()
 
     if (error) {
       console.error('❌ Connection failed:', error.message)
@@ -80,7 +80,7 @@ async function testDatabaseTables(supabase) {
 
   for (const table of tables) {
     try {
-      const { data, error } = await supabase.from(table).select('*').limit(1)
+      const { error } = await supabase.from(table).select('*').limit(1)
 
       if (error) {
         if (error.code === '42P01') {
@@ -107,7 +107,7 @@ async function testAuthentication(supabase) {
   try {
     // Test sign up with a unique email
     const testEmail = `test-${Date.now()}@example.com`
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: testEmail,
       password: 'testpassword123',
     })
@@ -133,7 +133,7 @@ async function testAuthentication(supabase) {
     console.log('✅ Sign in test successful')
 
     // Test profile creation
-    const { data: profileData, error: profileError } = await supabase
+    const { error: profileError } = await supabase
       .from('profiles')
       .insert({
         id: signInData.user.id,
@@ -198,7 +198,7 @@ async function testProjectCreation(supabase) {
 }
 
 async function main() {
-  console.log('🚀 EcoLink Supabase Integration Test')
+  console.log('🚀 Carbonify Supabase Integration Test')
   console.log('=====================================\n')
 
   try {

@@ -1,6 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-const showPolicyModal = ref(false)
+// Footer legal modal — one of: 'terms' | 'privacy' | 'carbon' | null.
+// Content mirrors docs/POLICY_AND_USER_AGREEMENT.md, the build-accurate source
+// of truth. Keep them in sync (see that doc's §5 internal note).
+const activePolicy = ref(null)
+const policyTabs = [
+  { id: 'terms', label: 'Terms & Conditions' },
+  { id: 'privacy', label: 'Privacy Policy' },
+  { id: 'carbon', label: 'Carbon Credits Policy' },
+]
 import { useRoute } from 'vue-router'
 import Header from '@/components/layout/Header.vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
@@ -28,7 +36,7 @@ const isAppReady = computed(() => {
 // Initialize stores and auth inside onMounted to avoid Pinia issues
 onMounted(async () => {
   try {
-    console.log('🚀 Initializing EcoLink app...')
+    console.log('🚀 Initializing Carbonify app...')
 
     // Initialize stores after component is mounted
     const preferencesStore = usePreferencesStore()
@@ -168,7 +176,7 @@ onMounted(async () => {
     <div v-if="!isAppReady" class="loading-screen">
       <div class="loading-content">
         <div class="loading-spinner"></div>
-        <h2>Loading EcoLink...</h2>
+        <h2>Loading Carbonify...</h2>
         <p>Please wait while we initialize your session</p>
       </div>
     </div>
@@ -181,69 +189,179 @@ onMounted(async () => {
       <!-- Footer -->
       <footer v-if="showHeader" class="app-footer">
         <div class="footer-container">
-          <p class="footer-copy">&copy; {{ new Date().getFullYear() }} EcoLink. All rights reserved.</p>
+          <p class="footer-copy">&copy; {{ new Date().getFullYear() }} Carbonify. All rights reserved.</p>
           <div class="footer-links">
-            <button type="button" class="footer-link" @click="showPolicyModal = true">Terms &amp; Conditions</button>
+            <button type="button" class="footer-link" @click="activePolicy = 'terms'">Terms &amp; Conditions</button>
             <span class="footer-sep">·</span>
-            <button type="button" class="footer-link" @click="showPolicyModal = true">Privacy Policy</button>
+            <button type="button" class="footer-link" @click="activePolicy = 'privacy'">Privacy Policy</button>
             <span class="footer-sep">·</span>
-            <button type="button" class="footer-link" @click="showPolicyModal = true">Carbon Credits Policy</button>
+            <button type="button" class="footer-link" @click="activePolicy = 'carbon'">Carbon Credits Policy</button>
           </div>
         </div>
       </footer>
 
-      <!-- Policy / Terms Modal -->
-      <div v-if="showPolicyModal" class="policy-modal-overlay" @click.self="showPolicyModal = false">
+      <!-- Legal / Policy Modal — split into Terms, Privacy, and Carbon Credits.
+           Content mirrors docs/POLICY_AND_USER_AGREEMENT.md. -->
+      <div v-if="activePolicy" class="policy-modal-overlay" @click.self="activePolicy = null">
         <div class="policy-modal">
           <div class="policy-modal-top">
-            <h2>Carbon Credits Terms &amp; Conditions</h2>
-            <button type="button" class="policy-close-btn" @click="showPolicyModal = false">
+            <h2>
+              {{ activePolicy === 'terms' ? 'Terms & Conditions'
+                : activePolicy === 'privacy' ? 'Privacy Policy'
+                : 'Carbon Credits Policy' }}
+            </h2>
+            <button type="button" class="policy-close-btn" @click="activePolicy = null">
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
-          <div class="policy-modal-body">
-            <section class="policy-section">
-              <h3>1. Credit Eligibility &amp; Standards</h3>
-              <p>EcoLink only lists carbon credits meeting internationally recognized standards. Each credit = <strong>1 metric tonne CO₂e</strong> reduced/removed.</p>
-              <ul>
-                <li><strong>Additionality</strong> — Reduction would not have occurred without the project.</li>
-                <li><strong>Permanence</strong> — Reductions must be lasting and not easily reversed.</li>
-                <li><strong>Measurability</strong> — Accurately quantified using approved methodologies.</li>
-                <li><strong>Verifiability</strong> — Independent third-party auditors verify all reductions.</li>
-              </ul>
-            </section>
-            <section class="policy-section">
-              <h3>2. Verification Standards</h3>
-              <p>Accepted standards: <strong>VCS (Verra)</strong>, <strong>Gold Standard</strong>, <strong>Climate Action Reserve</strong>, <strong>American Carbon Registry</strong>.</p>
-            </section>
-            <section class="policy-section">
-              <h3>3. Credit Retirement</h3>
-              <p>Retired credits are <strong>permanently removed</strong> from circulation — they cannot be traded, resold, or reused. Each retirement is recorded with a unique certificate.</p>
-            </section>
-            <section class="policy-section">
-              <h3>4. Marketplace Rules</h3>
-              <p>All credits must be verified before listing. Pricing is transparent. All transactions are final once payment is confirmed. Market manipulation is strictly prohibited.</p>
-            </section>
-            <section class="policy-section">
-              <h3>5. Buyer Guidelines</h3>
-              <p>Credits transfer immediately upon payment. <strong>All sales are final.</strong> Refunds only for verified technical errors within 48 hours.</p>
-            </section>
-            <section class="policy-section">
-              <h3>6. Environmental Integrity</h3>
-              <p>Each credit has a unique serial number. No double counting. Projects undergo periodic monitoring and re-verification.</p>
-            </section>
-            <section class="policy-section">
-              <h3>7. Platform Terms</h3>
-              <p>Platform fee displayed at checkout. Users must provide accurate info. Misuse may result in suspension. Records retained for audit.</p>
-            </section>
-            <section class="policy-section">
-              <h3>8. Developer Requirements</h3>
-              <p>Projects must use approved methodologies. Annual monitoring reports mandatory. Non-compliance may result in delisting.</p>
-            </section>
+
+          <!-- Tab switcher between the three documents -->
+          <div class="policy-tabs">
+            <button
+              v-for="tab in policyTabs"
+              :key="tab.id"
+              type="button"
+              :class="['policy-tab', { active: activePolicy === tab.id }]"
+              @click="activePolicy = tab.id"
+            >
+              {{ tab.label }}
+            </button>
           </div>
+
+          <div class="policy-modal-body">
+            <!-- Shared pre-production status notice (controls during pre-production) -->
+            <div class="policy-notice">
+              <strong><span class="material-symbols-outlined" aria-hidden="true" style="font-size: 1.1em; vertical-align: middle;">warning</span> Platform status — please read.</strong>
+              Carbonify is currently a <strong>pre-production / demonstration platform</strong> (academic
+              capstone stage). Carbon credits here are <strong>simulated</strong> and are <strong>not</strong>
+              registered with or retired against any external registry (Verra/VCS, Gold Standard, CAR, ACR);
+              they <strong>must not</strong> be used for regulatory compliance, official offset claims, ESG
+              reporting, or resale as real-world carbon instruments. Payments run on a <strong>sandbox/test
+              gateway</strong>. Carbonify is not a licensed financial institution, payment service provider, or
+              investment adviser, and nothing here is financial, investment, tax, or legal advice. While the
+              platform is in pre-production, this notice controls over any conflicting term below.
+            </div>
+
+            <!-- ── TERMS & CONDITIONS ── -->
+            <template v-if="activePolicy === 'terms'">
+              <section class="policy-section">
+                <h3>1. Acceptance</h3>
+                <p>By creating an account or using Carbonify, you agree to these Terms, the Privacy Policy, and the Carbon Credits Policy. If you do not agree, do not use the platform.</p>
+              </section>
+              <section class="policy-section">
+                <h3>2. Eligibility &amp; Accounts</h3>
+                <ul>
+                  <li>You must be of legal age and capacity in your jurisdiction.</li>
+                  <li>Provide accurate registration, KYC, and (for sellers) KYB information, and keep it current.</li>
+                  <li>You are responsible for safeguarding your credentials. Two-factor authentication (TOTP) is supported and strongly recommended.</li>
+                  <li>One person or entity per account unless expressly permitted. Misuse may result in suspension.</li>
+                </ul>
+              </section>
+              <section class="policy-section">
+                <h3>3. Roles &amp; Permitted Use</h3>
+                <p>Carbonify supports general users, buyers/investors, project developers, verifiers, LGU users, and admins. You may use only the functions granted to your role. Developer and verifier applications are subject to review and approval.</p>
+              </section>
+              <section class="policy-section">
+                <h3>4. Marketplace &amp; Transactions</h3>
+                <ul>
+                  <li>Credits must be verified and issued in-platform before listing.</li>
+                  <li>The purchase amount is computed server-side from the listing — you confirm quantity, not price.</li>
+                  <li><strong>All sales are final once payment is confirmed</strong>, except as provided in the Refunds &amp; Disputes section.</li>
+                  <li>Market manipulation, wash trading, and collusive pricing are prohibited.</li>
+                </ul>
+              </section>
+              <section class="policy-section">
+                <h3>5. Seller Payouts</h3>
+                <p>Seller earnings are held in <strong>escrow</strong> and released through a tracked payout process (requested → processing → settled/failed), and may be subject to hold periods. <strong>Payouts require completed KYB.</strong> You are responsible for the taxes applicable to your earnings.</p>
+              </section>
+              <section class="policy-section">
+                <h3>6. Refunds &amp; Disputes</h3>
+                <p>Refunds are issued only for <strong>verified technical errors</strong>, within any stated window. Refunds and disputes are handled via compensating ledger entries — original records are never altered. A buyer dispute console and full admin resolution workflow are planned.</p>
+              </section>
+              <section class="policy-section">
+                <h3>7. Prohibited Conduct</h3>
+                <p>No fraud, money laundering, double-counting or double-claiming of credits, circumvention of KYC/KYB, scraping or abuse, reverse engineering of security controls, or uploading false project evidence.</p>
+              </section>
+              <section class="policy-section">
+                <h3>8. Suspension &amp; Termination</h3>
+                <p>We may suspend or terminate accounts for breach, suspected fraud, or legal requirement. Records are retained for audit and compliance.</p>
+              </section>
+              <section class="policy-section">
+                <h3>9. Liability &amp; Warranty</h3>
+                <p>Carbonify is provided <strong>"as is" and "as available," without warranties</strong>. To the maximum extent permitted by law, Carbonify and its operators are not liable for losses arising from use of a pre-production platform, simulated credits, or sandbox transactions.</p>
+              </section>
+              <section class="policy-section">
+                <h3>10. Changes</h3>
+                <p>We may update these Terms; material changes will be notified in-app and/or by email. Continued use after the effective date constitutes acceptance.</p>
+              </section>
+            </template>
+
+            <!-- ── PRIVACY POLICY ── -->
+            <template v-else-if="activePolicy === 'privacy'">
+              <section class="policy-section">
+                <h3>1. Data We Collect</h3>
+                <ul>
+                  <li><strong>Account &amp; profile:</strong> name, email, role, organization details.</li>
+                  <li><strong>Identity verification:</strong> KYC (and KYB for sellers) documents and status.</li>
+                  <li><strong>Transactional:</strong> purchases, listings, wallet/payout activity, certificates, audit-log events.</li>
+                  <li><strong>Project &amp; MRV:</strong> submissions, uploaded documents, monitoring reports and evidence.</li>
+                  <li><strong>Technical:</strong> authentication/session data, basic usage and device/log data.</li>
+                </ul>
+              </section>
+              <section class="policy-section">
+                <h3>2. How We Use It</h3>
+                <p>To operate accounts and roles, process verification and transactions, issue and verify certificates, maintain an audit trail, secure the platform, and meet legal and regulatory obligations.</p>
+              </section>
+              <section class="policy-section">
+                <h3>3. Storage &amp; Security</h3>
+                <p>Data is stored in <strong>Supabase (PostgreSQL)</strong> protected by Row-Level Security, with MFA, role-based access control, and audit logging. KYC/KYB documents are held in restricted storage. Data in transit is protected with TLS.</p>
+              </section>
+              <section class="policy-section">
+                <h3>4. Sharing</h3>
+                <p>We <strong>do not sell</strong> personal data. We share only with service providers necessary to operate the platform (e.g., the payment gateway) or where required by law.</p>
+              </section>
+              <section class="policy-section">
+                <h3>5. Your Rights (Data Privacy Act of 2012 / RA 10173)</h3>
+                <p>You may request access to, correction of, or deletion of your personal data, and may withdraw consent, subject to legal retention requirements. Self-service consent, data export and deletion tools and an appointed Data Protection Officer (DPO) are planned; until then, email <strong>support@carbonify.com</strong> and requests will be handled manually.</p>
+              </section>
+              <section class="policy-section">
+                <h3>6. Retention</h3>
+                <p>Financial, audit, and compliance records are retained for the period required by applicable law; other data is retained while your account is active.</p>
+              </section>
+            </template>
+
+            <!-- ── CARBON CREDITS POLICY ── -->
+            <template v-else>
+              <section class="policy-section">
+                <h3>1. Definition</h3>
+                <p>On Carbonify, <strong>1 credit = 1 metric tonne CO₂e</strong> reduced or removed.</p>
+              </section>
+              <section class="policy-section">
+                <h3>2. Current Nature of Credits — important</h3>
+                <p>Credits are presently <strong>generated and tracked within Carbonify's own MRV and issuance system</strong> using simplified, IPCC-style emission factors. They are <strong>not</strong> currently registered with or retired against an external registry (Verra/VCS, Gold Standard, CAR, ACR), are <strong>not</strong> validated by an accredited third-party validation/verification body (Carbonify uses an internal verifier role), and are <strong>not</strong> based on accredited, peer-reviewed methodologies. <strong>Carbonify credits are therefore not, at this stage, recognized real-world carbon offsets and must not be represented as such.</strong></p>
+              </section>
+              <section class="policy-section">
+                <h3>3. Issuance &amp; Integrity</h3>
+                <ul>
+                  <li>Credits are minted <strong>only on verifier approval</strong> of a monitoring report.</li>
+                  <li>Each unit carries a <strong>unique serial number, a QR code, and a SHA-256 tamper-evident signature</strong>, verifiable on a public certificate page.</li>
+                  <li><strong>Retirement is permanent</strong> — retired credits cannot be traded, resold, or reused; anti-double-counting is enforced.</li>
+                </ul>
+              </section>
+              <section class="policy-section">
+                <h3>4. Developer Obligations</h3>
+                <p>Developers must use the platform's approved project types and methodologies, submit required documents, and provide periodic monitoring. Non-compliance may result in delisting.</p>
+              </section>
+              <section class="policy-section">
+                <h3>5. Fees</h3>
+                <p>Platform fees are displayed at checkout. <strong>The platform fee is currently 0</strong> while the fee model is finalized; this may change with notice.</p>
+              </section>
+            </template>
+          </div>
+
           <div class="policy-modal-footer">
-            <p class="policy-footer-info">Last updated: May 2026 · support@ecolink.com</p>
-            <button class="policy-accept-btn" @click="showPolicyModal = false">I Understand &amp; Accept</button>
+            <p class="policy-footer-info">Last updated: June 2026 · support@carbonify.com · Working draft, pending legal &amp; DPO review.</p>
+            <button class="policy-accept-btn" @click="activePolicy = null">I Understand &amp; Accept</button>
           </div>
         </div>
       </div>
@@ -1100,10 +1218,50 @@ body {
   font-size: 1.1rem;
 }
 
+.policy-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.policy-tab {
+  border: none;
+  background: transparent;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.policy-tab:hover {
+  color: var(--primary-color, #069e2d);
+}
+
+.policy-tab.active {
+  color: var(--primary-color, #069e2d);
+  border-bottom-color: var(--primary-color, #069e2d);
+}
+
 .policy-modal-body {
   flex: 1;
   overflow-y: auto;
   padding: 1.25rem 1.5rem;
+}
+
+.policy-notice {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  margin-bottom: 1.25rem;
 }
 
 .policy-section {

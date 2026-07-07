@@ -6,11 +6,50 @@ import { logUserAction } from '@/services/auditService'
  * KYC (Know Your Customer) service.
  *
  * Buyers/sellers submit a verification application; admins approve it, which
- * raises their profiles.kyc_level. Trading is gated on kyc_level (see
- * MIN_KYC_LEVEL_TO_TRADE + assertCanTrade).
+ * raises their profiles.kyc_level. Trading is gated on kyc_level
+ * (assertCanTrade), with the threshold managed by admins in System Config
+ * (app_settings.min_kyc_level_to_trade). MIN_KYC_LEVEL_TO_TRADE is the
+ * fallback default when the setting is unavailable.
  */
 
 export const MIN_KYC_LEVEL_TO_TRADE = 1
+
+/**
+ * KYC tiers (mirrors the `kyc_tiers` app_setting seed). Level 3 is an admin-only
+ * "Enhanced" override not offered in the normal application flow.
+ */
+export const KYC_LEVELS = [
+  { level: 0, label: 'Unverified' },
+  { level: 1, label: 'Basic' },
+  { level: 2, label: 'Verified' },
+  { level: 3, label: 'Enhanced' },
+]
+
+/** Human label for a KYC level (e.g. 1 → "Basic"). */
+export function kycLevelLabel(level) {
+  const n = Number(level) || 0
+  return KYC_LEVELS.find((t) => t.level === n)?.label || `Level ${n}`
+}
+
+/**
+ * Admin: manually set a user's KYC level (and optionally role / full name) via
+ * the admin-gated RPC. Used by User Management — a testing override for the
+ * normal kyc_applications review flow.
+ */
+export async function adminSetUserProfile({ userId, kycLevel, role, fullName } = {}) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!userId) throw new Error('userId is required')
+
+  const { data, error } = await supabase.rpc('admin_set_user_profile', {
+    p_user_id: userId,
+    p_kyc_level: kycLevel ?? null,
+    p_role: role ?? null,
+    p_full_name: fullName ?? null,
+  })
+  if (error) throw new Error(error.message || 'Failed to update user')
+  return data
+}
 
 function client() {
   const supabase = getSupabase()
@@ -38,13 +77,26 @@ export async function getMyKycLevel(userId = null) {
  * Throw if the user is not KYC-verified enough to trade.
  */
 export async function assertCanTrade(userId = null) {
-  const level = await getMyKycLevel(userId)
-  if (level < MIN_KYC_LEVEL_TO_TRADE) {
+  const [level, minLevel] = await Promise.all([
+    getMyKycLevel(userId),
+    getMinTradeLevel(),
+  ])
+  if (level < minLevel) {
     throw new Error(
       'KYC verification required before trading. Please complete identity verification on the KYC page.',
     )
   }
   return true
+}
+
+/** Admin-configured minimum KYC level to trade (falls back to the constant). */
+async function getMinTradeLevel() {
+  try {
+    const { getMinKycLevelToTrade } = await import('@/services/settingsService')
+    return await getMinKycLevelToTrade()
+  } catch {
+    return MIN_KYC_LEVEL_TO_TRADE
+  }
 }
 
 /**

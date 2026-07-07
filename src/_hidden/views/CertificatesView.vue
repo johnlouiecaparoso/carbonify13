@@ -317,12 +317,12 @@ onMounted(() => {
 .page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin-bottom: 0.5rem;
 }
 
 .page-description {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 1.1rem;
 }
 
@@ -340,8 +340,8 @@ onMounted(() => {
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--ecolink-border);
-  border-top: 3px solid var(--ecolink-primary);
+  border: 3px solid var(--carbonify-border);
+  border-top: 3px solid var(--carbonify-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -369,8 +369,8 @@ onMounted(() => {
 }
 
 .certificate-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -402,7 +402,7 @@ onMounted(() => {
 .type-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--ecolink-primary);
+  color: var(--carbonify-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -416,18 +416,18 @@ onMounted(() => {
 }
 
 .certificate-status.active {
-  background: var(--ecolink-success-bg);
-  color: var(--ecolink-success);
+  background: var(--carbonify-success-bg);
+  color: var(--carbonify-success);
 }
 
 .certificate-status.pending {
-  background: var(--ecolink-warning-bg);
-  color: var(--ecolink-warning);
+  background: var(--carbonify-warning-bg);
+  color: var(--carbonify-warning);
 }
 
 .certificate-status.revoked {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
 }
 
 .certificate-body {
@@ -437,12 +437,12 @@ onMounted(() => {
 .certificate-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin: 0 0 0.75rem 0;
 }
 
 .certificate-description {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   margin-bottom: 1rem;
   line-height: 1.5;
   font-size: 0.9rem;
@@ -461,12 +461,12 @@ onMounted(() => {
 }
 
 .meta-label {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-weight: 500;
 }
 
 .meta-value {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-weight: 600;
 }
 
@@ -479,7 +479,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .empty-icon {
@@ -490,7 +490,7 @@ onMounted(() => {
 .empty-state h3 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin-bottom: 0.5rem;
 }
 
@@ -522,7 +522,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: 12px;
   max-width: 600px;
   width: 100%;
@@ -536,28 +536,28 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .modal-close {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   cursor: pointer;
   padding: 0.25rem;
   line-height: 1;
 }
 
 .modal-close:hover {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .modal-body {
@@ -569,7 +569,7 @@ onMounted(() => {
   gap: 1rem;
   justify-content: flex-end;
   padding: 1.5rem;
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 /* Certificate Details */
@@ -583,14 +583,14 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .detail-section h4 {
   margin: 0 0 0.75rem 0;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .certificate-type-detail {
@@ -598,7 +598,7 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-  color: var(--ecolink-primary);
+  color: var(--carbonify-primary);
   font-weight: 500;
 }
 
@@ -612,7 +612,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .detail-item:last-child {
@@ -620,13 +620,13 @@ onMounted(() => {
 }
 
 .detail-label {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-weight: 500;
   font-size: 0.9rem;
 }
 
 .detail-value {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -640,12 +640,12 @@ onMounted(() => {
 }
 
 .metadata-json {
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 6px;
   padding: 1rem;
   font-size: 0.875rem;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   overflow-x: auto;
   white-space: pre-wrap;
 }

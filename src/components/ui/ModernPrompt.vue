@@ -82,12 +82,22 @@ function getIconColor() {
 
 function formatMessage(message) {
   if (!message) return ''
-  
+
+  // Security: HTML-escape the raw message FIRST so any user-controlled text
+  // (names, project titles, dispute reasons, server error strings) cannot inject
+  // markup/script. Only the tags we add below (<br>/<li>/<ul>/<strong>) are HTML.
+  let formatted = String(message)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
   // Convert line breaks to <br> tags
-  let formatted = message.replace(/\n/g, '<br>')
+  formatted = formatted.replace(/\n/g, '<br>')
   
   // Convert bullet points (• or -) to styled list items
-  formatted = formatted.replace(/^([•\-\*]\s+)(.+)$/gm, '<li class="message-item">$2</li>')
+  formatted = formatted.replace(/^([•\-*]\s+)(.+)$/gm, '<li class="message-item">$2</li>')
   
   // Wrap consecutive list items in <ul>
   formatted = formatted.replace(/(<li class="message-item">.*?<\/li>(?:\s*<li class="message-item">.*?<\/li>)*)/g, '<ul class="message-list">$1</ul>')

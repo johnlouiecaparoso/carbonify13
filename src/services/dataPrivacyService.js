@@ -1,0 +1,212 @@
+// ============================================================================
+// Data Privacy (DPA) service — self-service data export + account-deletion
+// requests, fulfilling the data-subject rights promised in the Privacy Policy
+// (Data Privacy Act of 2012 / GDPR-style access, portability, and erasure).
+//
+//  * exportMyData()       — gather everything we hold about the signed-in user
+//                           into one JSON object (RLS scopes the reads to them).
+//  * downloadMyData()     — run the export and trigger a browser download.
+//  * requestAccountDeletion() — record a deletion request for admin processing.
+//  * getMyDataRequests()  — list the user's past requests.
+//  * cancelDeletionRequest() — withdraw a still-pending deletion request.
+//
+// Export is drift-proof: each source lists candidate user-id columns and we try
+// them in turn, silently skipping tables/columns that don't exist or that RLS
+// blocks. New tables only need a line added to USER_DATA_SOURCES.
+// ============================================================================
+
+import { getSupabase } from '@/services/supabaseClient'
+import { getSession } from '@/services/authService'
+import { logUserAction } from '@/services/auditService'
+
+const REQUESTS_TABLE = 'data_subject_requests'
+
+// Tables that hold personal data, with the column(s) that key a row to a user.
+// We try each candidate column and merge the matches (e.g. a user can appear in
+// credit_transactions as either buyer or seller).
+const USER_DATA_SOURCES = [
+  { table: 'profiles', columns: ['id'], label: 'Profile' },
+  { table: 'projects', columns: ['user_id'], label: 'Projects' },
+  { table: 'credit_ownership', columns: ['user_id'], label: 'Credit holdings' },
+  { table: 'credit_transactions', columns: ['buyer_id', 'seller_id'], label: 'Transactions' },
+  { table: 'credit_purchases', columns: ['buyer_id', 'user_id'], label: 'Purchases' },
+  { table: 'credit_retirements', columns: ['user_id'], label: 'Retirements' },
+  { table: 'certificates', columns: ['user_id', 'buyer_id'], label: 'Certificates' },
+  { table: 'payment_intents', columns: ['user_id'], label: 'Payments' },
+  { table: 'payout_requests', columns: ['seller_id'], label: 'Payouts' },
+  { table: 'subscriptions', columns: ['user_id'], label: 'Subscriptions' },
+  { table: 'kyc_applications', columns: ['user_id'], label: 'KYC applications' },
+  { table: 'kyb_applications', columns: ['user_id'], label: 'KYB applications' },
+  { table: 'role_applications', columns: ['user_id'], label: 'Role applications' },
+  { table: 'project_comments', columns: ['author_id', 'user_id'], label: 'Project comments' },
+  { table: 'monitoring_reports', columns: ['user_id'], label: 'Monitoring reports' },
+  { table: 'watchlist', columns: ['user_id'], label: 'Watchlist' },
+  { table: 'system_notifications', columns: ['user_id'], label: 'Notifications' },
+  { table: 'lgu_emissions_records', columns: ['user_id'], label: 'LGU emissions records' },
+  { table: 'audit_logs', columns: ['user_id'], label: 'Activity log' },
+]
+
+async function getCurrentUser() {
+  const session = await getSession()
+  const user = session?.user
+  if (!user?.id) throw new Error('You must be signed in to manage your data.')
+  return user
+}
+
+function dedupeRows(rows) {
+  const seen = new Set()
+  const out = []
+  for (const row of rows) {
+    const key = row?.id ?? JSON.stringify(row)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(row)
+  }
+  return out
+}
+
+/**
+ * Collect all rows a single source holds for this user across its candidate
+ * columns. Returns [] on any error (missing table/column or RLS) so one bad
+ * source never breaks the whole export.
+ */
+async function collectFromSource(supabase, source, userId) {
+  const collected = []
+  for (const column of source.columns) {
+    try {
+      const { data, error } = await supabase.from(source.table).select('*').eq(column, userId)
+      if (error) {
+        // Unknown table/column or RLS — skip this column quietly.
+        if (import.meta.env.DEV) {
+          console.warn(`[dataPrivacy] skip ${source.table}.${column}: ${error.message}`)
+        }
+        continue
+      }
+      if (Array.isArray(data) && data.length) collected.push(...data)
+    } catch (e) {
+      if (import.meta.env.DEV) {
+        console.warn(`[dataPrivacy] error reading ${source.table}.${column}:`, e?.message)
+      }
+    }
+  }
+  return dedupeRows(collected)
+}
+
+/**
+ * Build a single JSON-serialisable object with everything we hold about the
+ * signed-in user. Empty sources are omitted to keep the export readable.
+ */
+export async function exportMyData() {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Service unavailable. Please try again in a moment.')
+
+  const user = await getCurrentUser()
+
+  const sections = {}
+  for (const source of USER_DATA_SOURCES) {
+    const rows = await collectFromSource(supabase, source, user.id)
+    if (rows.length) sections[source.table] = rows
+  }
+
+  const totalRecords = Object.values(sections).reduce((sum, rows) => sum + rows.length, 0)
+
+  const exportPayload = {
+    export_metadata: {
+      generated_at: new Date().toISOString(),
+      user_id: user.id,
+      email: user.email ?? null,
+      platform: 'Carbonify',
+      format_version: 1,
+      note: 'Personal data export under your Data Privacy Act / data-subject access rights. Only records visible to your account are included.',
+      total_records: totalRecords,
+      sections: Object.keys(sections),
+    },
+    data: sections,
+  }
+
+  // Record the access for the audit trail (best-effort; never blocks the export).
+  try {
+    await supabase.rpc('submit_data_subject_request', { p_type: 'export', p_reason: null })
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn('[dataPrivacy] could not log export request:', e?.message)
+  }
+  logUserAction('DATA_EXPORT', 'user', user.id, user.id, {
+    total_records: totalRecords,
+  }).catch(() => {})
+
+  return exportPayload
+}
+
+/** Run the export and download it as a JSON file. Returns the export payload. */
+export async function downloadMyData() {
+  const payload = await exportMyData()
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const stamp = new Date().toISOString().slice(0, 10)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `carbonify-my-data-${stamp}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return payload
+}
+
+/**
+ * Record a request to delete this account. Erasure is performed by an admin /
+ * the account-deletion edge function (needs service-role); this captures the
+ * request and returns its id. Idempotent: an existing open request is reused.
+ */
+export async function requestAccountDeletion(reason = null) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Service unavailable. Please try again in a moment.')
+
+  const user = await getCurrentUser()
+
+  const { data, error } = await supabase.rpc('submit_data_subject_request', {
+    p_type: 'deletion',
+    p_reason: reason || null,
+  })
+  if (error) throw new Error(error.message || 'Could not submit your deletion request.')
+
+  logUserAction('ACCOUNT_DELETION_REQUESTED', 'user', user.id, user.id, {
+    request_id: data,
+  }).catch(() => {})
+
+  return data // request id
+}
+
+/** List the signed-in user's data-subject requests, newest first. */
+export async function getMyDataRequests() {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const user = await getCurrentUser()
+  const { data, error } = await supabase
+    .from(REQUESTS_TABLE)
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.warn('[dataPrivacy] could not load requests:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/** Withdraw a still-pending deletion request. */
+export async function cancelDeletionRequest(requestId) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Service unavailable. Please try again in a moment.')
+
+  await getCurrentUser()
+  const { error } = await supabase.rpc('cancel_data_subject_request', { p_id: requestId })
+  if (error) throw new Error(error.message || 'Could not cancel the request.')
+  return true
+}

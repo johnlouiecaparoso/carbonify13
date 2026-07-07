@@ -83,17 +83,17 @@
           <!-- Decision -->
           <div class="decision">
             <div class="form-group">
-              <label class="form-label">Approved credits (tCO₂e)</label>
-              <input type="number" min="0" step="any" v-model="approvedQuantity" class="form-input" />
+              <label class="form-label" for="mrv-approved-qty">Approved credits (tCO₂e)</label>
+              <input id="mrv-approved-qty" type="number" min="0" step="any" v-model="approvedQuantity" class="form-input" />
               <span class="hint">Defaults to the platform calculation; adjust if your review differs.</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Vintage year</label>
-              <input type="number" v-model="vintageYear" class="form-input" />
+              <label class="form-label" for="mrv-vintage">Vintage year</label>
+              <input id="mrv-vintage" type="number" v-model="vintageYear" class="form-input" />
             </div>
             <div class="form-group">
-              <label class="form-label">Notes</label>
-              <textarea v-model="notes" class="form-textarea" rows="2" placeholder="Verification notes / rejection reason"></textarea>
+              <label class="form-label" for="mrv-notes">Notes</label>
+              <textarea id="mrv-notes" v-model="notes" class="form-textarea" rows="2" placeholder="Verification notes / rejection reason"></textarea>
             </div>
 
             <div class="decision-actions">
@@ -174,7 +174,14 @@ async function select(reportId) {
   try {
     selected.value = await getReport(reportId)
     approvedQuantity.value = Number(selected.value.proposed_vers || 0)
-    vintageYear.value = new Date().getFullYear()
+    // Default the vintage to the report's period/vintage when available so the
+    // verifier isn't re-typing it for prior-year reports.
+    vintageYear.value = Number(
+      selected.value.vintage_year ||
+        selected.value.vintage ||
+        (selected.value.period_end ? new Date(selected.value.period_end).getFullYear() : 0) ||
+        new Date().getFullYear(),
+    )
     notes.value = ''
   } catch (err) {
     setMessage(err.message || 'Failed to load report', true)
@@ -217,6 +224,13 @@ async function doApprove() {
 }
 
 async function doReject() {
+  // Rejecting is destructive for the developer's report — require a reason and
+  // an explicit confirm (mirrors the Approve guard).
+  if (!notes.value || notes.value.trim().length < 5) {
+    setMessage('Please add a brief reason (min 5 characters) before rejecting.', true)
+    return
+  }
+  if (!confirm('Reject this MRV report? The developer will be notified with your reason.')) return
   working.value = true
   setMessage('')
   try {

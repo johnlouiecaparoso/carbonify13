@@ -465,7 +465,7 @@ onMounted(() => {
             <textarea
               v-model="decisionNotes"
               class="drawer__textarea"
-              placeholder="Internal notes for the EcoLink admin team."
+              placeholder="Internal notes for the Carbonify admin team."
             ></textarea>
           </div>
 

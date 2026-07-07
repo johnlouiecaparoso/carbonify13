@@ -107,7 +107,10 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: payload.from || 'EcoLink <notifications@resend.dev>',
+        // A2: never trust a caller-supplied `from`. The sender is fixed to our
+        // own address (overridable only via a server-side secret) so this
+        // function can't be used to spoof mail from an arbitrary domain.
+        from: Deno.env.get('APPROVAL_EMAIL_FROM') || 'Carbonify <notifications@resend.dev>',
         to,
         subject: payload.subject,
         html: payload.html,

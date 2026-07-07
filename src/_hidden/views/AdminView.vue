@@ -24,12 +24,12 @@ const userStore = useUserStore()
 <style scoped>
 .module-page {
   min-height: 100vh;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
 }
 
 .module-header {
-  background: var(--ecolink-surface);
-  border-bottom: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border-bottom: 1px solid var(--carbonify-border);
   padding: 24px;
 }
 
@@ -37,13 +37,13 @@ const userStore = useUserStore()
   margin: 16px 0 8px 0;
   font-size: 32px;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .module-subtitle {
   margin: 0;
   font-size: 16px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .module-content {
@@ -53,8 +53,8 @@ const userStore = useUserStore()
 }
 
 .placeholder-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 48px;
   text-align: center;
@@ -70,19 +70,19 @@ const userStore = useUserStore()
   margin: 0 0 16px 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .placeholder-card p {
   margin: 0 0 16px 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .placeholder-card ul {
   text-align: left;
   max-width: 400px;
   margin: 0 auto;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .placeholder-card li {

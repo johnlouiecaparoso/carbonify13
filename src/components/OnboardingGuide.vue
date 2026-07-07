@@ -31,7 +31,7 @@ import { ref, computed } from 'vue'
 import { useUserStore } from '@/store/userStore'
 
 const store = useUserStore()
-const STORAGE_KEY = 'ecolink_onboarding_dismissed'
+const STORAGE_KEY = 'carbonify_onboarding_dismissed'
 
 const dismissed = ref(
   typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY) === 'true',
@@ -68,7 +68,7 @@ const guides = {
     ],
   },
   buyer: {
-    title: 'Welcome to EcoLink',
+    title: 'Welcome to Carbonify',
     subtitle: 'Start offsetting with verified Philippine carbon credits.',
     steps: [
       { text: 'Complete identity verification (KYC) to enable trading.', to: '/kyc', linkLabel: 'Verify identity' },

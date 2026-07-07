@@ -359,7 +359,7 @@ export const mobileNavigation = {
         <button class="mobile-nav-toggle" aria-label="Toggle navigation">
           <span class="hamburger"></span>
         </button>
-        <div class="mobile-nav-logo">EcoLink</div>
+        <div class="mobile-nav-logo">Carbonify</div>
       </div>
       <div class="mobile-nav-content">
         <ul class="mobile-nav-links">

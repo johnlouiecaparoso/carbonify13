@@ -414,12 +414,12 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .header-content p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 16px;
 }
 
@@ -428,8 +428,8 @@ onMounted(() => {
 }
 
 .error-message {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px 16px;
   border-radius: var(--radius);
   margin-bottom: 24px;
@@ -443,8 +443,8 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 20px;
   text-align: center;
@@ -453,13 +453,13 @@ onMounted(() => {
 .stat-number {
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -559,14 +559,14 @@ onMounted(() => {
 .loading-state {
   text-align: center;
   padding: 60px 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--ecolink-border);
-  border-top: 3px solid var(--ecolink-primary);
+  border: 3px solid var(--carbonify-border);
+  border-top: 3px solid var(--carbonify-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -584,7 +584,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .empty-icon {
@@ -596,7 +596,7 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .projects-grid {
@@ -606,8 +606,8 @@ onMounted(() => {
 }
 
 .project-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 24px;
   cursor: pointer;
@@ -615,7 +615,7 @@ onMounted(() => {
 }
 
 .project-card:hover {
-  border-color: var(--ecolink-primary);
+  border-color: var(--carbonify-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -631,7 +631,7 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   flex: 1;
 }
 
@@ -645,23 +645,23 @@ onMounted(() => {
 }
 
 .badge-pending {
-  background: var(--ecolink-yellow-100);
-  color: var(--ecolink-yellow-700);
+  background: var(--carbonify-yellow-100);
+  color: var(--carbonify-yellow-700);
 }
 
 .badge-under-review {
-  background: var(--ecolink-blue-100);
-  color: var(--ecolink-blue-700);
+  background: var(--carbonify-blue-100);
+  color: var(--carbonify-blue-700);
 }
 
 .badge-approved {
-  background: var(--ecolink-green-100);
-  color: var(--ecolink-green-700);
+  background: var(--carbonify-green-100);
+  color: var(--carbonify-green-700);
 }
 
 .badge-rejected {
-  background: var(--ecolink-red-100);
-  color: var(--ecolink-red-700);
+  background: var(--carbonify-red-100);
+  color: var(--carbonify-red-700);
 }
 
 .project-meta {
@@ -669,12 +669,12 @@ onMounted(() => {
   gap: 16px;
   margin-bottom: 12px;
   font-size: 14px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .project-category {
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .project-location {
@@ -689,7 +689,7 @@ onMounted(() => {
 
 .project-description {
   margin: 0 0 16px 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   line-height: 1.5;
 }
 
@@ -698,12 +698,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding-top: 16px;
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 .project-date {
   font-size: 12px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .project-actions {
@@ -712,12 +712,12 @@ onMounted(() => {
 }
 
 .delete-btn {
-  color: var(--ecolink-error);
-  border-color: var(--ecolink-error);
+  color: var(--carbonify-error);
+  border-color: var(--carbonify-error);
 }
 
 .delete-btn:hover {
-  background: var(--ecolink-error);
+  background: var(--carbonify-error);
   color: white;
 }
 
@@ -762,14 +762,14 @@ onMounted(() => {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -780,7 +780,7 @@ onMounted(() => {
 }
 
 .close-btn:hover {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .modal-content {
@@ -793,7 +793,7 @@ onMounted(() => {
   gap: 16px;
   margin-bottom: 24px;
   padding: 20px;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
   border-radius: var(--radius);
 }
 
@@ -807,7 +807,7 @@ onMounted(() => {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .project-detail-section {
@@ -818,12 +818,12 @@ onMounted(() => {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .project-detail-section p {
   margin: 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   line-height: 1.6;
 }
 
@@ -832,7 +832,7 @@ onMounted(() => {
   gap: 12px;
   justify-content: flex-end;
   padding: 24px;
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 .modal-meta-item .material-symbols-outlined {

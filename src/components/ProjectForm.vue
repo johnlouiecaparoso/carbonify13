@@ -6,7 +6,15 @@ import { projectWorkflowService } from '@/services/projectWorkflowService'
 import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
+import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
+import { uploadProjectDocument } from '@/services/storageService'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
+import { SDGS, sdgTag } from '@/constants/sdgs'
+import {
+  ADDITIONALITY_TYPES,
+  REVERSAL_RISK_LEVELS,
+  normalizeCredibility,
+} from '@/services/projectCredibility'
 
 const props = defineProps({
   project: {
@@ -29,6 +37,10 @@ const projectTypes = PROJECT_TYPES
 const selectedTypeDescription = computed(
   () => PROJECT_TYPES.find((type) => type.value === formData.value.category)?.description || '',
 )
+const additionalityHint = computed(
+  () =>
+    ADDITIONALITY_TYPES.find((t) => t.value === formData.value.additionality_type)?.description || '',
+)
 
 // Form data
 const formData = ref({
@@ -37,12 +49,15 @@ const formData = ref({
   category: '',
   location: '',
   geo_coordinates: '',
+  boundary: null, // GeoJSON polygon of the project boundary (optional)
   barangay: '',
   municipality: '',
   expected_impact: '',
+  co_benefits: [], // Selected UN SDG tags (sdgTag strings)
   project_image: null, // Add project image field
   estimated_credits: '', // Add estimated credits field
-  credit_price: '', // Add credit price field
+  // credit_price is intentionally omitted — the verifier sets the price per
+  // credit after reviewing the submitted project.
   start_date: '',
   end_date: '',
   host_entity: '',
@@ -64,7 +79,15 @@ const formData = ref({
   capex: '',
   opex: '',
   carbon_yield_projection: '',
+
+  // Credibility metadata (optional, structured)
+  additionality_type: '',
+  permanence_years: '',
+  reversal_risk: '',
 })
+
+const additionalityTypes = ADDITIONALITY_TYPES
+const reversalRiskLevels = REVERSAL_RISK_LEVELS
 
 // File upload state
 const uploadedFiles = ref([])
@@ -171,12 +194,6 @@ const validationRules = {
     max: 1000000,
     message: 'Estimated credits must be between 1 and 1,000,000',
   },
-  credit_price: {
-    required: true,
-    min: 0.01,
-    max: 100000,
-    message: 'Credit price must be between ₱0.01 and ₱100,000',
-  },
 }
 
 // File upload configuration
@@ -215,7 +232,6 @@ const isFormValid = computed(() => {
   const isValid = Object.keys(validationRules).every((field) => {
     const value = formData.value[field]
     const rule = validationRules[field]
-    let fieldValid = true
 
     // Handle required validation - check for empty values (string, number, null, undefined)
     if (rule.required) {
@@ -239,41 +255,6 @@ const isFormValid = computed(() => {
         }
       }
     }
-
-    // Attach technical & compliance documents with simple metadata
-    const addIfFile = (file, label) => {
-      if (file) {
-        projectData.documents.push({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          label,
-          uploadDate: new Date().toISOString(),
-        })
-      }
-    }
-
-    addIfFile(formData.value.pdd_file, 'pdd')
-    addIfFile(formData.value.baseline_file, 'baseline')
-    addIfFile(formData.value.additionality_file, 'additionality')
-    addIfFile(formData.value.leakage_file, 'leakage')
-    addIfFile(formData.value.safeguards_file, 'safeguards')
-    addIfFile(formData.value.feasibility_file, 'feasibility')
-    addIfFile(formData.value.lgu_endorsement_file, 'lgu_endorsement')
-    addIfFile(formData.value.land_ownership_file, 'land_ownership')
-    addIfFile(formData.value.ecc_file, 'ecc')
-    addIfFile(formData.value.moa_file, 'moa')
-
-    // Include any generic uploaded files as well
-    uploadedFiles.value.forEach((file) => {
-      projectData.documents.push({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        label: 'other',
-        uploadDate: file.uploadDate,
-      })
-    })
 
     // Handle string length validation (only for strings)
     if (typeof value === 'string' && value) {
@@ -313,7 +294,6 @@ const isFormValid = computed(() => {
       location: formData.value.location,
       expected_impact: formData.value.expected_impact,
       estimated_credits: formData.value.estimated_credits,
-      credit_price: formData.value.credit_price,
       project_image: formData.value.project_image ? 'File uploaded' : null
     })))
     
@@ -408,14 +388,6 @@ function validateForm() {
     }
   })
 
-  // Debug: Log form validation status
-  console.log('Form validation status:', {
-    isValid,
-    formData: formData.value,
-    errors: errors.value,
-    isFormValid: isFormValid.value,
-  })
-
   return isValid
 }
 
@@ -433,7 +405,6 @@ function resetForm() {
     expected_impact: '',
     project_image: null,
     estimated_credits: '',
-    credit_price: '',
   }
   uploadedFiles.value = []
   fileUploadError.value = ''
@@ -512,14 +483,6 @@ function removeFile(fileId) {
     URL.revokeObjectURL(uploadedFiles.value[index].url)
     uploadedFiles.value.splice(index, 1)
   }
-}
-
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 // Project image upload methods
@@ -668,44 +631,42 @@ function onFileZoneClick(event) {
   triggerDocumentsSelect()
 }
 
+// Documents the developer MUST attach on a NEW submission (mirror the "*"
+// markers in the template). Feasibility is intentionally optional.
+const REQUIRED_DOCS = [
+  { field: 'pdd_file', label: 'PDD', key: 'pdd' },
+  { field: 'baseline_file', label: 'Baseline Report', key: 'baseline' },
+  { field: 'additionality_file', label: 'Additionality Justification', key: 'additionality' },
+  { field: 'leakage_file', label: 'Leakage Assessment', key: 'leakage' },
+  { field: 'safeguards_file', label: 'Safeguards Checklist', key: 'safeguards' },
+  { field: 'lgu_endorsement_file', label: 'LGU Endorsement', key: 'lgu_endorsement' },
+  { field: 'land_ownership_file', label: 'Land Ownership / Lease', key: 'land_ownership' },
+  { field: 'ecc_file', label: 'ECC / Permits', key: 'ecc' },
+  { field: 'moa_file', label: 'MOA / Agreements', key: 'moa' },
+]
+
+const OPTIONAL_DOCS = [{ field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' }]
+
+// How many required docs are still missing (drives the submit-button hint).
+const missingRequiredDocs = computed(() =>
+  REQUIRED_DOCS.filter((d) => !formData.value[d.field]).map((d) => d.label),
+)
+
 async function handleSubmit() {
-  console.log('[DEBUG] Form submit button clicked!')
-  console.log('[DEBUG] Form data:', formData.value)
-  console.log('[OK] isFormValid:', isFormValid.value)
-  
   clearErrors()
 
-  // Log validation status
-  const validationResult = validateForm()
-  console.log('[DEBUG] validateForm() result:', validationResult)
-  console.log('[ERROR] Current errors:', errors.value)
-  
-  if (!validationResult) {
-    console.warn('[WARN] Form validation failed, preventing submission')
+  if (!validateForm() || !isFormValid.value) {
+    errors.value.general =
+      errors.value.general || 'Please complete the required fields highlighted above.'
     return
   }
 
-  if (!isFormValid.value) {
-    console.warn('[WARN] isFormValid is false, preventing submission')
-    // Log which fields are failing validation
-    Object.keys(validationRules).forEach((field) => {
-      const value = formData.value[field]
-      const rule = validationRules[field]
-      console.log(`  - ${field}:`, {
-        value,
-        type: typeof value,
-        required: rule.required,
-        hasValue: value !== null && value !== undefined && value !== '',
-        isString: typeof value === 'string',
-        isNumber: typeof value === 'number',
-        stringLength: typeof value === 'string' ? value.length : 'N/A',
-        passesRequired: !rule.required || (value !== null && value !== undefined && value !== '' && (typeof value !== 'string' || value.trim() !== '') && (typeof value !== 'number' || !isNaN(value))),
-      })
-    })
+  // Require the compliance documents on a NEW submission — without them a
+  // verifier has nothing to review. (Edits preserve previously-uploaded docs.)
+  if (!isEditMode.value && missingRequiredDocs.value.length) {
+    errors.value.general = `Please attach all required documents before submitting. Missing: ${missingRequiredDocs.value.join(', ')}.`
     return
   }
-  
-  console.log('[OK] All validations passed, proceeding with submission...')
 
   loading.value = true
 
@@ -717,19 +678,106 @@ async function handleSubmit() {
       category: formData.value.category,
       location: formData.value.location,
       geo_coordinates: formData.value.geo_coordinates,
+      boundary: formData.value.boundary || null,
       barangay: formData.value.barangay,
       municipality: formData.value.municipality,
       expected_impact: formData.value.expected_impact,
+      co_benefits: Array.isArray(formData.value.co_benefits) ? formData.value.co_benefits : [],
       start_date: formData.value.start_date,
       end_date: formData.value.end_date,
       host_entity: formData.value.host_entity,
       estimated_credits: formData.value.estimated_credits,
-      credit_price: formData.value.credit_price,
       capex: formData.value.capex,
       opex: formData.value.opex,
       carbon_yield_projection: formData.value.carbon_yield_projection,
+      ...normalizeCredibility({
+        additionality_type: formData.value.additionality_type,
+        permanence_years: formData.value.permanence_years,
+        reversal_risk: formData.value.reversal_risk,
+      }),
       status: isEditMode.value ? (props.project && props.project.status ? props.project.status : 'draft') : 'submitted',
       documents: [],
+    }
+
+    // Resolve the uploader id up-front — needed to namespace document uploads
+    // in storage before we know the created project id.
+    let uploaderId = userStore.session?.user?.id || userStore.profile?.id || null
+    if (!uploaderId) {
+      try {
+        const supa = (await import('@/services/supabaseClient')).getSupabase()
+        const {
+          data: { user },
+        } = await supa.auth.getUser()
+        uploaderId = user?.id || null
+      } catch {
+        /* uploadProjectDocument surfaces a clear "sign in" error below */
+      }
+    }
+
+    // Upload each attached document to storage and store its real public URL.
+    // Previously only filename metadata was saved, so every download link was
+    // dead and verifiers could not open the evidence they must review.
+    const uploadDoc = async (file, label) => {
+      if (!file) return
+      // Edit mode may hold an already-uploaded doc object (has a path/url) — keep it.
+      if ((file.path || file.url) && !(file instanceof File)) {
+        projectData.documents.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          label,
+          path: file.path || null,
+          url: file.url || null,
+        })
+        return
+      }
+      const path = await uploadProjectDocument(file, uploaderId, label)
+      projectData.documents.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        label,
+        path,
+        uploadDate: new Date().toISOString(),
+      })
+    }
+
+    try {
+      for (const d of [...REQUIRED_DOCS, ...OPTIONAL_DOCS]) {
+        await uploadDoc(formData.value[d.field], d.key)
+      }
+      // Include any generic drag-and-drop uploads as well.
+      for (const f of uploadedFiles.value) {
+        if (f?.file instanceof File) {
+          const path = await uploadProjectDocument(f.file, uploaderId, 'other')
+          projectData.documents.push({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            label: 'other',
+            path,
+            uploadDate: f.uploadDate,
+          })
+        }
+      }
+    } catch (uploadErr) {
+      errors.value.general =
+        uploadErr?.message || 'Failed to upload one or more documents. Please try again.'
+      loading.value = false
+      return
+    }
+
+    // On edit, preserve previously-uploaded docs; only overwrite when new files
+    // were attached this time (an empty array leaves existing docs untouched).
+    if (isEditMode.value && projectData.documents.length) {
+      let existing = []
+      try {
+        const raw = props.project?.supporting_documents
+        existing = typeof raw === 'string' ? JSON.parse(raw) : Array.isArray(raw) ? raw : []
+      } catch {
+        existing = []
+      }
+      projectData.documents = [...existing, ...projectData.documents]
     }
 
     // Convert project image to base64 for database storage
@@ -867,6 +915,8 @@ async function handleSubmit() {
 
       // Don't set success message here - let the parent component handle it
       // success.value = 'Project submitted successfully! It will be reviewed by our verification team.'
+      // Verifiers are notified by the notify_project_submitted DB trigger (a
+      // client insert can't create notifications for other users under RLS).
     }
 
     // Emit success event
@@ -906,112 +956,35 @@ function handleCancel() {
   emit('cancel')
 }
 
-// Debug function to test form submission
-function debugFormSubmission() {
-  console.log('=== FORM DEBUG INFO ===')
-  console.log('Form Data:', formData.value)
-  console.log('Form Valid:', isFormValid.value)
-  console.log('Validation Rules:', validationRules)
-  console.log('Errors:', errors.value)
-  console.log('Loading:', loading.value)
-  console.log('User Store:', userStore)
-  console.log('User Store Session:', userStore.session)
-  console.log('User Store Profile:', userStore.profile)
-  console.log('User Store Role:', userStore.role)
-  console.log('User Store Session User ID:', userStore.session?.user?.id)
-  console.log('User Store Is Authenticated:', userStore.isAuthenticated)
-  console.log('======================')
-}
-
-// Simple direct submission function for testing
-async function forceSubmit() {
-  console.log('Force submitting project...')
-  loading.value = true
-
-  try {
-    const projectData = {
-      title: formData.value.title || 'Test Project',
-      description: formData.value.description || 'Test Description',
-      category: formData.value.category || 'Reforestation & Agroforestry',
-      location: formData.value.location || 'Test Location',
-      expected_impact: formData.value.expected_impact || 'Test Impact',
-    }
-
-    console.log('Submitting with data:', projectData)
-
-    // Try direct submission to Supabase
-    const supabase = (await import('@/services/supabaseClient')).getSupabase()
-    if (supabase) {
-      // Test authentication methods
-      console.log('Testing authentication methods...')
-
-      // Method 1: getUser()
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-      console.log('getUser() result:', { userData, userError })
-
-      // Method 2: getSession()
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      console.log('getSession() result:', { sessionData, sessionError })
-
-      // Method 3: Check localStorage
-      const authToken = localStorage.getItem('sb-fmngptolarydbgrtltnd-auth-token')
-      console.log('localStorage auth token:', authToken ? 'exists' : 'not found')
-
-      // Try multiple methods to get user ID
-      let userId = userStore.session?.user?.id
-      console.log('User store session user ID:', userId)
-
-      if (!userId) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        userId = user?.id
-        console.log('Force submit using Supabase user ID:', userId)
-      }
-
-      if (!userId) {
-        throw new Error('No authenticated user found - tried user store and Supabase auth')
-      }
-
-      const { data, error } = await supabase
-        .from('projects')
-        .insert([
-          {
-            ...projectData,
-            user_id: userId,
-            status: 'pending',
-          },
-        ])
-        .select()
-        .single()
-
-      if (error) {
-        throw error
-      }
-
-      console.log('Project submitted successfully:', data)
-      success.value = 'Project submitted successfully!'
-      resetForm()
-    } else {
-      throw new Error('Supabase not available')
-    }
-  } catch (error) {
-    console.error('Force submission failed:', error)
-    errors.value.general = error.message || 'Submission failed'
-  } finally {
-    loading.value = false
-  }
+// Toggle an SDG tag in the selected co-benefits list.
+function toggleSdg(tag) {
+  const list = Array.isArray(formData.value.co_benefits) ? [...formData.value.co_benefits] : []
+  const idx = list.indexOf(tag)
+  if (idx === -1) list.push(tag)
+  else list.splice(idx, 1)
+  formData.value.co_benefits = list
 }
 
 // Initialize form with project data if editing
 onMounted(() => {
   if (isEditMode.value && props.project) {
     formData.value = {
+      ...formData.value,
       title: props.project.title || '',
       description: props.project.description || '',
       category: props.project.category || '',
       location: props.project.location || '',
+      geo_coordinates: props.project.geo_coordinates || '',
+      boundary: props.project.boundary || null,
       expected_impact: props.project.expected_impact || '',
+      co_benefits: Array.isArray(props.project.co_benefits)
+        ? props.project.co_benefits
+            .map((c) => (typeof c === 'string' ? c : c?.label || c?.sdg || ''))
+            .filter(Boolean)
+        : [],
+      additionality_type: props.project.additionality_type || '',
+      permanence_years: props.project.permanence_years ?? '',
+      reversal_risk: props.project.reversal_risk || '',
     }
   }
 })
@@ -1178,6 +1151,27 @@ onMounted(() => {
         <div class="field-help">{{ formData.expected_impact.length }}/500 characters</div>
       </div>
 
+      <!-- Sustainable Development Goals (co-benefits) -->
+      <div class="form-group">
+        <label class="form-label">UN Sustainable Development Goals (SDGs)</label>
+        <p class="field-help" style="margin-top: 0">
+          Select the SDGs your project contributes to — buyers can filter the marketplace by these.
+        </p>
+        <div class="sdg-grid">
+          <button
+            v-for="goal in SDGS"
+            :key="goal.id"
+            type="button"
+            class="sdg-chip"
+            :class="{ selected: formData.co_benefits.includes(sdgTag(goal)) }"
+            @click="toggleSdg(sdgTag(goal))"
+          >
+            <span class="sdg-num">{{ goal.id }}</span>
+            <span class="sdg-label">{{ goal.label }}</span>
+          </button>
+        </div>
+      </div>
+
         <div class="form-subsection">
           <div class="subsection-header">
             <h4 class="subsection-title">Project Location Details *</h4>
@@ -1193,6 +1187,16 @@ onMounted(() => {
               @input="clearErrors"
             />
             <div v-if="errors.geo_coordinates" class="field-error">{{ errors.geo_coordinates }}</div>
+            <div class="field-help">
+              Click the map to set the location, or draw the project boundary.
+            </div>
+            <BoundaryMapPicker
+              v-model="formData.geo_coordinates"
+              :boundary="formData.boundary"
+              class="boundary-map-field"
+              @update:boundary="formData.boundary = $event"
+              @update:model-value="clearErrors"
+            />
           </div>
 
           <div class="form-group">
@@ -1229,71 +1233,146 @@ onMounted(() => {
 
         <div class="form-subsection optional">
           <div class="subsection-header">
-            <h4 class="subsection-title">Required Technical & Compliance Documents</h4>
-            <p class="subsection-subtitle">Upload each required document as its own file input.</p>
+            <h4 class="subsection-title">Required Technical &amp; Compliance Documents</h4>
           </div>
+
+          <p class="doc-intro">
+            Tap any card below to pick a PDF from your device. Each card explains what the
+            document is, so you always know what to upload. Cards marked
+            <span class="req">*</span> are required; a green check means your file is attached.
+          </p>
 
           <div class="document-grid">
-            <div class="doc-row">
-              <label>PDD *</label>
+            <label class="doc-card" :class="{ filled: !!formData.pdd_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.pdd_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">PDD <span class="req">*</span></span>
+                <span class="doc-card-desc">Project Design Document — the full blueprint: what your project does, where, the methodology used, and how carbon savings are measured.</span>
+                <span class="doc-card-file">{{ formData.pdd_file ? formData.pdd_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="pddInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'pdd_file')" />
-              <div class="doc-meta">{{ formData.pdd_file ? formData.pdd_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Baseline Report *</label>
+            <label class="doc-card" :class="{ filled: !!formData.baseline_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.baseline_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Baseline Report <span class="req">*</span></span>
+                <span class="doc-card-desc">Shows the emissions that would happen WITHOUT your project — the comparison point used to calculate your carbon savings.</span>
+                <span class="doc-card-file">{{ formData.baseline_file ? formData.baseline_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="baselineInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'baseline_file')" />
-              <div class="doc-meta">{{ formData.baseline_file ? formData.baseline_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Additionality Justification *</label>
+            <label class="doc-card" :class="{ filled: !!formData.additionality_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.additionality_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Additionality Justification <span class="req">*</span></span>
+                <span class="doc-card-desc">Explains why the project genuinely needs carbon finance and would not have happened on its own.</span>
+                <span class="doc-card-file">{{ formData.additionality_file ? formData.additionality_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="additionalityInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'additionality_file')" />
-              <div class="doc-meta">{{ formData.additionality_file ? formData.additionality_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Leakage Assessment *</label>
+            <label class="doc-card" :class="{ filled: !!formData.leakage_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.leakage_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Leakage Assessment <span class="req">*</span></span>
+                <span class="doc-card-desc">Checks whether your project simply shifts emissions to another place instead of truly reducing them.</span>
+                <span class="doc-card-file">{{ formData.leakage_file ? formData.leakage_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="leakageInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'leakage_file')" />
-              <div class="doc-meta">{{ formData.leakage_file ? formData.leakage_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Safeguards Checklist *</label>
+            <label class="doc-card" :class="{ filled: !!formData.safeguards_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.safeguards_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Safeguards Checklist <span class="req">*</span></span>
+                <span class="doc-card-desc">Confirms the project does no social or environmental harm to the community or surroundings.</span>
+                <span class="doc-card-file">{{ formData.safeguards_file ? formData.safeguards_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="safeguardsInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'safeguards_file')" />
-              <div class="doc-meta">{{ formData.safeguards_file ? formData.safeguards_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Feasibility Study (Optional)</label>
+            <label class="doc-card" :class="{ filled: !!formData.feasibility_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.feasibility_file ? 'check_circle' : 'description' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Feasibility Study <span class="opt">Optional</span></span>
+                <span class="doc-card-desc">Technical and financial study showing the project is realistic and viable. Helpful but not required.</span>
+                <span class="doc-card-file">{{ formData.feasibility_file ? formData.feasibility_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="feasibilityInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'feasibility_file')" />
-              <div class="doc-meta">{{ formData.feasibility_file ? formData.feasibility_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>LGU Endorsement *</label>
+            <label class="doc-card" :class="{ filled: !!formData.lgu_endorsement_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.lgu_endorsement_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">LGU Endorsement <span class="req">*</span></span>
+                <span class="doc-card-desc">An official letter of support for the project from your Local Government Unit (city, municipality, or barangay).</span>
+                <span class="doc-card-file">{{ formData.lgu_endorsement_file ? formData.lgu_endorsement_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="lguEndorsementInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'lgu_endorsement_file')" />
-              <div class="doc-meta">{{ formData.lgu_endorsement_file ? formData.lgu_endorsement_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>Land Ownership / Lease Documents *</label>
+            <label class="doc-card" :class="{ filled: !!formData.land_ownership_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.land_ownership_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">Land Ownership / Lease <span class="req">*</span></span>
+                <span class="doc-card-desc">Proof you own or legally lease the project land — e.g. land title, tax declaration, or signed lease contract.</span>
+                <span class="doc-card-file">{{ formData.land_ownership_file ? formData.land_ownership_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="landOwnershipInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'land_ownership_file')" />
-              <div class="doc-meta">{{ formData.land_ownership_file ? formData.land_ownership_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>ECC / Permits *</label>
+            <label class="doc-card" :class="{ filled: !!formData.ecc_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.ecc_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">ECC / Permits <span class="req">*</span></span>
+                <span class="doc-card-desc">Environmental Compliance Certificate and any other government permits the project needs to operate.</span>
+                <span class="doc-card-file">{{ formData.ecc_file ? formData.ecc_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="eccInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'ecc_file')" />
-              <div class="doc-meta">{{ formData.ecc_file ? formData.ecc_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
 
-            <div class="doc-row">
-              <label>MOA / Agreements *</label>
+            <label class="doc-card" :class="{ filled: !!formData.moa_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.moa_file ? 'check_circle' : 'upload_file' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">MOA / Agreements <span class="req">*</span></span>
+                <span class="doc-card-desc">Signed Memorandum of Agreement with your partners, landowners, or the community involved in the project.</span>
+                <span class="doc-card-file">{{ formData.moa_file ? formData.moa_file.name : 'Click to upload PDF' }}</span>
+              </span>
               <input ref="moaInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'moa_file')" />
-              <div class="doc-meta">{{ formData.moa_file ? formData.moa_file.name : 'No file selected' }}</div>
-            </div>
+            </label>
           </div>
+
+          <p v-if="!isEditMode && missingRequiredDocs.length" class="doc-missing-hint">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            {{ missingRequiredDocs.length }} required document{{ missingRequiredDocs.length > 1 ? 's' : '' }} still needed:
+            {{ missingRequiredDocs.join(', ') }}.
+          </p>
+          <p v-else-if="!isEditMode" class="doc-complete-hint">
+            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+            All required documents attached.
+          </p>
         </div>
 
       <div class="form-subsection">
@@ -1325,28 +1404,64 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="credit-card">
+          <div class="credit-card credit-card--note">
             <div class="credit-card-header">
-              <span class="material-symbols-outlined credit-card-icon" aria-hidden="true">payments</span>
-              <span class="credit-card-title">Price per Credit *</span>
-            </div>
-            <div class="credit-field">
-              <div class="prefix">₱</div>
-              <UiInput
-                type="number"
-                min="0.01"
-                step="0.01"
-                v-model.number="formData.credit_price"
-                placeholder="0.00"
-                :error="errors.credit_price"
-                @input="clearFieldError('credit_price')"
-              />
-              <div class="field-hint">Min: ₱0.01</div>
+              <span class="material-symbols-outlined credit-card-icon" aria-hidden="true">verified_user</span>
+              <span class="credit-card-title">Price per Credit</span>
             </div>
             <div class="help-card">
-              <span class="material-symbols-outlined help-icon" aria-hidden="true">lightbulb</span>
-              <span>Set your price per carbon credit in Philippine Pesos</span>
+              <span class="material-symbols-outlined help-icon" aria-hidden="true">info</span>
+              <span>The price per carbon credit is set by the verifier after they review and validate your project.</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-subsection optional">
+        <div class="subsection-header">
+          <h4 class="subsection-title">Credibility (Optional)</h4>
+          <p class="subsection-hint">
+            Helps buyers trust the credits. Shown on the public project page.
+          </p>
+        </div>
+        <div class="credibility-grid">
+          <div class="form-group">
+            <label for="additionality_type" class="form-label">Additionality basis</label>
+            <select
+              id="additionality_type"
+              v-model="formData.additionality_type"
+              class="credibility-select"
+            >
+              <option value="">Not specified</option>
+              <option v-for="t in additionalityTypes" :key="t.value" :value="t.value">
+                {{ t.label }}
+              </option>
+            </select>
+            <p v-if="additionalityHint" class="field-hint">{{ additionalityHint }}</p>
+          </div>
+
+          <div class="form-group">
+            <label for="permanence_years" class="form-label">Permanence (years)</label>
+            <UiInput
+              id="permanence_years"
+              type="number"
+              min="0"
+              step="1"
+              v-model.number="formData.permanence_years"
+              placeholder="e.g. 100"
+            />
+            <p class="field-hint">How long the carbon removal is expected to persist.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="reversal_risk" class="form-label">Reversal risk</label>
+            <select id="reversal_risk" v-model="formData.reversal_risk" class="credibility-select">
+              <option value="">Not specified</option>
+              <option v-for="r in reversalRiskLevels" :key="r.value" :value="r.value">
+                {{ r.label }}
+              </option>
+            </select>
+            <p class="field-hint">Risk the stored carbon is later re-released.</p>
           </div>
         </div>
       </div>
@@ -1514,7 +1629,7 @@ onMounted(() => {
 }
 
 .form-select.error {
-  border-color: var(--ecolink-error);
+  border-color: var(--carbonify-error);
 }
 
 .form-textarea {
@@ -1538,12 +1653,12 @@ onMounted(() => {
 }
 
 .form-textarea.error {
-  border-color: var(--ecolink-error);
+  border-color: var(--carbonify-error);
 }
 
 .field-error {
   margin-top: 4px;
-  color: var(--ecolink-error);
+  color: var(--carbonify-error);
   font-size: 12px;
   font-weight: 500;
 }
@@ -1555,9 +1670,57 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.sdg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sdg-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sdg-chip:hover {
+  border-color: var(--primary-color, #069e2d);
+}
+
+.sdg-chip.selected {
+  border-color: var(--primary-color, #069e2d);
+  background: #ecfdf5;
+}
+
+.sdg-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sdg-label {
+  font-size: 13px;
+  color: var(--text-primary, #1f2937);
+}
+
 .error-message {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px 16px;
   border-radius: var(--radius);
   margin-bottom: 20px;
@@ -1565,8 +1728,8 @@ onMounted(() => {
 }
 
 .success-message {
-  background: var(--ecolink-success-bg);
-  color: var(--ecolink-success);
+  background: var(--carbonify-success-bg);
+  color: var(--carbonify-success);
   padding: 12px 16px;
   border-radius: var(--radius);
   margin-bottom: 20px;
@@ -1671,8 +1834,8 @@ onMounted(() => {
 .file-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -1759,8 +1922,8 @@ onMounted(() => {
 }
 
 .remove-file-btn:hover {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
 }
 
 .remove-file-btn:disabled {
@@ -1882,8 +2045,8 @@ onMounted(() => {
 .image-upload-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }
@@ -2303,8 +2466,8 @@ onMounted(() => {
 }
 
 .remove-file:hover {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
 }
 
 .remove-file:disabled {
@@ -2316,10 +2479,182 @@ onMounted(() => {
   display: none;
 }
 
+/* ── Required Technical & Compliance Documents ── */
+.doc-intro {
+  margin: -4px 0 16px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-secondary, #4a5568);
+  background: var(--bg-secondary, #f8fdf8);
+  border: 1px solid var(--border-light, #e8f5e8);
+  border-radius: var(--radius-md, 0.625rem);
+  padding: 0.75rem 0.9rem;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+.doc-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: #fff;
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-md, 0.625rem);
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.doc-card:hover {
+  border-color: var(--primary-color, #069e2d);
+  background: var(--bg-secondary, #f8fdf8);
+  box-shadow: 0 6px 16px rgba(6, 158, 45, 0.12);
+  transform: translateY(-1px);
+}
+
+.doc-card.filled {
+  border-color: var(--primary-color, #069e2d);
+  background: linear-gradient(135deg, #f6fef9 0%, #ecfdf5 100%);
+}
+
+.doc-card-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex-shrink: 0;
+  border-radius: 0.6rem;
+  background: var(--bg-muted, #e8f5e8);
+  color: var(--text-muted, #718096);
+}
+
+.doc-card:hover .doc-card-status {
+  color: var(--primary-color, #069e2d);
+}
+
+.doc-card.filled .doc-card-status {
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+}
+
+.doc-card-status .material-symbols-outlined {
+  font-size: 1.3rem;
+}
+
+.doc-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.doc-card-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a202c);
+}
+
+.req {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.opt {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted, #718096);
+  background: var(--bg-muted, #eef2f1);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.doc-missing-hint,
+.doc-complete-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 14px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.doc-missing-hint {
+  color: #b45309;
+}
+
+.doc-complete-hint {
+  color: var(--primary-color, #069e2d);
+}
+
+.doc-missing-hint .material-symbols-outlined,
+.doc-complete-hint .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.doc-card-desc {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #4a5568);
+}
+
+.doc-card-file {
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primary-color, #069e2d);
+  word-break: break-word;
+}
+
+.doc-card:not(.filled) .doc-card-file {
+  color: var(--text-muted, #718096);
+  font-weight: 500;
+}
+
 .credit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
+}
+
+.subsection-hint {
+  margin: 0.25rem 0 0;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.credibility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.credibility-select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.credibility-select:focus {
+  outline: none;
+  border-color: #069e2d;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
 .credit-card {

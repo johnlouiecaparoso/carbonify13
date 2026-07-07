@@ -26,7 +26,10 @@ const PAYMONGO_CONFIG = {
 export function initPayMongo() {
   try {
     PAYMONGO_CONFIG.publicKey = getEnv('VITE_PAYMONGO_PUBLIC_KEY', { optional: true })
-    PAYMONGO_CONFIG.secretKey = getEnv('VITE_PAYMONGO_SECRET_KEY', { optional: true })
+    // SECURITY: the PayMongo SECRET key must never be read into the browser bundle.
+    // It lives only in Supabase Edge Function secrets. secretKey stays null here, so
+    // all checkout/verify goes through the Edge Function (never a browser-direct call).
+    PAYMONGO_CONFIG.secretKey = null
     // Use real PayMongo (Edge Function) when public key is set; no need for secret in frontend
     PAYMONGO_CONFIG.isConfigured = !!PAYMONGO_CONFIG.publicKey
 
@@ -61,7 +64,6 @@ export async function createCheckoutSession(sessionData) {
       description,
       metadata,
       billing,
-      paymentMethodTypes = ['card', 'gcash', 'paymaya'],
     } = sessionData
 
     // Validate amount
@@ -95,7 +97,7 @@ export async function createCheckoutSession(sessionData) {
     const detailedDescription =
       purchaseMetadata.quantity && purchaseMetadata.price_per_credit
         ? `${quantity} credit${quantity > 1 ? 's' : ''} @ ₱${pricePerCredit.toFixed(2)} each from ${projectTitle}`
-        : description || 'EcoLink Credit Purchase'
+        : description || 'Carbonify Credit Purchase'
 
     // Create line items - show actual quantity and per-credit price if available
     const lineItems =
@@ -110,7 +112,7 @@ export async function createCheckoutSession(sessionData) {
           ]
         : [
             {
-              name: description || 'EcoLink Carbon Credits',
+              name: description || 'Carbonify Carbon Credits',
               quantity: 1,
               amount: Math.round(amount * 100), // Total amount in centavos
               currency: 'PHP',
@@ -193,6 +195,102 @@ export async function createCheckoutSession(sessionData) {
     console.error('❌ Error creating checkout session:', error)
     throw error
   }
+}
+
+/**
+ * Server-authoritative marketplace checkout (Phase 1.2).
+ *
+ * The client sends ONLY the listing id + quantity; the Edge Function recomputes
+ * the price from credit_listings and records a payment_intent. No client-supplied
+ * amount is involved, which closes the "pay any price" hole in the legacy
+ * createCheckoutSession path.
+ *
+ * @param {{ listingId: string, quantity: number, billing?: object }} args
+ * @returns {Promise<{ success: boolean, sessionId: string, checkoutUrl: string, amount: number, currency: string, paymentIntentId: string }>}
+ */
+export async function createMarketplaceCheckout({ listingId, quantity, billing } = {}) {
+  if (!listingId || !quantity || quantity <= 0) {
+    throw new Error('listingId and a positive quantity are required')
+  }
+
+  const supabase = await getSupabaseAsync()
+  if (!supabase) {
+    throw new Error('Supabase client not available for checkout')
+  }
+
+  let userId = null
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+    userId = userData?.user?.id ?? null
+  } catch {
+    // Unauthenticated callers are rejected server-side; leave userId null.
+  }
+
+  const { data: result, error } = await supabase.functions.invoke('paymongo-checkout', {
+    body: {
+      action: 'create_marketplace_checkout',
+      listing_id: listingId,
+      quantity,
+      user_id: userId,
+      origin: window.location.origin,
+      billing,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message || 'Failed to create marketplace checkout')
+  }
+  if (result?.error) {
+    throw new Error(result.error)
+  }
+  return result
+}
+
+/**
+ * Server-recorded wallet top-up checkout (Phase 1 P5).
+ *
+ * Records a payment_intent (purpose 'wallet_topup') server-side; the webhook
+ * credits the balance. The client no longer writes wallet_accounts /
+ * wallet_transactions for a top-up.
+ *
+ * @param {{ amount: number, billing?: object }} args
+ * @returns {Promise<{ success: boolean, sessionId: string, checkoutUrl: string, amount: number, currency: string, paymentIntentId: string }>}
+ */
+export async function createWalletTopupCheckout({ amount, billing } = {}) {
+  if (!amount || amount <= 0) {
+    throw new Error('A positive amount is required')
+  }
+
+  const supabase = await getSupabaseAsync()
+  if (!supabase) {
+    throw new Error('Supabase client not available for checkout')
+  }
+
+  let userId = null
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+    userId = userData?.user?.id ?? null
+  } catch {
+    // Unauthenticated callers are rejected server-side; leave userId null.
+  }
+
+  const { data: result, error } = await supabase.functions.invoke('paymongo-checkout', {
+    body: {
+      action: 'create_wallet_topup_checkout',
+      amount,
+      user_id: userId,
+      origin: window.location.origin,
+      billing,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message || 'Failed to create wallet top-up checkout')
+  }
+  if (result?.error) {
+    throw new Error(result.error)
+  }
+  return result
 }
 
 /**

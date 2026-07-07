@@ -121,7 +121,7 @@ async function handleVerification() {
     if (verificationAction.value === 'approved') {
       try {
         const verificationData = {
-          standard: 'EcoLink Standard',
+          standard: 'Carbonify Standard',
           verifier_notes: verificationNotes.value,
           verifier_id: userStore.user?.id,
           verification_date: new Date().toISOString(),
@@ -500,12 +500,12 @@ watch(
 <style scoped>
 .verifier-view {
   min-height: 100vh;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
 }
 
 .page-header {
-  background: var(--ecolink-surface);
-  border-bottom: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border-bottom: 1px solid var(--carbonify-border);
   padding: 24px;
 }
 
@@ -518,13 +518,13 @@ watch(
   margin: 16px 0 8px 0;
   font-size: 32px;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .page-subtitle {
   margin: 0;
   font-size: 16px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .page-content {
@@ -533,8 +533,8 @@ watch(
 }
 
 .error-message {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px 16px;
   border-radius: var(--radius);
   margin-bottom: 24px;
@@ -548,8 +548,8 @@ watch(
 }
 
 .stat-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 20px;
   text-align: center;
@@ -574,20 +574,20 @@ watch(
 .stat-number {
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .filters-section {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 32px;
@@ -607,24 +607,24 @@ watch(
 
 .filter-select {
   padding: 8px 12px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
-  background: var(--ecolink-bg);
-  color: var(--ecolink-text);
+  background: var(--carbonify-bg);
+  color: var(--carbonify-text);
   font-size: 14px;
 }
 
 .loading-state {
   text-align: center;
   padding: 60px 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--ecolink-border);
-  border-top: 3px solid var(--ecolink-primary);
+  border: 3px solid var(--carbonify-border);
+  border-top: 3px solid var(--carbonify-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -642,7 +642,7 @@ watch(
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .empty-icon {
@@ -671,8 +671,8 @@ watch(
 .project-list {
   display: flex;
   flex-direction: column;
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -691,7 +691,7 @@ watch(
 }
 
 .project-list-item + .project-list-item {
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 .project-list-item:hover,
@@ -702,12 +702,12 @@ watch(
 .project-list-title {
   flex: 1;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .project-detail {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 24px;
   display: flex;
@@ -732,14 +732,14 @@ watch(
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .detail-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 20px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 14px;
 }
 
@@ -755,7 +755,7 @@ watch(
 
 .detail-description {
   margin: 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   line-height: 1.6;
 }
 
@@ -771,12 +771,12 @@ watch(
   gap: 16px;
   margin-bottom: 12px;
   font-size: 14px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .project-category {
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .project-location {
@@ -791,7 +791,7 @@ watch(
 
 .project-description {
   margin: 0 0 16px 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   line-height: 1.5;
 }
 
@@ -800,12 +800,12 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding-top: 16px;
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 .project-date {
   font-size: 12px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .project-actions {
@@ -814,12 +814,12 @@ watch(
 }
 
 .reject-btn {
-  color: var(--ecolink-error);
-  border-color: var(--ecolink-error);
+  color: var(--carbonify-error);
+  border-color: var(--carbonify-error);
 }
 
 .reject-btn:hover {
-  background: var(--ecolink-error);
+  background: var(--carbonify-error);
   color: white;
 }
 
@@ -838,7 +838,7 @@ watch(
 }
 
 .modal {
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: var(--radius);
   max-width: 600px;
   width: 100%;
@@ -858,7 +858,7 @@ watch(
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .close-btn {
@@ -866,14 +866,14 @@ watch(
   border: none;
   font-size: 28px;
   cursor: pointer;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .close-btn:hover {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .modal-content {
@@ -883,7 +883,7 @@ watch(
 .project-info {
   margin-bottom: 24px;
   padding: 20px;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
   border-radius: var(--radius);
 }
 
@@ -891,13 +891,13 @@ watch(
   margin: 0 0 12px 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .project-info p {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .verification-form {
@@ -908,17 +908,17 @@ watch(
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 14px;
 }
 
 .form-textarea {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
-  background: var(--ecolink-bg);
-  color: var(--ecolink-text);
+  background: var(--carbonify-bg);
+  color: var(--carbonify-text);
   font-size: 16px;
   font-family: inherit;
   resize: vertical;
@@ -928,13 +928,13 @@ watch(
 
 .form-textarea:focus {
   outline: none;
-  border-color: var(--ecolink-primary);
-  box-shadow: 0 0 0 3px var(--ecolink-primary-50);
+  border-color: var(--carbonify-primary);
+  box-shadow: 0 0 0 3px var(--carbonify-primary-50);
 }
 
 .field-help {
   margin-top: 4px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 12px;
 }
 
@@ -943,7 +943,7 @@ watch(
   gap: 12px;
   justify-content: flex-end;
   padding: 24px;
-  border-top: 1px solid var(--ecolink-border);
+  border-top: 1px solid var(--carbonify-border);
 }
 
 /* Responsive Design */
@@ -961,7 +961,7 @@ watch(
   .project-list-item,
   .project-list-item + .project-list-item {
     border-top: none;
-    border-right: 1px solid var(--ecolink-border);
+    border-right: 1px solid var(--carbonify-border);
   }
 
   .project-list-item {
@@ -986,7 +986,7 @@ watch(
   .project-list-item,
   .project-list-item + .project-list-item {
     border-right: none;
-    border-top: 1px solid var(--ecolink-border);
+    border-top: 1px solid var(--carbonify-border);
   }
 }
 </style>

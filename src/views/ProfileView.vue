@@ -57,37 +57,47 @@
                 <div v-if="photoError" class="photo-error">{{ photoError }}</div>
               </div>
               <div class="profile-info">
-                <h2 class="profile-name">{{ userProfile.fullName }}</h2>
+                <h2 class="profile-name">
+                  {{ userProfile.fullName }}
+                  <VerifiedBadge v-if="isKycVerified" type="kyc" />
+                  <VerifiedBadge v-if="isKybVerified" type="kyb" />
+                </h2>
+
+                <!-- Role pill — colour-tinted per role -->
+                <div class="profile-role-pill" :data-role="store.role">
+                  <span class="material-symbols-outlined" aria-hidden="true">{{ roleIcon }}</span>
+                  <span>{{ roleAccess.name }}</span>
+                </div>
+
                 <p class="profile-email">{{ userProfile.email }}</p>
-                <div class="profile-company">
-                  <svg class="company-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    ></path>
-                  </svg>
-                  <span>{{ userProfile.company }}</span>
+
+                <!-- Contact / org details (only rendered when present) -->
+                <div class="profile-meta">
+                  <div v-if="userProfile.company" class="profile-detail">
+                    <span class="material-symbols-outlined" aria-hidden="true">business</span>
+                    <span>{{ userProfile.company }}</span>
+                  </div>
+                  <div v-if="userProfile.location" class="profile-detail">
+                    <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+                    <span>{{ userProfile.location }}</span>
+                  </div>
+                  <div v-if="userProfile.phone" class="profile-detail">
+                    <span class="material-symbols-outlined" aria-hidden="true">call</span>
+                    <span>{{ userProfile.phone }}</span>
+                  </div>
+                  <div v-if="userProfile.website" class="profile-detail">
+                    <span class="material-symbols-outlined" aria-hidden="true">language</span>
+                    <span>{{ userProfile.website }}</span>
+                  </div>
+                  <p v-if="profileHasNoDetails" class="profile-empty-hint">
+                    Add your company, location and contact details with Edit Profile.
+                  </p>
                 </div>
-                <div class="profile-location">
-                  <svg class="location-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    ></path>
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    ></path>
-                  </svg>
-                  <span>{{ userProfile.location }}</span>
-                </div>
-                <button class="edit-profile-button" @click="editProfile">Edit Profile</button>
+
+                <button class="edit-profile-button" @click="editProfile">
+                  <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                  <span>Edit Profile</span>
+                </button>
               </div>
             </div>
           </div>
@@ -266,6 +276,35 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- Role & Access -->
+                  <div class="settings-section">
+                    <h3 class="section-title">Role &amp; Access</h3>
+                    <div class="role-access">
+                      <div class="role-access-head">
+                        <span class="role-name" :data-role="store.role">
+                          <span class="material-symbols-outlined" aria-hidden="true">{{ roleIcon }}</span>
+                          {{ roleAccess.name }}
+                        </span>
+                        <p class="role-desc">{{ roleAccess.description }}</p>
+                      </div>
+                      <div class="role-links">
+                        <router-link
+                          v-for="link in roleAccess.links"
+                          :key="link.to"
+                          :to="link.to"
+                          class="role-link"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">{{ link.icon }}</span>
+                          <span>{{ link.label }}</span>
+                        </router-link>
+                      </div>
+                      <p v-if="roleAccess.showApply" class="role-apply-hint">
+                        Want to develop projects or become a verifier?
+                        <router-link to="/apply">Apply for an advanced role →</router-link>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Notifications Tab -->
@@ -307,6 +346,18 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- Privacy & Data Tab -->
+                <div v-if="activeTab === 'privacy'" class="tab-panel">
+                  <div class="settings-section">
+                    <h3 class="section-title">Privacy &amp; Your Data</h3>
+                    <p class="section-subtitle">
+                      Exercise your data-privacy rights: download a copy of your data or
+                      request that your account be deleted.
+                    </p>
+                    <PrivacyDataPanel />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -330,12 +381,16 @@ import {
   ROLE_APPLICATION_ROLES,
   getLatestRoleApplicationForUser,
 } from '@/services/roleApplicationService'
+import { ROLES, getRoleDisplayName } from '@/constants/roles'
+import { getRoleDescription } from '@/services/roleService'
 import ChangePasswordPanel from '@/components/auth/ChangePasswordPanel.vue'
 import MfaSetupPanel from '@/components/auth/MfaSetupPanel.vue'
+import PrivacyDataPanel from '@/components/account/PrivacyDataPanel.vue'
+import VerifiedBadge from '@/components/ui/VerifiedBadge.vue'
 
 export default {
   name: 'ProfileView',
-  components: { ChangePasswordPanel, MfaSetupPanel },
+  components: { ChangePasswordPanel, MfaSetupPanel, PrivacyDataPanel, VerifiedBadge },
   setup() {
     const store = useUserStore()
     return { store }
@@ -352,6 +407,7 @@ export default {
         { id: 'account', label: 'Account' },
         { id: 'notifications', label: 'Notifications' },
         { id: 'security', label: 'Security' },
+        { id: 'privacy', label: 'Privacy & Data' },
       ],
       userProfile: {
         initials: 'U',
@@ -413,6 +469,72 @@ export default {
     }
   },
   computed: {
+    // Identity verified (KYC) once an admin sets kyc_level >= 2.
+    isKycVerified() {
+      const profile = this.store.profile || this.latestProfile || {}
+      return Number(profile?.kyc_level) >= 2
+    },
+    // Business verified (KYB) — relevant for sellers / project developers.
+    isKybVerified() {
+      const profile = this.store.profile || this.latestProfile || {}
+      return profile?.kyb_verified === true
+    },
+    // Material Symbols icon shown in the sidebar role pill, per role.
+    roleIcon() {
+      const role = this.store.role || ROLES.GENERAL_USER
+      const iconsByRole = {
+        [ROLES.ADMIN]: 'shield_person',
+        [ROLES.VERIFIER]: 'verified',
+        [ROLES.PROJECT_DEVELOPER]: 'eco',
+        [ROLES.LGU_USER]: 'apartment',
+        [ROLES.BUYER_INVESTOR]: 'account_balance_wallet',
+        [ROLES.GENERAL_USER]: 'person',
+      }
+      return iconsByRole[role] || 'person'
+    },
+    // True when no optional contact/org details are filled in yet.
+    profileHasNoDetails() {
+      const p = this.userProfile || {}
+      return !p.company && !p.location && !p.phone && !p.website
+    },
+    // Role-aware access panel: name, description, and quick links per role.
+    roleAccess() {
+      const role = this.store.role || ROLES.GENERAL_USER
+      const linksByRole = {
+        [ROLES.ADMIN]: [
+          { label: 'Admin Dashboard', to: '/admin', icon: 'dashboard' },
+          { label: 'System Configuration', to: '/admin/config', icon: 'tune' },
+          { label: 'User Management', to: '/admin/users', icon: 'group' },
+        ],
+        [ROLES.VERIFIER]: [
+          { label: 'Verifier Panel', to: '/verifier', icon: 'fact_check' },
+        ],
+        [ROLES.PROJECT_DEVELOPER]: [
+          { label: 'My Projects', to: '/developer/projects', icon: 'inventory_2' },
+          { label: 'Submit Project', to: '/submit-project', icon: 'add_circle' },
+          { label: 'Monitoring (MRV)', to: '/monitoring', icon: 'monitoring' },
+        ],
+        [ROLES.LGU_USER]: [
+          { label: 'LGU Tools', to: '/lgu', icon: 'map' },
+        ],
+        [ROLES.BUYER_INVESTOR]: [
+          { label: 'My Portfolio', to: '/credit-portfolio', icon: 'account_balance_wallet' },
+          { label: 'Wallet', to: '/wallet', icon: 'payments' },
+          { label: 'Saved', to: '/watchlist', icon: 'favorite' },
+          { label: 'Cart', to: '/cart', icon: 'shopping_cart' },
+        ],
+        [ROLES.GENERAL_USER]: [
+          { label: 'Browse Marketplace', to: '/marketplace', icon: 'storefront' },
+          { label: 'Apply for a role', to: '/apply', icon: 'badge' },
+        ],
+      }
+      return {
+        name: getRoleDisplayName(role),
+        description: getRoleDescription(role),
+        links: linksByRole[role] || linksByRole[ROLES.GENERAL_USER],
+        showApply: role === ROLES.GENERAL_USER,
+      }
+    },
     accountStatusItems() {
       const user = this.store.session?.user || null
       const profile = this.store.profile || this.latestProfile || {}
@@ -1141,7 +1263,7 @@ export default {
 .page-header {
   padding: 2rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   margin-bottom: 2rem;
 }
 
@@ -1314,42 +1436,118 @@ export default {
 
 .profile-email {
   color: var(--text-secondary);
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+  word-break: break-word;
+}
+
+/* Role pill in the sidebar — colour-tinted per role via [data-role] */
+.profile-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 auto 1rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border: 1px solid var(--border-green-light);
   text-align: center;
 }
 
-.profile-company,
-.profile-location {
+.profile-info {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
 }
 
-.company-icon,
-.location-icon {
-  width: 1rem;
-  height: 1rem;
+.profile-role-pill .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+.profile-role-pill[data-role='admin'] {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.profile-role-pill[data-role='verifier'] {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.profile-role-pill[data-role='lgu_user'] {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+.profile-role-pill[data-role='buyer_investor'] {
+  background: #faf5ff;
+  color: #7e22ce;
+  border-color: #e9d5ff;
+}
+
+/* Contact / org detail rows */
+.profile-meta {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.profile-detail .material-symbols-outlined {
+  font-size: 1.15rem;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.profile-empty-hint {
+  margin: 0;
+  font-size: 0.8rem;
   color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
 }
 
 .edit-profile-button {
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   padding: 0.75rem;
   background: transparent;
   color: var(--primary-color);
   border: 1px solid var(--primary-color);
   border-radius: var(--radius-md);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
+}
+
+.edit-profile-button .material-symbols-outlined {
+  font-size: 1.15rem;
 }
 
 .edit-profile-button:hover {
   background: var(--primary-color);
   color: white;
+  box-shadow: var(--shadow-green);
 }
 
 /* Account Settings */
@@ -1417,6 +1615,13 @@ export default {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 1.5rem;
+}
+
+.section-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary, #6b7280);
+  margin: -0.75rem 0 1.5rem;
+  line-height: 1.5;
 }
 
 .form-grid {
@@ -1823,5 +2028,100 @@ export default {
     padding: 1.5rem;
   }
 
+}
+
+/* Role & Access section — tinted card + per-role pill */
+.role-access {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--primary-lighter) 100%);
+  border: 1px solid var(--border-green-light);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+.role-access-head {
+  margin-bottom: 1.25rem;
+}
+.role-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--primary-dark);
+  background: var(--primary-light);
+  border: 1px solid var(--border-green-light);
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+}
+.role-name .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+.role-name[data-role='admin'] {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.role-name[data-role='verifier'] {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.role-name[data-role='lgu_user'] {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+.role-name[data-role='buyer_investor'] {
+  background: #faf5ff;
+  color: #7e22ce;
+  border-color: #e9d5ff;
+}
+.role-desc {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0.6rem 0 0;
+  line-height: 1.55;
+}
+.role-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+.role-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.role-link:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-lighter);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.role-link .material-symbols-outlined {
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+.role-apply-hint {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.role-apply-hint a {
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: none;
+}
+.role-apply-hint a:hover {
+  text-decoration: underline;
 }
 </style>

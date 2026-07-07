@@ -51,7 +51,7 @@
                     {{ formatRole(user.role) }}
                   </span>
                 </td>
-                <td>{{ user.kyc_level || 0 }}</td>
+                <td>{{ user.kyc_level || 0 }} · {{ kycLevelLabel(user.kyc_level) }}</td>
                 <td>{{ formatDate(user.created_at) }}</td>
                 <td>
                   <button
@@ -85,7 +85,15 @@
             </div>
             <div v-if="selectedUser" class="form-group">
               <label>KYC Level</label>
-              <input v-model.number="selectedUser.kyc_level" type="number" min="0" max="3" />
+              <select v-model.number="selectedUser.kyc_level">
+                <option v-for="t in KYC_LEVELS" :key="t.level" :value="t.level">
+                  {{ t.level }} — {{ t.label }}
+                </option>
+              </select>
+              <small class="hint">
+                Manual override for testing. Users normally earn KYC via the
+                verification flow (Profile → KYC).
+              </small>
             </div>
             <div class="modal-actions">
               <button @click="saveUser" class="btn-primary">Save</button>
@@ -101,7 +109,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
-import { roleService } from '@/services/roleService'
+import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
 
 const users = ref([])
 const loading = ref(true)
@@ -185,30 +193,26 @@ async function saveUser() {
   if (!selectedUser.value) return
 
   try {
-    const supabase = getSupabase()
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        full_name: selectedUser.value.full_name,
-        role: selectedUser.value.role,
-        kyc_level: selectedUser.value.kyc_level,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', selectedUser.value.id)
+    // Admin-gated RPC: bypasses profile RLS (admin editing another user) and only
+    // touches columns that exist — the old raw UPDATE 400'd on updated_at + RLS.
+    const updated = await adminSetUserProfile({
+      userId: selectedUser.value.id,
+      kycLevel: Number(selectedUser.value.kyc_level) || 0,
+      role: selectedUser.value.role,
+      fullName: selectedUser.value.full_name,
+    })
 
-    if (updateError) throw updateError
-
-    // Update local users array
+    // Reflect the server's saved values locally.
     const index = users.value.findIndex((u) => u.id === selectedUser.value.id)
     if (index !== -1) {
-      users.value[index] = { ...selectedUser.value }
+      users.value[index] = { ...users.value[index], ...(updated || selectedUser.value) }
     }
 
     closeEditModal()
     alert('User updated successfully!')
   } catch (err) {
     console.error('Error updating user:', err)
-    alert('Failed to update user. Please try again.')
+    alert(err.message || 'Failed to update user. Please try again.')
   }
 }
 
@@ -382,6 +386,14 @@ th {
   padding: 0.75rem;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+}
+
+.form-group .hint {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 .modal-actions {

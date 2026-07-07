@@ -9,20 +9,40 @@
     </div>
     <div class="admin-stats">
       <div class="stat-card">
-        <h3>Total Users</h3>
-        <p class="stat-number">{{ loading ? '...' : stats.totalUsers }}</p>
+        <div class="stat-icon users" aria-hidden="true">
+          <span class="material-symbols-outlined">group</span>
+        </div>
+        <div class="stat-body">
+          <p class="stat-number">{{ loading ? '...' : stats.totalUsers }}</p>
+          <h3>Total Users</h3>
+        </div>
       </div>
       <div class="stat-card">
-        <h3>Pending Role Applications</h3>
-        <p class="stat-number">{{ loading ? '...' : stats.pendingRoleApplications }}</p>
+        <div class="stat-icon apps" aria-hidden="true">
+          <span class="material-symbols-outlined">pending_actions</span>
+        </div>
+        <div class="stat-body">
+          <p class="stat-number">{{ loading ? '...' : stats.pendingRoleApplications }}</p>
+          <h3>Pending Role Applications</h3>
+        </div>
       </div>
       <div class="stat-card">
-        <h3>Administrators</h3>
-        <p class="stat-number">{{ loading ? '...' : stats.totalAdmins }}</p>
+        <div class="stat-icon admins" aria-hidden="true">
+          <span class="material-symbols-outlined">shield_person</span>
+        </div>
+        <div class="stat-body">
+          <p class="stat-number">{{ loading ? '...' : stats.totalAdmins }}</p>
+          <h3>Administrators</h3>
+        </div>
       </div>
       <div class="stat-card">
-        <h3>Pending Verifier Applicants</h3>
-        <p class="stat-number">{{ loading ? '...' : stats.pendingVerifierApplications }}</p>
+        <div class="stat-icon verifiers" aria-hidden="true">
+          <span class="material-symbols-outlined">how_to_reg</span>
+        </div>
+        <div class="stat-body">
+          <p class="stat-number">{{ loading ? '...' : stats.pendingVerifierApplications }}</p>
+          <h3>Pending Verifier Applicants</h3>
+        </div>
       </div>
     </div>
 
@@ -41,6 +61,14 @@
             <p>Manage user accounts, roles, and permissions</p>
           </router-link>
 
+          <router-link to="/admin/finance" class="admin-tool-card">
+            <div class="tool-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">account_balance</span>
+            </div>
+            <h3>Finance Console</h3>
+            <p>Sales, fees, payouts, and book reconciliation</p>
+          </router-link>
+
           <router-link to="/admin/audit-logs" class="admin-tool-card">
             <div class="tool-icon" aria-hidden="true">
               <span class="material-symbols-outlined">assignment</span>
@@ -55,6 +83,14 @@
             </div>
             <h3>KYC Review</h3>
             <p>Approve identity verification applications</p>
+          </router-link>
+
+          <router-link to="/admin/config" class="admin-tool-card">
+            <div class="tool-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">tune</span>
+            </div>
+            <h3>System Configuration</h3>
+            <p>Platform fee, KYC tiers, and emission factors</p>
           </router-link>
         </div>
       </div>
@@ -209,21 +245,22 @@ async function loadStats() {
 
 /* Page Header */
 .page-header {
-  padding: 2rem 0;
+  padding: 2rem 0 4rem;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  background: linear-gradient(135deg, var(--primary-color, #069e2d) 0%, var(--primary-hover, #058e3f) 100%);
 }
 
 .page-title {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: #fff;
   margin-bottom: 0.5rem;
 }
 
 .page-description {
   font-size: 1.1rem;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .admin-dashboard .admin-stats,
@@ -233,55 +270,117 @@ async function loadStats() {
   padding: 0 2rem;
 }
 
+/* Stat cards float up over the header for a modern dashboard feel */
 .admin-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-top: -2.5rem;
   margin-bottom: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.4rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #eef2f1;
+  box-shadow: 0 10px 24px rgba(6, 158, 45, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px rgba(6, 158, 45, 0.16);
+}
+
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+  flex-shrink: 0;
+}
+
+.stat-icon .material-symbols-outlined {
+  font-size: 1.6rem;
+}
+
+.stat-icon.users {
+  background: #e8f5e8;
+  color: #069e2d;
+}
+.stat-icon.apps {
+  background: #fef3c7;
+  color: #b45309;
+}
+.stat-icon.admins {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.stat-icon.verifiers {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .stat-card h3 {
-  margin: 0 0 0.5rem 0;
-  color: #666;
-  font-size: 0.9rem;
+  margin: 0.1rem 0 0 0;
+  color: #6b7280;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .stat-number {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #333;
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: var(--text-primary, #1a1a1a);
   margin: 0;
+  line-height: 1.1;
 }
 
 .admin-content {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  background: transparent;
 }
 
 .admin-section {
   background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.75rem;
+  border-radius: 1rem;
+  border: 1px solid #eef2f1;
+  box-shadow: 0 4px 16px rgba(6, 158, 45, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .admin-section h2 {
   margin: 0 0 0.5rem 0;
-  color: #333;
-  font-size: 1.5rem;
+  color: var(--text-primary, #1a1a1a);
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--primary-color, #069e2d);
+  line-height: 1.2;
 }
 
-.admin-section p {
+.admin-section > p {
   margin: 0 0 1.5rem 0;
-  color: #666;
+  color: #6b7280;
+  line-height: 1.5;
 }
 
 .section-header {
@@ -298,45 +397,65 @@ async function loadStats() {
 
 .section-link {
   align-self: center;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
   color: var(--primary-color, #069e2d);
   font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border-green-light, #d4edda);
+  border-radius: 999px;
+  background: var(--bg-green-light, #e8f5e8);
+  transition: all 0.18s ease;
+}
+
+.section-link:hover {
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+  border-color: var(--primary-color, #069e2d);
 }
 
 .admin-tools-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .admin-tool-card {
   display: block;
   padding: 1.5rem;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e8edf1;
+  border-radius: 0.9rem;
   text-decoration: none;
   color: inherit;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .admin-tool-card:hover {
-  background: #e9ecef;
-  border-color: #007bff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border-color: var(--primary-color, #069e2d);
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(6, 158, 45, 0.14);
 }
 
 .tool-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   margin-bottom: 1rem;
-  border-radius: 8px;
-  background: #e6f4f1;
-  color: var(--primary-color, #0f766e);
+  border-radius: 0.85rem;
+  background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+  color: var(--primary-color, #069e2d);
+  transition: transform 0.2s ease;
+}
+
+.admin-tool-card:hover .tool-icon {
+  transform: scale(1.06);
 }
 
 .tool-icon .material-symbols-outlined {
@@ -344,31 +463,16 @@ async function loadStats() {
 }
 
 .admin-tool-card h3 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
+  margin: 0 0 0.4rem 0;
+  color: var(--text-primary, #1a1a1a);
   font-size: 1.1rem;
+  font-weight: 700;
 }
 
 .admin-tool-card p {
   margin: 0;
-  color: #666;
+  color: #6b7280;
   font-size: 0.9rem;
-}
-
-.admin-content {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.admin-section h2 {
-  margin: 0 0 1rem 0;
-  color: #333;
-}
-
-.admin-section p {
-  color: #666;
   line-height: 1.5;
 }
 </style>

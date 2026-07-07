@@ -2,27 +2,6 @@ import { getSupabase } from '@/services/supabaseClient'
 import { uploadProfilePhoto, deleteProfilePhoto } from '@/services/storageService'
 
 /**
- * Check if a column exists in the profiles table
- */
-async function columnExists(columnName) {
-  const supabase = getSupabase()
-  if (!supabase) return false
-
-  try {
-    // Try a simple select to see if column exists
-    const { error } = await supabase.from('profiles').select(columnName).limit(0)
-
-    // If error mentions column doesn't exist, return false
-    if (error && error.message.includes('column') && error.message.includes('not found')) {
-      return false
-    }
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
  * Create a new user profile
  */
 export async function createProfile(profileData) {
@@ -166,7 +145,7 @@ export async function getProfile(userId) {
       }
 
       // Import test accounts to get role
-      const { getTestAccountByEmail, TEST_ACCOUNTS } = await import('@/utils/testAccounts')
+      const { TEST_ACCOUNTS } = await import('@/utils/testAccounts')
 
       // Find test account by ID
       const testAccount = Object.values(TEST_ACCOUNTS).find(
@@ -246,7 +225,7 @@ export async function getProfile(userId) {
     }
 
     // Ensure notification_preferences exists with default values if null (only if column exists)
-    if (!data.notification_preferences && data.hasOwnProperty('notification_preferences')) {
+    if (!data.notification_preferences && Object.prototype.hasOwnProperty.call(data, 'notification_preferences')) {
       // Column exists but is null, set defaults
       data.notification_preferences = {
         emailNotifications: { enabled: true },
@@ -266,7 +245,7 @@ export async function getProfile(userId) {
           )
         }
       }
-    } else if (!data.hasOwnProperty('notification_preferences')) {
+    } else if (!Object.prototype.hasOwnProperty.call(data, 'notification_preferences')) {
       // Column doesn't exist, set default value in memory only
       data.notification_preferences = {
         emailNotifications: { enabled: true },

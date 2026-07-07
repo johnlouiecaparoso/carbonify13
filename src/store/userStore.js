@@ -4,6 +4,7 @@ import { getProfile, updateProfile } from '@/services/profileService'
 import { roleService } from '@/services/roleService'
 import { logUserAction } from '@/services/auditService'
 import { ROLES } from '@/constants/roles'
+import { PLANS, effectivePlan, planHasFeature } from '@/constants/plans'
 import { getBlockingRoleApplicationForUser } from '@/services/roleApplicationService'
 
 export const useUserStore = defineStore('user', {
@@ -30,6 +31,11 @@ export const useUserStore = defineStore('user', {
     hasAllPermissions: (state) => (permissions) =>
       roleService.hasAllPermissions(state.role, permissions),
     canAccessRoute: (state) => (routePath) => roleService.canAccessRoute(state.role, routePath),
+    // Subscription tier (orthogonal to role). Expiry-aware: a lapsed paid plan
+    // resolves to FREE here, mirroring the server's effective-plan logic.
+    plan: (state) => effectivePlan(state.profile),
+    isPremium: (state) => effectivePlan(state.profile) !== PLANS.FREE,
+    hasFeature: (state) => (feature) => planHasFeature(effectivePlan(state.profile), feature),
   },
   actions: {
     async fetchSession() {

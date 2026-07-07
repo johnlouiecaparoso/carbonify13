@@ -4,7 +4,7 @@
 
 export const PRODUCTION_CONFIG = {
   // API Configuration
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api.ecolink.io',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api.carbonify.io',
   API_TIMEOUT: 30000, // 30 seconds
 
   // Feature Flags

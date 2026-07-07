@@ -1,6 +1,5 @@
 import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
-import { isTestAccount } from '@/utils/testAccounts'
 import { notifyProjectSubmitted } from '@/services/emailService'
 
 const PROJECT_WORKFLOW_STATUS = {
@@ -167,6 +166,61 @@ export class ProjectApprovalService {
   }
 
   /**
+   * Developer action: resubmit a project that a verifier sent back for revision.
+   * Returns it to the review queue (status -> submitted) and bumps revision_count.
+   * RLS restricts this to the project owner. Verifiers are alerted in-app by the
+   * notify_project_submitted DB trigger (worded as a resubmission) — see
+   * migration 20260626000200; client-side inserts can't reach other users' rows.
+   * @param {string} projectId
+   * @returns {Promise<Object>} updated project row
+   */
+  async resubmitProject(projectId) {
+    if (!this.supabase) {
+      throw new Error('Supabase client not available')
+    }
+    const userId = await getCurrentUserId()
+    if (!userId) {
+      throw new Error('User not authenticated')
+    }
+
+    // Only a needs_revision project belonging to the caller may be resubmitted.
+    const { data: project, error: fetchError } = await this.supabase
+      .from('projects')
+      .select('id, user_id, status, revision_count')
+      .eq('id', projectId)
+      .single()
+
+    if (fetchError || !project) {
+      throw new Error('Project not found')
+    }
+    if (project.user_id !== userId) {
+      throw new Error('You can only resubmit your own projects.')
+    }
+    if (normalizeProjectWorkflowStatus(project.status) !== PROJECT_WORKFLOW_STATUS.NEEDS_REVISION) {
+      throw new Error('Only projects marked "needs revision" can be resubmitted.')
+    }
+
+    const { data, error } = await this.supabase
+      .from('projects')
+      .update({
+        status: PROJECT_WORKFLOW_STATUS.SUBMITTED,
+        revision_count: (project.revision_count || 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', projectId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message || 'Failed to resubmit project')
+    }
+
+    // Verifiers are notified by the notify_project_submitted DB trigger (RLS
+    // blocks a developer from inserting notifications for other users).
+    return data
+  }
+
+  /**
    * Generate credits for a project
    * @param {string} projectId - Project ID
    * @returns {Promise<Object>} Generated credits
@@ -226,7 +280,7 @@ export class ProjectApprovalService {
         console.log('✅ Project credits already exist, checking for listing...')
         
         // Check for existing listings (use maybeSingle to handle duplicates gracefully)
-        const { data: existingListings, error: listingsCheckError } = await this.supabase
+        const { data: existingListings } = await this.supabase
           .from('credit_listings')
           .select('*')
           .eq('project_credit_id', existingCredits.id)
@@ -537,7 +591,8 @@ export class ProjectApprovalService {
       }
 
       // Prepare project data (exclude documents field as it doesn't exist in DB)
-      const { documents, ...projectDataWithoutDocuments } = projectData
+      const projectDataWithoutDocuments = { ...projectData }
+      delete projectDataWithoutDocuments.documents
       const submitData = {
         ...projectDataWithoutDocuments,
         user_id: finalUserId,

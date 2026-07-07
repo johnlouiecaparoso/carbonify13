@@ -29,7 +29,13 @@ export async function saveEmissionsRecord({
   const uid = await getCurrentUserId()
   if (!uid) throw new Error('User not authenticated')
 
-  const { baseline, avoided, net } = computeWasteEmissions(wasteGenerated, wasteDiverted)
+  // Use the sanitized/clamped tonnage (diverted can never exceed generated) so
+  // the stored waste figures stay consistent with the computed emissions and the
+  // diversion rate can never render above 100%.
+  const { generated, diverted, baseline, avoided, net } = computeWasteEmissions(
+    wasteGenerated,
+    wasteDiverted,
+  )
 
   const { data, error } = await supabase
     .from('lgu_emissions_records')
@@ -39,8 +45,8 @@ export async function saveEmissionsRecord({
         municipality: municipality || null,
         period_label: periodLabel || null,
         population: population ? Number(population) : null,
-        waste_generated_tonnes: Number(wasteGenerated) || 0,
-        waste_diverted_tonnes: Number(wasteDiverted) || 0,
+        waste_generated_tonnes: generated,
+        waste_diverted_tonnes: diverted,
         baseline_emissions_tco2e: baseline,
         avoided_emissions_tco2e: avoided,
         net_emissions_tco2e: net,

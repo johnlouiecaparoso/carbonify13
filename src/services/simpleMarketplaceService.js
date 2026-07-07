@@ -4,7 +4,7 @@ import { getSupabase } from '@/services/supabaseClient'
  * Simple marketplace service that avoids complex joins
  * Uses the approach that works in debug service
  */
-export async function getSimpleMarketplaceListings(filters = {}) {
+export async function getSimpleMarketplaceListings() {
   const supabase = getSupabase()
 
   if (!supabase) {

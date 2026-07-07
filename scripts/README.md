@@ -1,6 +1,6 @@
 # Scripts Directory
 
-This directory contains all utility scripts, setup scripts, and test scripts for the EcoLink project.
+This directory contains all utility scripts, setup scripts, and test scripts for the Carbonify project.
 
 ## 📁 Directory Structure
 

@@ -348,7 +348,7 @@ export default {
       router.push(`/project/${listing.project_id}`)
     }
 
-    function showPurchaseModalFor(listing) {
+    function showPurchaseModalFor() {
       if (!userStore.isAuthenticated) {
         router.push('/login')
         return

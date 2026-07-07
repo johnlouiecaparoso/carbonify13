@@ -34,7 +34,7 @@ export class ProjectWorkflowService {
       }
 
       // Create the project with all fields including estimated_credits and credit_price
-      const { documents, ...projectDataWithoutDocuments } = projectData
+      const { documents } = projectData
       
       // Convert numeric fields to numbers (form inputs are strings)
       const estimatedCredits = projectData.estimated_credits 
@@ -60,19 +60,29 @@ export class ProjectWorkflowService {
         expected_impact: projectData.expected_impact.trim(),
         status: 'pending',
         user_id: finalUserId,
+        ...(projectData.geo_coordinates && { geo_coordinates: projectData.geo_coordinates }),
+        ...(projectData.boundary && { boundary: projectData.boundary }),
+        ...(Array.isArray(projectData.co_benefits) && projectData.co_benefits.length && {
+          co_benefits: projectData.co_benefits,
+        }),
         ...(estimatedCredits !== null && !isNaN(estimatedCredits) && estimatedCredits > 0 && { estimated_credits: estimatedCredits }),
         ...(creditPrice !== null && !isNaN(creditPrice) && creditPrice > 0 && { credit_price: creditPrice }),
         ...(projectData.project_image && { project_image: projectData.project_image }),
         ...(projectData.image_name && { image_name: projectData.image_name }),
         ...(projectData.image_type && { image_type: projectData.image_type }),
         ...(projectData.image_size && { image_size: projectData.image_size }),
+        ...(projectData.additionality_type && { additionality_type: projectData.additionality_type }),
+        ...(projectData.permanence_years != null &&
+          projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
+        ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
               name: doc.name,
               type: doc.type,
               size: doc.size,
-              url: doc.url,
+              path: doc.path || null,
+              url: doc.url || null,
             })),
           ),
         }),
@@ -80,15 +90,22 @@ export class ProjectWorkflowService {
 
       let { data, error } = await this.supabase.from('projects').insert([insertData]).select().single()
 
-      if (
-        error &&
-        (error.message?.includes('supporting_documents') ||
-          error.details?.includes('supporting_documents') ||
-          error.hint?.includes('supporting_documents'))
-      ) {
+      // Schema-drift safety: if an optional column is missing on this DB, drop
+      // the offending field(s) and retry instead of failing the whole submit.
+      const driftCols = [
+        'supporting_documents',
+        'boundary',
+        'geo_coordinates',
+        'additionality_type',
+        'permanence_years',
+        'reversal_risk',
+      ]
+      const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
+      if (error && driftCols.some((c) => blob.includes(c))) {
         const fallbackData = { ...insertData }
-        delete fallbackData.supporting_documents
-
+        driftCols.forEach((c) => {
+          if (blob.includes(c)) delete fallbackData[c]
+        })
         const retryResult = await this.supabase.from('projects').insert([fallbackData]).select().single()
         data = retryResult.data
         error = retryResult.error

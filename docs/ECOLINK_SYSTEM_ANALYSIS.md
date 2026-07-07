@@ -1,4 +1,4 @@
-# Ecolink — System Analysis, Benchmark & Gap Report
+# Carbonify — System Analysis, Benchmark & Gap Report
 
 **Prepared:** June 2026
 **Scope:** Implementation status against the SRD + Platform Review, a benchmark against real‑world carbon registries, and a rating of what is still missing.
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-Ecolink has moved well beyond a "simple project listing" prototype. Over six implementation phases it now covers the **full lifecycle** the SRD describes — registration → validation → MRV → verification → issuance → marketplace → trading → retirement — with serialized carbon units, server‑side emission‑reduction calculation, verifier‑gated issuance, KYC, MFA, an LGU tool suite, and a public certificate‑verification page.
+Carbonify has moved well beyond a "simple project listing" prototype. Over six implementation phases it now covers the **full lifecycle** the SRD describes — registration → validation → MRV → verification → issuance → marketplace → trading → retirement — with serialized carbon units, server‑side emission‑reduction calculation, verifier‑gated issuance, KYC, MFA, an LGU tool suite, and a public certificate‑verification page.
 
 | Lens | Rating | One‑line verdict |
 |------|--------|------------------|
@@ -16,7 +16,7 @@ Ecolink has moved well beyond a "simple project listing" prototype. Over six imp
 | **vs. the Platform Review (PH eligibility)** | **8.5 / 10** | 7 of 8 improvement areas substantially delivered; blockchain + a few data fields outstanding. |
 | **vs. a real‑world production registry (Verra/Gold Standard class)** | **4.5 / 10** | Has the *shape* of a registry, but lacks accredited third‑party VVBs, approved methodologies, independent governance, interoperability/Article 6, and registry‑grade immutability. |
 
-**Bottom line:** As a capstone demonstrating a credible, PH‑aligned carbon platform, Ecolink is strong and largely feature‑complete. To operate as a *real* registry it would need external accreditation, methodology rigor, and interoperability that are beyond a software build — these are institutional, not just code, gaps.
+**Bottom line:** As a capstone demonstrating a credible, PH‑aligned carbon platform, Carbonify is strong and largely feature‑complete. To operate as a *real* registry it would need external accreditation, methodology rigor, and interoperability that are beyond a software build — these are institutional, not just code, gaps.
 
 ---
 
@@ -124,7 +124,7 @@ Legend: ✅ Implemented · 🟡 Partial · ❌ Not implemented · ⏳ Marked "fu
 
 ## 4. Benchmark vs. Real‑World Carbon Markets
 
-Real voluntary‑market registries (Verra's VCS, Gold Standard) and the emerging PH compliance market set the bar Ecolink is measured against.
+Real voluntary‑market registries (Verra's VCS, Gold Standard) and the emerging PH compliance market set the bar Carbonify is measured against.
 
 **How the real registries work (for reference):**
 - **Verra (VCS):** developer designs a project under an *approved methodology* → submits a Project Description → **independent third‑party validation by an accredited VVB** → registration → monitoring → **independent third‑party verification** → issuance of serialized VCUs → retirement; all issuances/transfers/retirements are **publicly traceable by serial number**. ([Verra](https://verra.org/programs/verified-carbon-standard/), [SustainCERT](https://www.sustain-cert.com/news/what-are-verra-and-the-verified-carbon-standard))
@@ -135,7 +135,7 @@ Real voluntary‑market registries (Verra's VCS, Gold Standard) and the emerging
 
 ### Feature‑by‑feature comparison
 
-| Capability | Ecolink | Verra / Gold Standard | Verdict |
+| Capability | Carbonify | Verra / Gold Standard | Verdict |
 |---|---|---|---|
 | Project lifecycle (register→validate→verify→issue→trade→retire) | ✅ Full | ✅ Full | **At parity (in shape)** |
 | Serialized carbon units | ✅ Per‑unit `ECO‑…` serials | ✅ Industry standard | **At parity** |
@@ -152,7 +152,7 @@ Real voluntary‑market registries (Verra's VCS, Gold Standard) and the emerging
 | Financial settlement / escrow | 🟡 (PayMongo, manual confirmation) | ✅ (mature) | **Behind** |
 | MFA + RBAC + audit trail | ✅ | ✅ | **At parity** |
 
-**Interpretation:** Ecolink reproduces the *software mechanics* of a credible registry — and in digital MRV it is arguably ahead of where many incumbents were until recently. The gaps that remain are predominantly **institutional/regulatory** (accredited verifiers, approved methodologies, independent governance, national‑registry interoperability), which a capstone cannot satisfy by code alone, plus a few technical items (double‑claim prevention, public registry transparency, blockchain).
+**Interpretation:** Carbonify reproduces the *software mechanics* of a credible registry — and in digital MRV it is arguably ahead of where many incumbents were until recently. The gaps that remain are predominantly **institutional/regulatory** (accredited verifiers, approved methodologies, independent governance, national‑registry interoperability), which a capstone cannot satisfy by code alone, plus a few technical items (double‑claim prevention, public registry transparency, blockchain).
 
 ---
 

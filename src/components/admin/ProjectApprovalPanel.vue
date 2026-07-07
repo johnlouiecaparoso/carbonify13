@@ -84,7 +84,23 @@
           @click="activeProjectId = project.id"
         >
           <span class="project-list-title">{{ project.title }}</span>
-          <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
+          <span class="project-list-badges">
+            <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
+            <span
+              v-if="Number(project.revision_count) > 0"
+              class="revision-badge"
+              :title="`Resubmitted after revision — revision ${project.revision_count}`"
+            >
+              ↻ rev {{ project.revision_count }}
+            </span>
+            <span
+              v-if="projectOverdue(project)"
+              class="sla-badge overdue"
+              :title="`Waiting ${ageDays(project)} days — over the ${slaDays}-day SLA`"
+            >
+              {{ ageDays(project) }}d · overdue
+            </span>
+          </span>
         </button>
       </aside>
 
@@ -94,6 +110,13 @@
             <h3 class="detail-title">{{ activeProject.title }}</h3>
             <span :class="['status-badge', activeProject.status]">
               {{ getStatusLabel(activeProject.status) }}
+            </span>
+            <span
+              v-if="Number(activeProject.revision_count) > 0"
+              class="revision-badge"
+              :title="`This project was resubmitted after a revision request (revision ${activeProject.revision_count})`"
+            >
+              ↻ Resubmitted · rev {{ activeProject.revision_count }}
             </span>
           </header>
 
@@ -108,7 +131,10 @@
             </div>
             <div class="meta-item">
               <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
-              <span>Submitted {{ formatDate(activeProject.created_at) }}</span>
+              <span>Submitted {{ formatDate(activeProject.created_at) }} ({{ ageDays(activeProject) }}d ago)</span>
+              <span v-if="projectOverdue(activeProject)" class="sla-badge overdue">
+                Over {{ slaDays }}-day SLA
+              </span>
             </div>
           </div>
 
@@ -129,7 +155,7 @@
           </div>
 
           <div
-            v-if="activeProject.project_image || parsedSupportingDocuments(activeProject).length"
+            v-if="activeProject.project_image || resolvedDocuments.length"
             class="detail-section"
           >
             <h4>
@@ -145,8 +171,8 @@
               />
             </div>
 
-            <ul v-if="parsedSupportingDocuments(activeProject).length" class="submitted-doc-list">
-              <li v-for="(doc, index) in parsedSupportingDocuments(activeProject)" :key="`${doc.name || 'doc'}-${index}`">
+            <ul v-if="resolvedDocuments.length" class="submitted-doc-list">
+              <li v-for="(doc, index) in resolvedDocuments" :key="`${doc.name || 'doc'}-${index}`">
                 <a v-if="doc.url" :href="doc.url" target="_blank" rel="noopener noreferrer">
                   {{ doc.name || `Document ${index + 1}` }}
                 </a>
@@ -165,6 +191,39 @@
         </div>
 
         <ProjectAssessmentPanel :project="activeProject" />
+
+        <ValidationChecklist
+          :key="activeProject.id"
+          :project-id="activeProject.id"
+          @progress="rubricProgress = $event"
+        />
+
+        <!-- Verifier sets the price per credit (developers no longer provide it). -->
+        <div
+          v-if="['submitted', 'pending', 'in_review'].includes(activeProject.status)"
+          class="detail-section"
+        >
+          <h4>
+            <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+            <span>Price per Credit</span>
+          </h4>
+          <div class="verifier-price-row">
+            <span class="verifier-price-prefix">₱</span>
+            <input
+              v-model.number="verifierPrice"
+              type="number"
+              min="0.01"
+              step="0.01"
+              class="verifier-price-input"
+              placeholder="e.g. 250.00"
+            />
+          </div>
+          <p class="verifier-price-hint">
+            You set the price (PHP) buyers pay per carbon credit — it is saved when you
+            <strong>Validate</strong> the project. Leave blank to keep the current price (or
+            the category default if none is set yet).
+          </p>
+        </div>
 
         <div class="detail-actions">
           <button
@@ -223,17 +282,24 @@
           </button>
 
           <button
-            v-if="userStore.isAdmin"
+            v-if="userStore.isAdmin || userStore.isVerifier"
             class="action-btn danger"
             type="button"
             @click="deleteProject(activeProject.id)"
             :disabled="processing"
-            title="Delete project permanently (Admin only)"
+            title="Delete project permanently"
           >
             <span class="material-symbols-outlined" aria-hidden="true">delete_forever</span>
             <span>Delete Project</span>
           </button>
         </div>
+
+        <ProjectCommentThread
+          v-if="activeProject"
+          :key="activeProject.id"
+          :project-id="activeProject.id"
+          :allow-internal="true"
+        />
 
         <div
           v-if="activeProject && processingProjects.includes(activeProject.id)"
@@ -287,20 +353,34 @@
             </div>
 
             <div class="prompt-content">
-              <h3 class="prompt-title">Confirm Rejected?</h3>
+              <h3 class="prompt-title">
+                {{ rejectPromptState.mode === 'needs_revision' ? 'Request revision?' : 'Confirm Rejected?' }}
+              </h3>
               <p class="prompt-message-center">
-                Are you sure you want to mark "{{ rejectPromptState.projectTitle }}" as rejected?
-                This action cannot be undone.
+                <template v-if="rejectPromptState.mode === 'needs_revision'">
+                  Send "{{ rejectPromptState.projectTitle }}" back to the developer for changes.
+                  They'll be able to edit, reply, and resubmit.
+                </template>
+                <template v-else>
+                  Are you sure you want to mark "{{ rejectPromptState.projectTitle }}" as rejected?
+                  This action cannot be undone.
+                </template>
               </p>
 
               <div class="reject-notes-group">
-                <label class="reject-notes-label" for="reject-notes">Rejection notes for project owner</label>
+                <label class="reject-notes-label" for="reject-notes">
+                  {{ rejectPromptState.mode === 'needs_revision'
+                    ? 'What needs to change? (shown to the developer)'
+                    : 'Rejection notes for project owner' }}
+                </label>
                 <textarea
                   id="reject-notes"
                   v-model="rejectPromptState.notes"
                   class="reject-notes-input"
                   rows="4"
-                  placeholder="Explain why this project is rejected and what should be improved."
+                  :placeholder="rejectPromptState.mode === 'needs_revision'
+                    ? 'List the specific revisions the developer should make before resubmitting.'
+                    : 'Explain why this project is rejected and what should be improved.'"
                 />
                 <p v-if="rejectPromptError" class="reject-notes-error">{{ rejectPromptError }}</p>
               </div>
@@ -311,7 +391,7 @@
                 Cancel
               </button>
               <button type="button" class="reject-confirm-btn" @click="confirmRejectPrompt">
-                Confirm Rejected
+                {{ rejectPromptState.mode === 'needs_revision' ? 'Request revision' : 'Confirm Rejected' }}
               </button>
             </div>
           </div>
@@ -329,6 +409,11 @@ import { useModernPrompt } from '@/composables/useModernPrompt'
 import { projectService } from '@/services/projectService'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import ProjectAssessmentPanel from '@/components/verifier/ProjectAssessmentPanel.vue'
+import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
+import { addProjectComment } from '@/services/projectCommentService'
+import ValidationChecklist from '@/components/verifier/ValidationChecklist.vue'
+import { getSlaDays, projectAgeDays, isOverdue } from '@/services/verificationService'
+import { resolveDocumentUrls } from '@/services/storageService'
 
 const { promptState, confirm, success, error: showErrorPrompt, handleConfirm, handleCancel, handleClose } = useModernPrompt()
 
@@ -345,6 +430,7 @@ const decisionCard = ref(null)
 const rejectPromptError = ref('')
 const rejectPromptState = ref({
   isOpen: false,
+  mode: 'rejected', // 'rejected' | 'needs_revision'
   projectTitle: '',
   notes: '',
   resolve: null,
@@ -362,8 +448,44 @@ const activeProject = computed(() =>
   displayedProjects.value.find((project) => project.id === activeProjectId.value) || null,
 )
 
+// Supporting docs live in a private bucket → resolve signed URLs for the active
+// project whenever it changes (verifiers are authenticated, so signing works).
+const resolvedDocuments = ref([])
+watch(
+  activeProject,
+  async (proj) => {
+    resolvedDocuments.value = proj?.supporting_documents
+      ? await resolveDocumentUrls(proj.supporting_documents)
+      : []
+  },
+  { immediate: true },
+)
+
+const slaDays = ref(5)
+const verifierPrice = ref('')
+// Latest rubric-completion snapshot emitted by ValidationChecklist, used to warn
+// before validating a project whose required rubric items aren't all assessed.
+const rubricProgress = ref(null)
+
+// Pre-fill the price box with any existing value when the verifier switches
+// projects, so they can confirm or adjust it.
+watch(activeProject, (proj) => {
+  verifierPrice.value = proj?.credit_price ?? ''
+})
+
+// SLA helpers for the queue (age + overdue flag).
+function ageDays(project) {
+  return projectAgeDays(project)
+}
+function projectOverdue(project) {
+  return isOverdue(project, slaDays.value)
+}
+
 onMounted(() => {
   loadPendingProjects()
+  getSlaDays().then((d) => {
+    slaDays.value = d
+  })
 })
 
 watch(
@@ -438,11 +560,21 @@ async function deleteProject(projectId) {
     return
   }
 
-  // Check if user is admin
-  if (!userStore.isAdmin) {
+  // Admins and verifiers may delete projects. Verifiers cannot delete a
+  // validated project (enforced by RLS) — the attempt will surface an error.
+  if (!userStore.isAdmin && !userStore.isVerifier) {
     await showErrorPrompt({
       title: 'Access Denied',
-      message: 'Only administrators can delete projects.',
+      message: 'Only administrators and verifiers can delete projects.',
+      confirmText: 'OK',
+    })
+    return
+  }
+
+  if (userStore.isVerifier && !userStore.isAdmin && project.status === 'validated') {
+    await showErrorPrompt({
+      title: 'Cannot Delete',
+      message: 'Validated projects have issued credits and can only be removed by an administrator.',
       confirmText: 'OK',
     })
     return
@@ -581,29 +713,14 @@ function getStatusLabel(status) {
   }
 }
 
-function parsedSupportingDocuments(project) {
-  if (!project?.supporting_documents) return []
-
-  try {
-    const parsed =
-      typeof project.supporting_documents === 'string'
-        ? JSON.parse(project.supporting_documents)
-        : project.supporting_documents
-
-    return Array.isArray(parsed) ? parsed : []
-  } catch (error) {
-    console.warn('Failed to parse supporting documents:', error)
-    return []
-  }
-}
-
-function openRejectPrompt(project) {
+function openRejectPrompt(project, mode = 'rejected') {
   return new Promise((resolve) => {
     rejectPromptError.value = ''
     rejectPromptState.value = {
       isOpen: true,
+      mode,
       projectTitle: project?.title || 'this project',
-      notes: project?.verification_notes || '',
+      notes: mode === 'needs_revision' ? '' : project?.verification_notes || '',
       resolve,
     }
   })
@@ -613,6 +730,7 @@ function closeRejectPrompt(result = null) {
   const resolver = rejectPromptState.value.resolve
   rejectPromptState.value = {
     isOpen: false,
+    mode: 'rejected',
     projectTitle: '',
     notes: '',
     resolve: null,
@@ -632,7 +750,10 @@ function handleRejectOverlayClick(event) {
 function confirmRejectPrompt() {
   const notes = String(rejectPromptState.value.notes || '').trim()
   if (notes.length < 5) {
-    rejectPromptError.value = 'Please provide a rejection note with at least 5 characters.'
+    rejectPromptError.value =
+      rejectPromptState.value.mode === 'needs_revision'
+        ? 'Please describe what needs to change (at least 5 characters).'
+        : 'Please provide a rejection note with at least 5 characters.'
     return
   }
 
@@ -646,18 +767,24 @@ async function openVerificationModal(project, newStatus) {
   let verifierNotes = ''
   let confirmed = false
 
-  if (newStatus === 'rejected') {
-    const notes = await openRejectPrompt(project)
+  if (newStatus === 'rejected' || newStatus === 'needs_revision') {
+    const notes = await openRejectPrompt(project, newStatus)
     if (!notes) {
       return
     }
     verifierNotes = notes
     confirmed = true
   } else {
+    // When validating, warn if the required rubric items aren't all assessed —
+    // validation mints/lists credits, so it shouldn't happen on a blank rubric.
+    let rubricWarning = ''
+    if (newStatus === 'validated' && rubricProgress.value && !rubricProgress.value.complete) {
+      rubricWarning = `\n\nWarning: the validation rubric is incomplete (${rubricProgress.value.requiredDone}/${rubricProgress.value.requiredTotal} required items assessed, score ${rubricProgress.value.percent}%). Validate anyway?`
+    }
     confirmed = await confirm({
       type: 'success',
       title: `Confirm ${statusLabel}?`,
-      message: `Are you sure you want to mark "${project.title}" as ${statusLabel.toLowerCase()}? This action cannot be undone.`,
+      message: `Are you sure you want to mark "${project.title}" as ${statusLabel.toLowerCase()}? This action cannot be undone.${rubricWarning}`,
       confirmText: `Confirm ${statusLabel}`,
       cancelText: 'Cancel',
     })
@@ -671,8 +798,37 @@ async function openVerificationModal(project, newStatus) {
   processing.value = true
 
   try {
+    // Persist the verifier-set price before validation so the listing/mint uses
+    // it. A blank box falls back to the category default in projectApprovalService.
+    if (newStatus === 'validated' || newStatus === 'approved') {
+      const price = Number(verifierPrice.value)
+      if (Number.isFinite(price) && price > 0) {
+        // Do NOT swallow this: if the price fails to persist, validation would
+        // mint/list credits at the wrong (or unset) price. Abort and tell the
+        // verifier instead of showing a false success.
+        try {
+          await projectService.updateProject(project.id, { credit_price: price })
+          project.credit_price = price
+        } catch (priceErr) {
+          throw new Error(
+            `Could not save the credit price (₱${price}). The project was NOT validated. ${priceErr?.message || 'Please try again.'}`,
+          )
+        }
+      }
+    }
+
     const result = await projectApprovalService.updateProjectStatus(project.id, newStatus, verifierNotes)
     console.log('Project status updated:', result)
+
+    // Mirror the revision reason into the comment thread so the developer can
+    // reply and the back-and-forth is recorded in one place.
+    if (newStatus === 'needs_revision' && verifierNotes) {
+      try {
+        await addProjectComment(project.id, verifierNotes, { authorRole: userStore.role })
+      } catch (commentErr) {
+        console.warn('Could not post revision comment (non-critical):', commentErr?.message)
+      }
+    }
 
     // Update project status in all lists
     const projectIndex = allProjects.value.findIndex(p => p.id === project.id)
@@ -716,7 +872,7 @@ async function openVerificationModal(project, newStatus) {
 .panel-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--ecolink-border, #e5e7eb);
+  border-bottom: 1px solid var(--carbonify-border, #e5e7eb);
 }
 
 .decision-card {
@@ -769,14 +925,14 @@ async function openVerificationModal(project, newStatus) {
 
 .panel-header h2 {
   margin: 0 0 8px 0;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
   font-size: 26px;
   font-weight: 700;
 }
 
 .panel-header p {
   margin: 0;
-  color: var(--ecolink-muted, #6b7280);
+  color: var(--carbonify-muted, #6b7280);
 }
 
 .filter-tabs {
@@ -788,24 +944,24 @@ async function openVerificationModal(project, newStatus) {
 
 .filter-tab {
   padding: 0.55rem 1.1rem;
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
   background: white;
   border-radius: 999px;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
   transition: all 0.2s ease;
 }
 
 .filter-tab:hover {
-  border-color: var(--primary-color, #10b981);
-  color: var(--primary-color, #10b981);
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
 }
 
 .filter-tab.active {
-  background: var(--primary-color, #10b981);
-  border-color: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #069e2d);
   color: white;
   box-shadow: 0 10px 18px rgba(16, 185, 129, 0.18);
 }
@@ -815,14 +971,14 @@ async function openVerificationModal(project, newStatus) {
 .no-projects {
   text-align: center;
   padding: 48px 24px;
-  color: var(--ecolink-muted, #6b7280);
+  color: var(--carbonify-muted, #6b7280);
 }
 
 .spinner {
   width: 48px;
   height: 48px;
   border: 4px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--primary-color, #10b981);
+  border-top-color: var(--primary-color, #069e2d);
   border-radius: 50%;
   animation: spin 1s ease-in-out infinite;
   margin: 0 auto 16px;
@@ -847,7 +1003,7 @@ async function openVerificationModal(project, newStatus) {
 
 .retry-btn {
   padding: 10px 18px;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   border: none;
   border-radius: 8px;
@@ -1034,8 +1190,8 @@ async function openVerificationModal(project, newStatus) {
 .project-list {
   display: flex;
   flex-direction: column;
-  background: var(--ecolink-surface, #ffffff);
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  background: var(--carbonify-surface, #ffffff);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
   border-radius: 16px;
   overflow: hidden;
   max-height: calc(100vh - 260px);
@@ -1053,12 +1209,12 @@ async function openVerificationModal(project, newStatus) {
   text-align: left;
   cursor: pointer;
   font-weight: 600;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
   transition: background 0.15s ease;
 }
 
 .project-list-item + .project-list-item {
-  border-top: 1px solid var(--ecolink-border, #e5e7eb);
+  border-top: 1px solid var(--carbonify-border, #e5e7eb);
 }
 
 .project-list-item:hover {
@@ -1067,12 +1223,36 @@ async function openVerificationModal(project, newStatus) {
 
 .project-list-item.active {
   background: rgba(16, 185, 129, 0.16);
-  border-left: 3px solid var(--primary-color, #10b981);
+  border-left: 3px solid var(--primary-color, #069e2d);
 }
 
 .project-list-title {
   flex: 1;
   font-size: 0.95rem;
+}
+
+.project-list-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.sla-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sla-badge.overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .status-badge {
@@ -1087,17 +1267,25 @@ async function openVerificationModal(project, newStatus) {
   letter-spacing: 0.04em;
 }
 
-.status-badge.pending {
+.status-badge.pending,
+.status-badge.submitted {
   background: rgba(253, 224, 71, 0.18);
   color: #92400e;
 }
 
-.status-badge.under_review {
+.status-badge.under_review,
+.status-badge.in_review {
   background: rgba(147, 197, 253, 0.2);
   color: #1d4ed8;
 }
 
-.status-badge.approved {
+.status-badge.needs_revision {
+  background: rgba(251, 146, 60, 0.2);
+  color: #9a3412;
+}
+
+.status-badge.approved,
+.status-badge.validated {
   background: rgba(34, 197, 94, 0.18);
   color: #166534;
 }
@@ -1107,10 +1295,23 @@ async function openVerificationModal(project, newStatus) {
   color: #9f1239;
 }
 
+.revision-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+  white-space: nowrap;
+}
+
 .project-detail {
   position: relative;
-  background: var(--ecolink-surface, #ffffff);
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  background: var(--carbonify-surface, #ffffff);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
   border-radius: 16px;
   padding: 24px;
   display: flex;
@@ -1118,14 +1319,13 @@ async function openVerificationModal(project, newStatus) {
   gap: 20px;
   min-height: 380px;
   min-width: 0;
+  /* Scroll the whole detail panel so the assessment, checklist, and the
+     Validate / Request Revision / Reject actions below it stay reachable. */
   max-height: calc(100vh - 260px);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .detail-scroll-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1148,14 +1348,14 @@ async function openVerificationModal(project, newStatus) {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 700;
-  color: var(--ecolink-text, #0f172a);
+  color: var(--carbonify-text, #0f172a);
 }
 
 .detail-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 20px;
-  color: var(--ecolink-muted, #6b7280);
+  color: var(--carbonify-muted, #6b7280);
   font-size: 0.95rem;
 }
 
@@ -1182,17 +1382,17 @@ async function openVerificationModal(project, newStatus) {
   gap: 0.45rem;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--ecolink-text, #111827);
+  color: var(--carbonify-text, #111827);
 }
 
 .detail-section h4 .material-symbols-outlined {
   font-size: 1.2rem;
-  color: var(--primary-color, #10b981);
+  color: var(--primary-color, #069e2d);
 }
 
 .detail-section p {
   margin: 0;
-  color: var(--ecolink-text, #374151);
+  color: var(--carbonify-text, #374151);
   line-height: 1.6;
 }
 
@@ -1203,7 +1403,7 @@ async function openVerificationModal(project, newStatus) {
 .submitted-image {
   max-width: min(100%, 420px);
   border-radius: 10px;
-  border: 1px solid var(--ecolink-border, #e5e7eb);
+  border: 1px solid var(--carbonify-border, #e5e7eb);
 }
 
 .submitted-doc-list {
@@ -1215,12 +1415,45 @@ async function openVerificationModal(project, newStatus) {
   margin-bottom: 0.35rem;
 }
 
+.verifier-price-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 2px solid var(--carbonify-border, #d1e7dd);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+}
+
+.verifier-price-row:focus-within {
+  border-color: var(--primary-color, #069e2d);
+}
+
+.verifier-price-prefix {
+  font-weight: 700;
+  color: #6b7280;
+}
+
+.verifier-price-input {
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  width: 8rem;
+  background: transparent;
+}
+
+.verifier-price-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #6b7280);
+}
+
 .detail-actions {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-top: auto;
-  border-top: 1px solid var(--ecolink-border, #e5e7eb);
+  border-top: 1px solid var(--carbonify-border, #e5e7eb);
   background: #ffffff;
   padding: 12px 0 0;
 }
@@ -1248,7 +1481,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.success {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   box-shadow: 0 12px 20px rgba(16, 185, 129, 0.22);
 }
@@ -1269,13 +1502,13 @@ async function openVerificationModal(project, newStatus) {
 
 .action-btn.outline {
   background: transparent;
-  border-color: var(--ecolink-border, #e5e7eb);
-  color: var(--ecolink-text, #111827);
+  border-color: var(--carbonify-border, #e5e7eb);
+  color: var(--carbonify-text, #111827);
 }
 
 .action-btn.outline:hover:not(:disabled) {
-  border-color: var(--primary-color, #10b981);
-  color: var(--primary-color, #10b981);
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
 }
 
 .action-btn.outline.danger {
@@ -1316,7 +1549,7 @@ async function openVerificationModal(project, newStatus) {
   .project-list-item,
   .project-list-item + .project-list-item {
     border-top: none;
-    border-right: 1px solid var(--ecolink-border, #e5e7eb);
+    border-right: 1px solid var(--carbonify-border, #e5e7eb);
     min-width: 220px;
   }
 
@@ -1345,7 +1578,7 @@ async function openVerificationModal(project, newStatus) {
   .project-list-item,
   .project-list-item + .project-list-item {
     border-right: none;
-    border-top: 1px solid var(--ecolink-border, #e5e7eb);
+    border-top: 1px solid var(--carbonify-border, #e5e7eb);
   }
 
   .detail-actions {

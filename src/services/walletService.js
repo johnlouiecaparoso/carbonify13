@@ -68,53 +68,26 @@ export async function getWalletBalance(userId = null) {
   return data
 }
 
-export async function createWallet(userId = null) {
+export async function createWallet() {
   const supabase = getSupabase()
   if (!supabase) {
     throw new Error('Supabase client not available')
   }
 
-  // Get user ID from session if not provided
-  if (!userId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      throw new Error('User not authenticated')
-    }
-    userId = user.id
-  }
-
-  const { data, error } = await supabase
-    .from('wallet_accounts')
-    .insert([
-      {
-        user_id: userId,
-        current_balance: 0,
-        currency: 'PHP',
-      },
-    ])
-    .select()
-    .single()
-
+  // Wallet creation is server-side via the ensure_wallet() RPC (SECURITY
+  // DEFINER, user taken from the JWT). This is idempotent and survives the
+  // financial-table RLS lockdown — the browser never inserts wallet_accounts.
+  const { data, error } = await supabase.rpc('ensure_wallet')
   if (error) {
-    // Check for RLS (Row Level Security) policy violations
-    if (error.message.includes('row-level security') || error.message.includes('violates row-level security') || error.code === '42501' || error.code === 'PGRST301') {
-      const rlsError = new Error(
-        'Wallet creation blocked by database security policy. Please contact an administrator to configure Row Level Security (RLS) policies to allow users to create their own wallet accounts.'
-      )
-      rlsError.code = 'RLS_VIOLATION'
-      rlsError.originalError = error
-      console.error('RLS Policy Violation - Wallet creation blocked:', {
-        message: error.message,
-        code: error.code,
-        hint: 'The Supabase RLS policy for the wallet_accounts table needs to allow INSERT operations for authenticated users.',
-      })
-      throw rlsError
-    }
     throw new Error(error.message || 'Failed to create wallet')
   }
-  return data
+
+  // The table function returns an array; the caller expects a single wallet row.
+  const wallet = Array.isArray(data) ? data[0] : data
+  if (!wallet) {
+    throw new Error('Failed to create wallet')
+  }
+  return wallet
 }
 
 export async function getTransactions(userId = null, limit = 50) {
@@ -211,75 +184,6 @@ export async function getTransactions(userId = null, limit = 50) {
   return transactions
 }
 
-export async function createTransaction(transactionData) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    throw new Error('Supabase client not available')
-  }
-
-  const { data, error } = await supabase
-    .from('wallet_transactions')
-    .insert([transactionData])
-    .select()
-    .single()
-
-  if (error) {
-    throw new Error(error.message || 'Failed to create transaction')
-  }
-  return data
-}
-
-export async function updateWalletBalance(userId = null, amount, transactionType = 'topup') {
-  const supabase = getSupabase()
-  if (!supabase) {
-    throw new Error('Supabase client not available')
-  }
-
-  // Get user ID from session if not provided
-  if (!userId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      throw new Error('User not authenticated')
-    }
-    userId = user.id
-  }
-
-  // Get current balance
-  const { data: wallet, error: walletError } = await supabase
-    .from('wallet_accounts')
-    .select('current_balance')
-    .eq('user_id', userId)
-    .single()
-
-  if (walletError) {
-    throw new Error('Failed to fetch current balance')
-  }
-
-  // Calculate new balance
-  const currentBalance = wallet.current_balance || 0
-  const newBalance = transactionType === 'topup' ? currentBalance + amount : currentBalance - amount
-
-  if (newBalance < 0) {
-    throw new Error('Insufficient balance for withdrawal')
-  }
-
-  // Update wallet balance
-  const { data, error } = await supabase
-    .from('wallet_accounts')
-    .update({ current_balance: newBalance })
-    .eq('user_id', userId)
-    .select()
-    .single()
-
-  if (error) {
-    throw new Error(error.message || 'Failed to update wallet balance')
-  }
-
-  return data
-}
-
 // Payment gateway integration functions
 export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = null) {
   const supabase = getSupabase()
@@ -337,30 +241,23 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
       console.log('✅ Using existing wallet account:', walletAccount.id)
     }
 
-    // Create payment intent with the payment gateway
-    let paymentIntent
-    const paymentData = {
-      amount: amount,
-      currency: 'PHP',
-      description: `EcoLink Wallet Top-up`,
-      userId: userId, // Required by payment service - must be at top level
-      metadata: {
-        walletAccountId: walletAccount.id,
-      },
+    // Server-authoritative top-up (Phase 1 P5): record a payment_intent and let
+    // the webhook credit the balance. The browser no longer inserts a pending
+    // wallet_transactions row or updates the balance itself — that keeps top-ups
+    // working after the financial-table RLS lockdown.
+    const { createWalletTopupCheckout } = await import('@/services/paymongoService')
+
+    let billing = null
+    try {
+      billing = await realPaymentService.getBuyerBillingInfo(userId)
+    } catch {
+      // billing prefill is best-effort
     }
 
-    // Use PayMongo via realPaymentService
-    let paymentResult
-    if (paymentMethod === 'gcash') {
-      paymentResult = await realPaymentService.processGCashPayment(paymentData)
-    } else if (paymentMethod === 'maya') {
-      paymentResult = await realPaymentService.processMayaPayment(paymentData)
-    } else {
-      throw new Error('Unsupported payment method')
-    }
-
-    if (!paymentResult.success) {
-      throw new Error(paymentResult.error || 'Payment processing failed')
+    const checkout = await createWalletTopupCheckout({ amount, billing })
+    const checkoutUrl = checkout?.checkoutUrl || checkout?.checkout_url
+    if (!checkoutUrl) {
+      throw new Error('Failed to start wallet top-up checkout')
     }
 
     // Return result with checkout URL for redirect
@@ -368,14 +265,15 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
       account_id: walletAccount.id,
       amount,
       paymentMethod,
-      transactionId: paymentResult.transactionId,
+      sessionId: checkout.sessionId,
     })
 
     return {
       success: true,
-      transactionId: paymentResult.transactionId,
-      checkoutUrl: paymentResult.checkoutUrl,
-      sessionId: paymentResult.sessionId,
+      transactionId: checkout.paymentIntentId,
+      paymentIntentId: checkout.paymentIntentId,
+      checkoutUrl,
+      sessionId: checkout.sessionId,
       amount: amount,
       currency: 'PHP',
       method: paymentMethod,
@@ -383,179 +281,5 @@ export async function initiateTopUp(amount, paymentMethod = 'gcash', userId = nu
     }
   } catch (error) {
     throw new Error(error.message || 'Failed to initiate top-up')
-  }
-}
-
-export async function initiateWithdrawal(amount, paymentMethod = 'gcash', userId = null) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    throw new Error('Supabase client not available')
-  }
-
-  // Validate amount is a number, not a UUID (prevents parameter order mistakes)
-  if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
-    throw new Error('Amount must be a valid positive number')
-  }
-  
-  // Get user ID from session if not provided
-  if (!userId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      throw new Error('User not authenticated')
-    }
-    userId = user.id
-  }
-  
-  // Ensure userId is a valid UUID format (not a number - common mistake)
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (typeof userId === 'number' || !uuidRegex.test(userId)) {
-    throw new Error(`Invalid user ID format: ${userId}. Did you pass parameters in the wrong order? Expected: initiateWithdrawal(amount, paymentMethod, userId)`)
-  }
-
-  try {
-    // Check balance first
-    const wallet = await getWalletBalance(userId)
-    if (wallet.current_balance < amount) {
-      throw new Error('Insufficient balance for withdrawal')
-    }
-
-    // Get wallet account ID
-    const { data: walletAccount, error: walletError } = await supabase
-      .from('wallet_accounts')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
-
-    if (walletError || !walletAccount) {
-      throw new Error('Wallet account not found')
-    }
-
-    // Create pending transaction
-    const transaction = await createTransaction({
-      account_id: walletAccount.id,
-      amount: amount,
-      type: 'withdrawal',
-      status: 'pending',
-      payment_method: paymentMethod,
-      description: `Withdrawal to ${paymentMethod.toUpperCase()}`,
-      reference_id: generateReferenceId(),
-    })
-
-    // In a real implementation, this would call the payment gateway API
-    // For now, we'll simulate processing after 3 seconds
-    setTimeout(async () => {
-      try {
-        await updateWalletBalance(userId, amount, 'withdrawal')
-        await updateTransactionStatus(transaction.id, 'completed')
-      } catch (error) {
-        console.error('Withdrawal processing error:', error)
-        await updateTransactionStatus(transaction.id, 'failed')
-      }
-    }, 3000)
-
-    return transaction
-  } catch (error) {
-    throw new Error(error.message || 'Failed to initiate withdrawal')
-  }
-}
-
-async function updateTransactionStatus(transactionId, status) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    console.error('Supabase client not available for transaction update')
-    return
-  }
-
-  try {
-    const { error } = await supabase
-      .from('wallet_transactions')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', transactionId)
-
-    if (error) {
-      console.error('Error updating transaction status:', error)
-    }
-  } catch (error) {
-    console.error('Failed to update transaction status:', error)
-  }
-}
-
-function generateReferenceId() {
-  return 'TXN_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-}
-
-/**
- * Check and complete payment if successful
- */
-export async function checkAndCompletePayment(transactionId) {
-  const supabase = getSupabase()
-  if (!supabase) {
-    throw new Error('Supabase client not available')
-  }
-
-  try {
-    // Get transaction details
-    const { data: transaction, error: transactionError } = await supabase
-      .from('wallet_transactions')
-      .select('*')
-      .eq('id', transactionId)
-      .single()
-
-    if (transactionError || !transaction) {
-      throw new Error('Transaction not found')
-    }
-
-    if (transaction.status !== 'pending') {
-      return transaction // Already processed
-    }
-
-    // Check payment status with gateway
-    const paymentStatus = await checkPaymentStatus(transaction.reference_id)
-
-    if (paymentStatus.status === 'completed') {
-      // Get wallet account
-      const { data: walletAccount, error: walletError } = await supabase
-        .from('wallet_accounts')
-        .select('user_id')
-        .eq('id', transaction.account_id)
-        .single()
-
-      if (walletError || !walletAccount) {
-        throw new Error('Wallet account not found')
-      }
-
-      // Update wallet balance
-      await updateWalletBalance(walletAccount.user_id, transaction.amount, 'topup')
-
-      // Update transaction status
-      await updateTransactionStatus(transaction.id, 'completed')
-
-      console.log('✅ Payment completed successfully:', transaction.id)
-
-      return {
-        ...transaction,
-        status: 'completed',
-        completedAt: paymentStatus.completedAt,
-        transactionId: paymentStatus.transactionId,
-      }
-    } else if (paymentStatus.status === 'failed') {
-      // Update transaction as failed
-      await updateTransactionStatus(transaction.id, 'failed')
-
-      return {
-        ...transaction,
-        status: 'failed',
-        failedAt: paymentStatus.failedAt,
-        errorMessage: paymentStatus.errorMessage,
-      }
-    }
-
-    // Still pending
-    return transaction
-  } catch (error) {
-    console.error('Error checking payment:', error)
-    throw new Error(error.message || 'Failed to check payment status')
   }
 }

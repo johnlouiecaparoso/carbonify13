@@ -1,7 +1,14 @@
-# Ecolink — Implementation Roadmap & Timeline
+# Carbonify — Implementation Roadmap & Timeline
 
-> **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Ecolink scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
-> **Compiled:** 2026-06-06
+> 🗄️ **Superseded (2026-07-03) by [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md).** Kept for history. Since
+> this timeline was written the money cutover completed + hardened and a security review ran. Use
+> **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)** for the current phased plan and **[HANDOFF.md](HANDOFF.md)**
+> for state.
+
+> **What this is:** A week-by-week, phase-by-phase plan to finish what's missing, clean up the code, harden security, and make Carbonify scalable and feasible to run for real. Built directly on top of [`SYSTEM_STATUS_OVERVIEW.md`](SYSTEM_STATUS_OVERVIEW.md).
+> **Compiled:** 2026-06-06 · **Progress updated:** 2026-07-02
+>
+> **📍 Progress (2026-07-02):** **Phases 0–8 are code-complete.** The **pre-cutover** money path (Phases 1–2) was proven — purchase + subscription + payout + refund all reconcile to 0 drift (ESLint 0, 145 unit tests, build ✓). The **server-authoritative money cutover** (server-side purchase/top-up/retirement RPCs) is now **partially runtime-verified**: ✅ **card purchase + subscription** settle via the webhook with 0 drift (2026-07-02, after fixing a `credit_ownership.status` constraint bug that had blocked every purchase and auto-disabled the PayMongo webhook), ⬜ **wallet top-up / wallet buy / cart / retire** still to test (Step 4 B–E, [`YOUR_CUTOVER_STEPS.md`](YOUR_CUTOVER_STEPS.md)). **Next:** finish Step 4 B–E, then the money-path **RLS lockdown** (gated on those), plus code hygiene ([`NOW_IMPLEMENTATION_PLAN.md`](NOW_IMPLEMENTATION_PLAN.md)); everything else needs an external partner (registry, AML data, PSP) or ops/legal. Per-phase status is marked inline below.
 
 ---
 
@@ -14,24 +21,26 @@
 
 ### Timeline at a glance
 
-| Phase | Theme | Solo-dev weeks | Cumulative |
-|---|---|---|---|
-| **0** | Stabilize & clean up | 1–2 | Wk 2 |
-| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 |
-| **2** | Get sellers paid 🔴 | 3 | Wk 9 |
-| **3** | Real credits + buyer trust 🔴 | 3 | Wk 12 |
-| **4** | Workflow completeness 🟠 | 3 | Wk 15 |
-| **5** | Admin & compliance 🟠 | 3 | Wk 18 |
-| **6** | Buyer & LGU experience 🟢 | 3 | Wk 21 |
-| **7** | Scale, transparency & security hardening 🟠 | 3 | Wk 24 |
-| **8** | Mobile / PWA 🟢 | 3 | Wk 27 |
-| **9** | Future / institutional ⏳ | ongoing | — |
+| Phase | Theme | Solo-dev weeks | Cumulative | Status |
+|---|---|---|---|---|
+| **0** | Stabilize & clean up | 1–2 | Wk 2 | ✅ **Code-complete** |
+| **1** | Money foundation (server-side, ledger) 🔴 | 4 | Wk 6 | ✅ **PROVEN** · 🚦 cutover: card+subscription verified 2026-07-02, wallet/cart/retire pending |
+| **2** | Get sellers paid 🔴 | 3 | Wk 9 | ✅ **PROVEN** (payout + refund settled, 0 drift, 2026-07-01) |
+| **3** | Real credits + buyer trust 🔴 | 3 | Wk 12 | 🆕 **Code-complete** (real registry/supplier needs a partner) |
+| **4** | Workflow completeness 🟠 | 3 | Wk 15 | 🆕 **Code-complete** (runtime-untested) |
+| **5** | Admin & compliance 🟠 | 3 | Wk 18 | 🆕 **Code-complete** (AML needs a data vendor) |
+| **6** | Buyer & LGU experience 🟢 | 3 | Wk 21 | 🟡 **Partial** (buyer cart/watchlist + saved-search price alerts done; LGU tooling pending) |
+| **7** | Scale, transparency & security hardening 🟠 | 3 | Wk 24 | 🆕 **Code-complete** (pentest/PITR/pooling/observability are ops) |
+| **8** | Mobile / PWA 🟢 | 3 | Wk 27 | 🆕 **Code-complete** (web push pending keys) |
+| **9** | Future / institutional ⏳ | ongoing | — | ⏳ Parallel/ongoing |
 
 **≈ 6 months solo to a production-credible web platform** (Phases 0–7), excluding the business/legal track that runs in parallel and excluding mobile.
 
 ---
 
-## Phase 0 — Stabilize & Clean Up (Weeks 1–2)
+## Phase 0 — Stabilize & Clean Up (Weeks 1–2) · ✅ CODE-COMPLETE (2026-06-27)
+
+> **Status:** Branch `phase-0-stabilize`. Webhook conflict markers removed, `scripts/setup/` restored, 4 latent runtime bugs fixed, ESLint 183→0 + CI fixed, schema fixes applied live. Phase 0 is now fully green; the runtime proof moved into the money-flow phases. Code hygiene partly deferred (dual-column cleanup, Prettier — backlog #1, #5).
 
 **Goal:** Fix the known bugs and remove the rot so every later phase builds on solid ground. Do this *first* — it's cheap and unblocks everything.
 
@@ -50,7 +59,9 @@
 
 ---
 
-## Phase 1 — Money Foundation (Weeks 3–6) 🔴
+## Phase 1 — Money Foundation (Weeks 3–6) 🔴 · 🆕 CODE-COMPLETE (2026-06-27)
+
+> **Status:** Branch `phase-1-money-foundation`. All tasks built: `PaymentProvider`/Mock/PayMongo, server-authoritative `create_marketplace_checkout`, signed+deduped webhook, double-entry `ledger_entries` + `idempotency_keys` + `payment_intents`, atomic `process_marketplace_purchase`, `reconcile_financials()`. Migrations applied live. This phase is now **sandbox-proven for purchase + subscription**; the remaining runtime work is the payout/refund edge cases and the gated cutover (browser-write lockdown), tracked as backlog P1–P3.
 
 **Goal:** Make real money *safe*. Today amounts are set client-side — this is the single production blocker. Everything else in money/marketplace depends on this. (Design: [`PAYMENTS_ARCHITECTURE.md`](PAYMENTS_ARCHITECTURE.md), [`VENDOR_SCORECARD_AND_TECH_DESIGN.md`](VENDOR_SCORECARD_AND_TECH_DESIGN.md).)
 
@@ -69,9 +80,11 @@
 
 ---
 
-## Phase 2 — Get Sellers Paid (Weeks 7–9) 🔴
+## Phase 2 — Get Sellers Paid (Weeks 7–9) 🔴 · ✅ PROVEN (2026-07-01)
 
-**Goal:** Developers can actually cash out. Without this Ecolink is not a real marketplace.
+> **Status:** All tasks built and **runtime-proven**: `escrow_holds` hold/release, `PayoutProvider`/Mock, `payout_requests` state machine + dead-letter, `payoutService.js` + `process-payouts` worker behind `Withdraw.vue`, seller KYB (`kyb_applications`, payouts gated), refund/dispute via compensating ledger entries, `SellerEarningsView.vue` at `/sales` + listing management. **A sandbox KYB-gated payout settled and a refund reversed, both with `reconcile_financials()` = 0** (2026-07-01). Now fully click-driven: seller **KYB submission form**, admin **KYB-review console** (`/admin/kyb`) and **refunds/disputes console** (`/admin/refunds`).
+
+**Goal:** Developers can actually cash out. Without this Carbonify is not a real marketplace.
 
 **Tasks**
 - **Escrow** hold/release for trades (`escrow_holds` state machine: held → released/refunded). (Wk 7)
@@ -88,7 +101,9 @@
 
 ---
 
-## Phase 3 — Real Credits & Buyer Trust (Weeks 10–12) 🔴
+## Phase 3 — Real Credits & Buyer Trust (Weeks 10–12) 🔴 · 🆕 CODE-COMPLETE (2026-06-27)
+
+> **Status:** Code-complete except the external-partner piece. Built: full project-detail page, `local|supplier` badge + marketplace filter, ESG/offset export (PDF/CSV), SDG tagging + filter, project-boundary map (draw + display), buyer portfolio gain/loss vs market. **Still open:** the real `CreditSupplier` integration (Carbonmark/Cloverly/Patch) — blocked on an external registry/supplier partner; the `PaymentProvider`/`PayoutProvider` abstractions from Phases 1–2 set the pattern for it. Precondition for the *partner* work: finish the Phase 1/2 payout/refund sandbox checkpoint (see `handoff.md` §4).
 
 **Goal:** Make the credits *real* (or clearly labeled), and give buyers what they need to trust a purchase. (Strategy: [`REAL_WORLD_GOLIVE_PLAYBOOK.md`](REAL_WORLD_GOLIVE_PLAYBOOK.md) Track A.)
 

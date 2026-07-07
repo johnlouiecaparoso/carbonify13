@@ -1,5 +1,5 @@
 {
-  "name": "ecolink",
+  "name": "carbonify",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,6 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
+    "lint:check": "eslint .",
     "format": "prettier --write src/",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -27,9 +28,11 @@
     "test:integration": "node scripts/test/integration/test-complete-integration.js",
     "test:integration:fixed": "node scripts/test/integration/test-integration-fixed.js",
     "test:simple": "node scripts/test/integration/simple-integration-test.js",
-    "deploy:paymongo": "supabase functions deploy paymongo-checkout --no-verify-jwt"
+    "deploy:paymongo": "supabase functions deploy paymongo-checkout --no-verify-jwt",
+    "deploy:webhook": "supabase functions deploy paymongo-webhook --no-verify-jwt"
   },
   "dependencies": {
+    "@sentry/vue": "^8.55.2",
     "@supabase/supabase-js": "^2.57.4",
     "chart.js": "^4.5.0",
     "dotenv": "^17.2.3",
@@ -58,6 +61,7 @@
     "lighthouse": "^12.8.2",
     "msw": "^2.0.0",
     "prettier": "3.6.2",
+    "supabase": "^2.106.0",
     "vite": "^7.0.6",
     "vite-plugin-vue-devtools": "^8.0.0",
     "vitest": "^1.0.0"

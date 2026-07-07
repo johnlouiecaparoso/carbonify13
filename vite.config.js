@@ -71,6 +71,13 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
   },
+  // Security/hygiene: strip noisy debug logging (which included session email,
+  // user ids and profile objects) from the PRODUCTION bundle. console.error and
+  // console.warn are preserved for real error reporting. In dev (no minify)
+  // logging stays intact.
+  esbuild: {
+    pure: ['console.log', 'console.info', 'console.debug'],
+  },
   optimizeDeps: {
     include: ['vue', 'vue-router', 'pinia'],
   },

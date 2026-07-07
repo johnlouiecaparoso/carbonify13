@@ -47,7 +47,7 @@ async function testCompleteApprovalWorkflow() {
     console.log('Step 3: Testing project service...')
 
     try {
-      const { getAllProjects, updateProjectStatus } = await import(
+      const { getAllProjects } = await import(
         '/src/services/projectService.js'
       )
       console.log('✅ Project service loaded')

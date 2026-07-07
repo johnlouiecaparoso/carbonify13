@@ -3,6 +3,12 @@ import { getCurrentUserId } from '@/utils/authHelper'
 import { notifyProjectSubmitted } from '@/services/emailService'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 
+// Statuses a project developer may still edit or delete their own submission in
+// (i.e. before it is validated/minted or under active verifier review). Must
+// stay in sync with the projects RLS policies
+// (supabase/migrations/20260624000000_projects_rls_owner_and_staff.sql).
+const OWNER_EDITABLE_STATUSES = ['draft', 'pending', 'submitted', 'needs_revision']
+
 export class ProjectService {
   constructor() {
     // Don't initialize supabase in constructor to avoid timing issues
@@ -54,7 +60,7 @@ export class ProjectService {
       }
 
       // Prepare insert data with all fields including estimated_credits and credit_price
-      const { documents, ...projectDataWithoutDocuments } = projectData
+      const { documents } = projectData
       
       // Convert numeric fields to numbers (form inputs are strings)
       const estimatedCredits = projectData.estimated_credits 
@@ -80,19 +86,29 @@ export class ProjectService {
         expected_impact: projectData.expected_impact.trim(),
         status: 'pending',
         user_id: finalUserId,
+        ...(projectData.geo_coordinates && { geo_coordinates: projectData.geo_coordinates }),
+        ...(projectData.boundary && { boundary: projectData.boundary }),
+        ...(Array.isArray(projectData.co_benefits) && projectData.co_benefits.length && {
+          co_benefits: projectData.co_benefits,
+        }),
         ...(estimatedCredits !== null && !isNaN(estimatedCredits) && { estimated_credits: estimatedCredits }),
         ...(creditPrice !== null && !isNaN(creditPrice) && { credit_price: creditPrice }),
         ...(projectData.project_image && { project_image: projectData.project_image }),
         ...(projectData.image_name && { image_name: projectData.image_name }),
         ...(projectData.image_type && { image_type: projectData.image_type }),
         ...(projectData.image_size && { image_size: projectData.image_size }),
+        ...(projectData.additionality_type && { additionality_type: projectData.additionality_type }),
+        ...(projectData.permanence_years != null &&
+          projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
+        ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
               name: doc.name,
               type: doc.type,
               size: doc.size,
-              url: doc.url,
+              path: doc.path || null,
+              url: doc.url || null,
             })),
           ),
         }),
@@ -107,15 +123,21 @@ export class ProjectService {
 
       let { data, error } = await this.supabase.from('projects').insert([insertData]).select().single()
 
-      if (
-        error &&
-        (error.message?.includes('supporting_documents') ||
-          error.details?.includes('supporting_documents') ||
-          error.hint?.includes('supporting_documents'))
-      ) {
+      // Schema-drift safety: drop any optional column missing on this DB and retry.
+      const driftCols = [
+        'supporting_documents',
+        'boundary',
+        'geo_coordinates',
+        'additionality_type',
+        'permanence_years',
+        'reversal_risk',
+      ]
+      const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
+      if (error && driftCols.some((c) => blob.includes(c))) {
         const fallbackData = { ...insertData }
-        delete fallbackData.supporting_documents
-
+        driftCols.forEach((c) => {
+          if (blob.includes(c)) delete fallbackData[c]
+        })
         const retryResult = await this.supabase.from('projects').insert([fallbackData]).select().single()
         data = retryResult.data
         error = retryResult.error
@@ -210,24 +232,79 @@ export class ProjectService {
    * Update a project (only if status is pending)
    * @param {string} projectId - Project ID
    * @param {Object} updates - Project updates
+   * @param {boolean} isAdmin - Whether the caller is an admin (fetch any project, not just own)
    * @returns {Promise<Object>} Updated project
    */
-  async updateProject(projectId, updates) {
+  async updateProject(projectId, updates, isAdmin = false) {
     if (!projectId) {
       throw new Error('Project ID missing')
     }
 
     try {
-      // First check if project exists and is pending
+      // First check if project exists and is still editable by its owner.
+      // Admins/verifiers bypass the status gate (they fetch any project).
       const project = await this.getProject(projectId, { includeAll: isAdmin })
-      if (project.status !== 'pending') {
-        throw new Error('Only pending projects can be updated')
+      if (!isAdmin && !OWNER_EDITABLE_STATUSES.includes(project.status)) {
+        throw new Error('This project can no longer be edited once it is under review or validated.')
+      }
+
+      // The submit form sends extra fields that are NOT projects columns (a
+      // `documents` array plus collect-only fields like host_entity/start_date/
+      // capex that the create path also drops). PostgREST 400s on any unknown
+      // column, so map `documents` -> the `supporting_documents` JSON and then
+      // keep only real, editable columns. An empty documents array means "no new
+      // files attached" — leave existing docs untouched rather than wiping them.
+      const sanitized = { ...updates }
+      if ('documents' in sanitized) {
+        const docs = Array.isArray(sanitized.documents) ? sanitized.documents : []
+        if (docs.length) {
+          sanitized.supporting_documents = JSON.stringify(
+            docs.map((doc) => ({
+              name: doc.name,
+              type: doc.type,
+              size: doc.size,
+              path: doc.path || null,
+              url: doc.url || null,
+            })),
+          )
+        }
+        delete sanitized.documents
+      }
+
+      const EDITABLE_COLUMNS = [
+        'title',
+        'description',
+        'category',
+        'location',
+        'expected_impact',
+        'estimated_credits',
+        'credit_price',
+        'geo_coordinates',
+        'barangay',
+        'municipality',
+        'methodology',
+        'vintage',
+        'co_benefits',
+        'boundary',
+        'project_image',
+        'image_name',
+        'image_type',
+        'image_size',
+        'supporting_documents',
+        'additionality_type',
+        'permanence_years',
+        'reversal_risk',
+        'status',
+      ]
+      const payload = {}
+      for (const key of EDITABLE_COLUMNS) {
+        if (key in sanitized) payload[key] = sanitized[key]
       }
 
       const { data, error } = await this.supabase
         .from('projects')
         .update({
-          ...updates,
+          ...payload,
           updated_at: new Date().toISOString(),
         })
         .eq('id', projectId)
@@ -260,10 +337,11 @@ export class ProjectService {
       // First check if project exists
       const project = await this.getProject(projectId)
 
-      // For non-admin users, only allow deletion of pending projects
-      if (!isAdmin && project.status !== 'pending') {
+      // For non-admin users, only allow deletion of their own pre-validation
+      // submissions (draft/pending/submitted/needs_revision).
+      if (!isAdmin && !OWNER_EDITABLE_STATUSES.includes(project.status)) {
         throw new Error(
-          'Only pending projects can be deleted. Contact an administrator for approved/rejected projects.',
+          'Only projects that are still pending review can be deleted. Contact an administrator for approved/rejected projects.',
         )
       }
 

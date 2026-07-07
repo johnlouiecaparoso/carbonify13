@@ -10,10 +10,17 @@ export function getRoleDefaultRoute(role) {
     case ROLES.ADMIN:
     case 'admin':
     case 'super_admin':
+      return '/admin'
     case ROLES.VERIFIER:
     case 'verifier':
+      return '/verifier'
     case ROLES.PROJECT_DEVELOPER:
     case 'project_developer':
+      return '/developer/projects'
+    case ROLES.LGU_USER:
+    case 'lgu_user':
+    case 'lgu':
+      return '/lgu'
     case ROLES.BUYER_INVESTOR:
     case 'buyer_investor':
     case ROLES.GENERAL_USER:

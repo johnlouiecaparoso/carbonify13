@@ -22,10 +22,10 @@ async function testWalletModal() {
     console.log('Step 2: Testing component imports...')
 
     try {
-      const walletService = await import('/src/services/walletService.js')
+      await import('/src/services/walletService.js')
       console.log('✅ Wallet service loaded')
 
-      const topUpComponent = await import('/src/components/wallet/TopUp.vue')
+      await import('/src/components/wallet/TopUp.vue')
       console.log('✅ TopUp component loaded')
     } catch (e) {
       console.log('❌ Component import failed:', e.message)

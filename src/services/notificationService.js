@@ -49,7 +49,7 @@ function canUseLocalNotificationFallback() {
 }
 
 function getLocalNotificationStorageKey(userId) {
-  return `ecolink-notifications:${String(userId || '').trim()}`
+  return `carbonify-notifications:${String(userId || '').trim()}`
 }
 
 function readLocalNotifications(userId) {
@@ -408,7 +408,7 @@ export async function createNotificationsForUsers(userIds = [], payload = {}) {
     throw new Error(error.message || 'Failed to create notifications')
   }
 
-  return data || localNotifications
+  return data || []
 }
 
 export async function createNotificationsForRoles(roles = [], payload = {}, options = {}) {
@@ -419,23 +419,95 @@ export async function createNotificationsForRoles(roles = [], payload = {}, opti
   return createNotificationsForUsers(recipients, payload)
 }
 
+/**
+ * Notify the other party when a comment is posted on a project's review thread.
+ * - A verifier/admin comment notifies the project owner.
+ * - A developer (owner) comment notifies verifiers/admins.
+ * - An internal note notifies only verifiers/admins (never the owner).
+ * The author is always excluded. Best-effort: callers should not fail the
+ * comment if this throws.
+ */
+export async function notifyProjectComment({ project, authorId, authorRole, body, isInternal } = {}) {
+  if (!project?.id) return
+
+  const role = String(authorRole || '').toLowerCase()
+  const isReviewer = role === 'verifier' || role === 'admin'
+  const snippet = String(body || '').replace(/\s+/g, ' ').trim().slice(0, 140)
+  const projectTitle = project.title || 'a project'
+
+  // Internal notes are reviewer-only — notify verifiers/admins, never the owner.
+  if (isInternal) {
+    await createNotificationsForRoles(
+      ['verifier', 'admin'],
+      {
+        type: 'project_comment',
+        title: `Internal note on "${projectTitle}"`,
+        message: snippet,
+        link: '/verifier',
+        metadata: { project_id: project.id, internal: true },
+      },
+      { excludeUserIds: authorId ? [authorId] : [] },
+    )
+    return
+  }
+
+  // A reviewer commented → notify the project owner.
+  if (isReviewer) {
+    if (!project.user_id) return
+    await createNotificationsForUsers([project.user_id], {
+      type: 'project_comment',
+      title: `New comment on "${projectTitle}"`,
+      message: snippet,
+      link: '/developer/projects',
+      metadata: { project_id: project.id },
+    })
+    return
+  }
+
+  // The developer/owner commented → notify the reviewers.
+  await createNotificationsForRoles(
+    ['verifier', 'admin'],
+    {
+      type: 'project_comment',
+      title: `New developer reply on "${projectTitle}"`,
+      message: snippet,
+      link: '/verifier',
+      metadata: { project_id: project.id },
+    },
+    { excludeUserIds: authorId ? [authorId] : [] },
+  )
+}
+
 export async function notifyProjectSubmittedForReview(project) {
   if (!project?.id) return
+
+  const title = project.title || 'Untitled Project'
+  // A resubmission carries a revision_count > 0 (the developer addressed a
+  // "needs revision" decision). Word the alert so reviewers know it's a
+  // returning project, not a brand-new one, and which revision it is.
+  const revision = Number(project.revision_count) || 0
+  const isResubmission = revision > 0
 
   await createNotificationsForRoles(
     ['verifier'],
     {
       type: 'project_submission',
-      title: 'New project submitted for verification',
-      message: `Project "${project.title || 'Untitled Project'}" is waiting for review.`,
+      title: isResubmission
+        ? `Project resubmitted (revision ${revision})`
+        : 'New project submitted for verification',
+      message: isResubmission
+        ? `Project "${title}" was revised and resubmitted for review.`
+        : `Project "${title}" is waiting for review.`,
       link: '/verifier',
       metadata: {
         project_id: project.id,
         status: project.status || 'pending',
+        revision_count: revision,
+        resubmission: isResubmission,
       },
     },
     {
-      excludeUserIds: [project.user_id],
+      excludeUserIds: [project.user_id].filter(Boolean),
     },
   )
 }
@@ -597,7 +669,7 @@ export async function notifyRoleApplicationDecision(application, status) {
     title: isApproved ? 'Your specialist account was approved' : 'Your specialist account was rejected',
     message: isApproved
       ? `Your ${roleLabel} application has been approved. You can now use your verified account features.`
-      : `Your ${roleLabel} application was rejected. Please check your email or contact EcoLink support for next steps.`,
+      : `Your ${roleLabel} application was rejected. Please check your email or contact Carbonify support for next steps.`,
     link: '/profile',
     metadata: {
       application_id: application.id,
@@ -635,10 +707,10 @@ export async function notifyWelcomeUser(userId, fullName = '') {
 
   return createNotificationsForUsers([userId], {
     type: 'welcome',
-    title: 'Welcome to EcoLink',
+    title: 'Welcome to Carbonify',
     message: fullName
-      ? `Welcome to EcoLink, ${fullName}. Your account is ready to use.`
-      : 'Welcome to EcoLink. Your account is ready to use.',
+      ? `Welcome to Carbonify, ${fullName}. Your account is ready to use.`
+      : 'Welcome to Carbonify. Your account is ready to use.',
     link: '/home',
     metadata: {
       category: 'welcome',

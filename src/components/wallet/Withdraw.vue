@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { initiateWithdrawal, getWalletBalance } from '@/services/walletService'
+import { requestWithdrawal, getSellerBalance } from '@/services/payoutService'
 import UiInput from '@/components/ui/Input.vue'
 import UiButton from '@/components/ui/Button.vue'
 
@@ -9,7 +9,23 @@ const emit = defineEmits(['success', 'cancel'])
 const formData = ref({
   amount: '',
   paymentMethod: 'gcash',
+  accountName: '',
+  accountNumber: '',
 })
+
+// Map the chosen method to a payout destination shape (bank methods carry a bankCode).
+function buildDestination() {
+  const m = formData.value.paymentMethod
+  const base = {
+    accountName: formData.value.accountName.trim(),
+    accountNumber: formData.value.accountNumber.trim(),
+  }
+  if (m === 'gcash' || m === 'maya') {
+    return { method: m, ...base }
+  }
+  // bpi / bdo -> bank transfer with the bank as bankCode
+  return { method: 'bank', bankCode: m.toUpperCase(), ...base }
+}
 
 const errors = ref({})
 const loading = ref(false)
@@ -50,6 +66,13 @@ function validateForm() {
     errors.value.amount = 'Maximum withdrawal amount is ₱25,000'
   }
 
+  if (!formData.value.accountName.trim()) {
+    errors.value.accountName = 'Account name is required'
+  }
+  if (!formData.value.accountNumber.trim()) {
+    errors.value.accountNumber = 'Account number is required'
+  }
+
   return Object.keys(errors.value).length === 0
 }
 
@@ -59,13 +82,15 @@ async function handleSubmit() {
   loading.value = true
   try {
     const amount = parseFloat(formData.value.amount)
-    await initiateWithdrawal(amount, formData.value.paymentMethod) // userId will be set in service
-    emit('success', { amount, paymentMethod: formData.value.paymentMethod })
+    const payoutId = await requestWithdrawal({ amount, destination: buildDestination() })
+    emit('success', { amount, paymentMethod: formData.value.paymentMethod, payoutId })
 
     // Reset form
     formData.value = {
       amount: '',
       paymentMethod: 'gcash',
+      accountName: '',
+      accountNumber: '',
     }
   } catch (error) {
     console.error('Withdrawal error:', error)
@@ -85,8 +110,8 @@ function setMaxAmount() {
 
 async function loadBalance() {
   try {
-    const wallet = await getWalletBalance() // userId will be set in service
-    currentBalance.value = wallet.current_balance || 0
+    const balance = await getSellerBalance()
+    currentBalance.value = balance.available || 0
   } catch (error) {
     console.error('Error loading balance:', error)
   }
@@ -104,7 +129,7 @@ loadBalance()
   <div class="withdraw-form">
     <div class="form-header">
       <h2 class="form-title">Withdraw Funds</h2>
-      <p class="form-description">Transfer funds from your EcoLink wallet</p>
+      <p class="form-description">Withdraw your available seller earnings</p>
     </div>
 
     <!-- Current Balance -->
@@ -176,6 +201,26 @@ loadBalance()
         </div>
       </div>
 
+      <!-- Destination account details -->
+      <UiInput
+        id="accountName"
+        label="Account Name *"
+        type="text"
+        placeholder="Registered account holder name"
+        v-model="formData.accountName"
+        :error="errors.accountName"
+        required
+      />
+      <UiInput
+        id="accountNumber"
+        label="Account / Mobile Number *"
+        type="text"
+        placeholder="Account no. or e-wallet mobile number"
+        v-model="formData.accountNumber"
+        :error="errors.accountNumber"
+        required
+      />
+
       <!-- General Error -->
       <div v-if="errors.general" class="error-message general-error">
         {{ errors.general }}
@@ -221,34 +266,34 @@ loadBalance()
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-primary-700);
+  color: var(--carbonify-primary-700);
 }
 
 .form-description {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 14px;
 }
 
 .balance-display {
   text-align: center;
   padding: 20px;
-  background: var(--ecolink-primary-50);
-  border: 1px solid var(--ecolink-primary-200);
+  background: var(--carbonify-primary-50);
+  border: 1px solid var(--carbonify-primary-200);
   border-radius: 12px;
   margin-bottom: 24px;
 }
 
 .balance-label {
   font-size: 14px;
-  color: var(--ecolink-primary-600);
+  color: var(--carbonify-primary-600);
   margin-bottom: 8px;
 }
 
 .balance-amount {
   font-size: 32px;
   font-weight: 800;
-  color: var(--ecolink-primary-700);
+  color: var(--carbonify-primary-700);
 }
 
 .form-grid {
@@ -264,7 +309,7 @@ loadBalance()
 .input-label {
   font-weight: 600;
   font-size: 14px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .amount-buttons {
@@ -275,29 +320,29 @@ loadBalance()
 
 .amount-btn {
   padding: 12px 8px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
-  background: var(--ecolink-surface);
-  color: var(--ecolink-text);
+  background: var(--carbonify-surface);
+  color: var(--carbonify-text);
   font-weight: 600;
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .amount-btn:hover {
-  border-color: var(--ecolink-primary-500);
-  background: var(--ecolink-primary-50);
+  border-color: var(--carbonify-primary-500);
+  background: var(--carbonify-primary-50);
 }
 
 .amount-btn.active {
-  border-color: var(--ecolink-primary-500);
-  background: var(--ecolink-primary-500);
+  border-color: var(--carbonify-primary-500);
+  background: var(--carbonify-primary-500);
   color: white;
 }
 
 .max-btn {
-  background: var(--ecolink-primary-100);
-  border-color: var(--ecolink-primary-300);
+  background: var(--carbonify-primary-100);
+  border-color: var(--carbonify-primary-300);
 }
 
 .payment-methods {
@@ -311,20 +356,20 @@ loadBalance()
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .payment-method:hover {
-  border-color: var(--ecolink-primary-500);
+  border-color: var(--carbonify-primary-500);
 }
 
 .payment-method.active {
-  border-color: var(--ecolink-primary-500);
-  background: var(--ecolink-primary-50);
+  border-color: var(--carbonify-primary-500);
+  background: var(--carbonify-primary-50);
 }
 
 .payment-radio {
@@ -339,7 +384,7 @@ loadBalance()
   height: 32px;
   border-radius: 8px;
   background: rgba(6, 158, 45, 0.12);
-  color: var(--ecolink-primary-600, #047857);
+  color: var(--carbonify-primary-600, #047857);
   font-size: 22px;
 }
 

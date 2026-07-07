@@ -1,10 +1,10 @@
-# EcoLink System Guide
+# Carbonify System Guide
 
-This guide is for anyone who needs to understand how EcoLink is put together before using, testing, or extending it.
+This guide is for anyone who needs to understand how Carbonify is put together before using, testing, or extending it.
 
 ## What This System Is
 
-EcoLink is a Vue 3 web application for a carbon credit marketplace.
+Carbonify is a Vue 3 web application for a carbon credit marketplace.
 
 At a high level, it supports:
 
@@ -347,7 +347,7 @@ That path gives you route access, auth, business workflows, then backend depende
 
 ## Short Mental Model
 
-Think of EcoLink as four connected subsystems:
+Think of Carbonify as four connected subsystems:
 
 - account and role management
 - project submission and verification

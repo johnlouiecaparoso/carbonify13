@@ -3,7 +3,7 @@
  *
  * These categories align with DENR–Climate Change Service (CCS), the Climate
  * Change Commission (CCC), and LGU climate programs as required by the
- * Ecolink platform review. The dropdown in ProjectForm, the marketplace
+ * Carbonify platform review. The dropdown in ProjectForm, the marketplace
  * filters, analytics, and the DB CHECK constraint all source their values
  * from this single list so they never drift apart.
  *

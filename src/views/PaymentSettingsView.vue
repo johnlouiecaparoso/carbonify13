@@ -63,14 +63,14 @@ function formatDate(dateString) {
 // Get status color
 function getStatusColor(status) {
   const colors = {
-    succeeded: 'var(--ecolink-success)',
-    failed: 'var(--ecolink-error)',
-    pending: 'var(--ecolink-warning)',
-    processing: 'var(--ecolink-primary)',
-    cancelled: 'var(--ecolink-muted)',
-    refunded: 'var(--ecolink-muted)',
+    succeeded: 'var(--carbonify-success)',
+    failed: 'var(--carbonify-error)',
+    pending: 'var(--carbonify-warning)',
+    processing: 'var(--carbonify-primary)',
+    cancelled: 'var(--carbonify-muted)',
+    refunded: 'var(--carbonify-muted)',
   }
-  return colors[status] || 'var(--ecolink-muted)'
+  return colors[status] || 'var(--carbonify-muted)'
 }
 
 // Format payment method for display
@@ -231,12 +231,12 @@ onMounted(() => {
 <style scoped>
 .payment-settings {
   min-height: 100vh;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
 }
 
 .page-header {
-  background: var(--ecolink-surface);
-  border-bottom: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border-bottom: 1px solid var(--carbonify-border);
   padding: 2rem 0;
 }
 
@@ -255,17 +255,17 @@ onMounted(() => {
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: none;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 6px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   text-decoration: none;
   font-size: 0.9rem;
   transition: all 0.2s;
 }
 
 .back-btn:hover {
-  background: var(--ecolink-bg);
-  border-color: var(--ecolink-primary);
+  background: var(--carbonify-bg);
+  border-color: var(--carbonify-primary);
 }
 
 .back-icon {
@@ -280,12 +280,12 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .page-description {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 1.1rem;
 }
 
@@ -309,8 +309,8 @@ onMounted(() => {
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--ecolink-border);
-  border-top: 3px solid var(--ecolink-primary);
+  border: 3px solid var(--carbonify-border);
+  border-top: 3px solid var(--carbonify-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -342,7 +342,7 @@ onMounted(() => {
   margin: 0 0 1.5rem 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .stats-grid {
@@ -352,8 +352,8 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   padding: 1.5rem;
   text-align: center;
@@ -362,12 +362,12 @@ onMounted(() => {
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--ecolink-primary);
+  color: var(--carbonify-primary);
   margin-bottom: 0.5rem;
 }
 
 .stat-label {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -377,7 +377,7 @@ onMounted(() => {
   margin: 0 0 1.5rem 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .empty-state {
@@ -387,8 +387,8 @@ onMounted(() => {
   justify-content: center;
   padding: 48px 24px;
   text-align: center;
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
 }
 
@@ -399,13 +399,13 @@ onMounted(() => {
 
 .empty-state h3 {
   margin: 0 0 0.5rem 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 1.25rem;
 }
 
 .empty-state p {
   margin: 0 0 1.5rem 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .payment-list {
@@ -419,14 +419,14 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   transition: all 0.2s;
 }
 
 .payment-item:hover {
-  border-color: var(--ecolink-primary);
+  border-color: var(--carbonify-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -439,7 +439,7 @@ onMounted(() => {
 .payment-amount {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .payment-details {
@@ -449,12 +449,12 @@ onMounted(() => {
 }
 
 .payment-method {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.9rem;
 }
 
 .payment-date {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.8rem;
 }
 
@@ -477,7 +477,7 @@ onMounted(() => {
   margin: 0 0 1.5rem 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .methods-grid {
@@ -487,8 +487,8 @@ onMounted(() => {
 }
 
 .method-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   padding: 1.5rem;
   text-align: center;
@@ -496,7 +496,7 @@ onMounted(() => {
 }
 
 .method-card:hover {
-  border-color: var(--ecolink-primary);
+  border-color: var(--carbonify-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -507,14 +507,14 @@ onMounted(() => {
 
 .method-card h3 {
   margin: 0 0 0.5rem 0;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 1.1rem;
   font-weight: 600;
 }
 
 .method-card p {
   margin: 0 0 1rem 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.9rem;
 }
 
@@ -526,8 +526,8 @@ onMounted(() => {
 
 .feature {
   padding: 0.25rem 0.75rem;
-  background: var(--ecolink-primary-50);
-  color: var(--ecolink-primary);
+  background: var(--carbonify-primary-50);
+  color: var(--carbonify-primary);
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 500;

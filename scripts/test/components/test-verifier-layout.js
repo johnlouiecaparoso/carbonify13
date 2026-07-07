@@ -33,10 +33,10 @@ async function testVerifierLayout() {
 
     try {
       // This should not crash now
-      const certificateService = await import('/src/services/certificateService.js')
+      await import('/src/services/certificateService.js')
       console.log('✅ Certificate service loaded')
 
-      const projectService = await import('/src/services/projectService.js')
+      await import('/src/services/projectService.js')
       console.log('✅ Project service loaded')
     } catch (e) {
       console.log('❌ Service import failed:', e.message)

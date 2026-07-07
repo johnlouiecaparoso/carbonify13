@@ -24,6 +24,21 @@ export class MarketplaceListingService {
         throw new Error('Insufficient credits available for listing')
       }
 
+      // Free-tier listing cap. This is a friendly pre-check; the real enforcement
+      // is the `enforce_listing_limit` trigger on user_credit_listings (a user
+      // could otherwise bypass the UI). See *_subscriptions.sql.
+      const { getMyPlan } = await import('@/services/subscriptionService')
+      const { canCreateListing } = await import('@/services/subscriptionService')
+      const { effectivePlan } = await import('@/constants/plans')
+      const planRow = await getMyPlan()
+      const plan = effectivePlan(planRow)
+      const gate = await canCreateListing(listingData.userId, plan)
+      if (!gate.allowed) {
+        throw new Error(
+          `Free plan is limited to ${gate.limit} active listings (you have ${gate.active}). Upgrade to Pro for unlimited listings.`,
+        )
+      }
+
       const { data, error } = await this.supabase
         .from('user_credit_listings')
         .insert([

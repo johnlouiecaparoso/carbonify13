@@ -1,6 +1,6 @@
 {
-  "name": "EcoLink - Carbon Credit Marketplace",
-  "short_name": "EcoLink",
+  "name": "Carbonify - Carbon Credit Marketplace",
+  "short_name": "Carbonify",
   "description": "A platform for trading carbon credits and managing environmental projects",
   "start_url": "/",
   "display": "standalone",
@@ -8,7 +8,7 @@
   "theme_color": "#10b981",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "/carbonify-logo.png",
       "sizes": "32x32",
       "type": "image/png"
     }

@@ -8,22 +8,22 @@
 
     <div class="assessment-grid">
       <div class="field">
-        <label>Feasibility (1–5)</label>
-        <select v-model="feasibility" class="input">
+        <label for="assess-feasibility">Feasibility (1–5)</label>
+        <select id="assess-feasibility" v-model="feasibility" class="input">
           <option value="">—</option>
           <option v-for="n in 5" :key="n" :value="n">{{ n }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Social impact (1–5)</label>
-        <select v-model="socialImpact" class="input">
+        <label for="assess-social">Social impact (1–5)</label>
+        <select id="assess-social" v-model="socialImpact" class="input">
           <option value="">—</option>
           <option v-for="n in 5" :key="n" :value="n">{{ n }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Climate risk</label>
-        <select v-model="climateRisk" class="input">
+        <label for="assess-climate">Climate risk</label>
+        <select id="assess-climate" v-model="climateRisk" class="input">
           <option value="">—</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>

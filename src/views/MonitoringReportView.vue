@@ -12,6 +12,33 @@
 
     <div class="mrv-content">
       <div class="container">
+        <!-- Reporting reminders -->
+        <div v-if="reminders.length" class="reminders-card">
+          <div class="reminders-head">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
+            <h3>Monitoring due</h3>
+          </div>
+          <ul class="reminders-list">
+            <li v-for="rem in reminders" :key="rem.projectId" class="reminder-item" :class="rem.status">
+              <div class="reminder-text">
+                <span class="reminder-title">{{ rem.title }}</span>
+                <span class="reminder-when">
+                  <template v-if="rem.status === 'overdue'">
+                    Overdue by {{ Math.abs(rem.daysUntil) }} day{{ Math.abs(rem.daysUntil) === 1 ? '' : 's' }}
+                  </template>
+                  <template v-else>
+                    Due in {{ rem.daysUntil }} day{{ rem.daysUntil === 1 ? '' : 's' }} ({{ formatDate(rem.dueDate) }})
+                  </template>
+                  <template v-if="!rem.hasEverReported"> · no report filed yet</template>
+                </span>
+              </div>
+              <button class="btn btn-primary btn-sm" :disabled="creating" @click="startReportFor(rem.projectId)">
+                Start report
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <!-- Project selector -->
         <div class="selector-card">
           <label for="project" class="form-label">Validated Project</label>
@@ -70,18 +97,18 @@
               <fieldset :disabled="!isEditable" class="editor-body">
                 <div class="form-grid">
                   <div class="form-group">
-                    <label class="form-label">Period Type</label>
-                    <select v-model="form.periodType" class="form-select">
+                    <label class="form-label" for="mrv-period-type">Period Type</label>
+                    <select id="mrv-period-type" v-model="form.periodType" class="form-select">
                       <option v-for="pt in periodTypes" :key="pt.value" :value="pt.value">{{ pt.label }}</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Period Start</label>
-                    <input type="date" v-model="form.periodStart" class="form-input" />
+                    <label class="form-label" for="mrv-period-start">Period Start</label>
+                    <input id="mrv-period-start" type="date" v-model="form.periodStart" class="form-input" />
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Period End</label>
-                    <input type="date" v-model="form.periodEnd" class="form-input" />
+                    <label class="form-label" for="mrv-period-end">Period End</label>
+                    <input id="mrv-period-end" type="date" v-model="form.periodEnd" class="form-input" />
                   </div>
                 </div>
 
@@ -91,8 +118,9 @@
                   No metrics defined for this project type.
                 </p>
                 <div v-for="m in metrics" :key="m.metric_key" class="form-group">
-                  <label class="form-label">{{ m.label }} ({{ m.unit }})</label>
+                  <label class="form-label" :for="`mrv-activity-${m.metric_key}`">{{ m.label }} ({{ m.unit }})</label>
                   <input
+                    :id="`mrv-activity-${m.metric_key}`"
                     type="number"
                     min="0"
                     step="any"
@@ -103,26 +131,33 @@
                 </div>
 
                 <!-- Evidence -->
-                <h4 class="section-title">Evidence (photos / logs)</h4>
+                <h4 class="section-title" id="mrv-evidence-label">Evidence (photos / logs)</h4>
                 <div class="evidence-grid">
                   <div v-for="ev in currentReport.evidence" :key="ev.id" class="evidence-item">
-                    <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" />
+                    <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" loading="lazy" />
                     <span v-else class="material-symbols-outlined file-icon">description</span>
                     <span class="evidence-caption">{{ ev.caption || 'Evidence' }}</span>
                     <button v-if="isEditable" class="evidence-remove" @click="removeEvidence(ev.id)">×</button>
                   </div>
                 </div>
                 <div v-if="isEditable" class="evidence-upload">
-                  <input ref="fileInput" type="file" accept="image/*,.pdf" @change="onEvidenceSelected" />
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*,.pdf"
+                    aria-labelledby="mrv-evidence-label"
+                    @change="onEvidenceSelected"
+                  />
                   <span class="upload-hint">JPEG/PNG/PDF up to 2MB</span>
                 </div>
 
                 <!-- Notes -->
-                <h4 class="section-title">Notes</h4>
+                <h4 class="section-title" id="mrv-notes-label">Notes</h4>
                 <textarea
                   v-model="form.notes"
                   class="form-textarea"
                   rows="3"
+                  aria-labelledby="mrv-notes-label"
                   placeholder="Any context for the verifier…"
                 ></textarea>
               </fieldset>
@@ -180,10 +215,12 @@ import {
   calculateVers,
   submitReport,
 } from '@/services/monitoringService'
+import { computeMrvReminders, syncMrvReminderNotifications } from '@/services/mrvReminderService'
 
 const userStore = useUserStore()
 const periodTypes = PERIOD_TYPES
 
+const reminders = ref([])
 const projects = ref([])
 const loadingProjects = ref(false)
 const selectedProjectId = ref('')
@@ -241,6 +278,25 @@ async function loadProjects() {
 async function loadReports() {
   if (!selectedProjectId.value) return
   reports.value = await getReportsByProject(selectedProjectId.value)
+}
+
+async function loadReminders() {
+  try {
+    const uid = userStore.session?.user?.id
+    reminders.value = await computeMrvReminders(uid)
+    // Raise deduped bell notifications for anything overdue (best-effort).
+    syncMrvReminderNotifications(uid).catch(() => {})
+  } catch {
+    reminders.value = []
+  }
+}
+
+async function startReportFor(projectId) {
+  selectedProjectId.value = projectId
+  currentReport.value = null
+  await loadReports()
+  await startNewReport()
+  if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function onProjectChange() {
@@ -374,6 +430,7 @@ async function removeEvidence(evidenceId) {
 }
 
 loadProjects()
+loadReminders()
 </script>
 
 <style scoped>
@@ -421,6 +478,75 @@ loadProjects()
 
 .selector-card {
   margin-bottom: 1.5rem;
+}
+
+.reminders-card {
+  background: #fff;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #f59e0b;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.reminders-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.reminders-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.reminders-head .material-symbols-outlined {
+  color: #d97706;
+}
+
+.reminders-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+}
+
+.reminder-item.overdue {
+  background: #fef2f2;
+}
+
+.reminder-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.reminder-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.reminder-when {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.reminder-item.overdue .reminder-when {
+  color: #b91c1c;
 }
 
 .form-label {

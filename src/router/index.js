@@ -33,6 +33,7 @@ const router = createRouter({
     // Public Routes
     { path: '/home', name: 'home', component: HomepageView },
     { path: '/', redirect: '/home' },
+    { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/register', name: 'register', component: RegisterView },
     {
@@ -53,9 +54,27 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      // OAuth / phone sign-in lands here to finalize the session.
+      path: '/auth/callback',
+      name: 'auth-callback',
+      component: () => import('@/views/AuthCallbackView.vue'),
+    },
+    {
       path: '/marketplace',
       name: 'marketplace',
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
+    },
+    {
+      // Public carbon registry — anyone can browse/verify issued & retired credits.
+      path: '/registry',
+      name: 'registry',
+      component: () => import('@/views/RegistryView.vue'),
+    },
+    {
+      // Public market dashboard — anonymous market snapshot (supply, price, impact).
+      path: '/market',
+      name: 'market-dashboard',
+      component: () => import('@/views/MarketDashboardView.vue'),
     },
     {
       path: '/map',
@@ -68,7 +87,12 @@ const router = createRouter({
       name: 'role-application',
       component: () => import('@/views/RoleApplicationView.vue'),
     },
-    { path: '/retire', redirect: '/wallet' },
+    {
+      path: '/retire',
+      name: 'retire',
+      component: () => import('@/views/RetireView.vue'),
+      meta: { requiresAuth: true },
+    },
     {
       // Public certificate verification (QR codes resolve here)
       path: '/verify/:certificateNumber?',
@@ -148,14 +172,37 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/watchlist',
+      name: 'watchlist',
+      component: () => import('@/views/WatchlistView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/cart',
+      name: 'cart',
+      component: () => import('@/views/CartView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/kyc',
       name: 'kyc',
       component: () => import('@/views/KycView.vue'),
       meta: { requiresAuth: true },
     },
-    // Redirect old project routes
+    {
+      path: '/upgrade',
+      name: 'upgrade',
+      component: () => import('@/views/UpgradeView.vue'),
+      meta: { requiresAuth: true },
+    },
+    // Redirect old project list route; full detail page for a single project.
     { path: '/projects', redirect: '/marketplace' },
-    { path: '/projects/:id', redirect: '/marketplace' },
+    {
+      path: '/projects/:id',
+      name: 'project-detail',
+      component: () => import('@/views/ProjectDetailView.vue'),
+      props: true,
+    },
     {
       path: '/admin',
       name: 'admin',
@@ -201,7 +248,43 @@ const router = createRouter({
         requiresAdmin: true,
       },
     },
+    {
+      path: '/admin/config',
+      name: 'admin-config',
+      component: () => import('@/views/SystemConfigView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      path: '/admin/kyb',
+      name: 'admin-kyb',
+      component: () => import('@/views/AdminKybReviewView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
+      path: '/admin/refunds',
+      name: 'admin-refunds',
+      component: () => import('@/views/AdminRefundsView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
     { path: '/admin/tables', redirect: '/admin/database' },
+    {
+      path: '/admin/finance',
+      name: 'admin-finance',
+      component: () => import('@/views/FinanceConsoleView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
     {
       path: '/admin/audit-logs',
       name: 'admin-audit-logs',
@@ -217,8 +300,18 @@ const router = createRouter({
       component: () => import('@/views/VerifierPanel.vue'),
       meta: { requiresAuth: true, requiresVerifier: true },
     },
-    { path: '/analytics', redirect: '/' },
-    { path: '/sales', redirect: '/' },
+    {
+      path: '/analytics',
+      name: 'analytics',
+      component: () => import('@/views/AnalyticsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/sales',
+      name: 'seller-earnings',
+      component: () => import('@/views/SellerEarningsView.vue'),
+      meta: { requiresAuth: true },
+    },
 
     // Settings Routes
     {
@@ -290,7 +383,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
   // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password']
+  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback']
   if (publicRoutes.includes(to.name)) {
     console.log('✅ Public route, allowing access')
     next()
@@ -394,7 +487,7 @@ router.beforeEach(async (to, from, next) => {
 
     // IMPORTANT: Ensure profile is loaded before checking role-specific routes
     // This prevents navigation issues where role isn't loaded yet
-    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu) {
+    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFeature) {
       if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
         console.log('⏳ Profile/role not loaded yet, fetching before route check...')
         try {
@@ -463,6 +556,14 @@ router.beforeEach(async (to, from, next) => {
         next(getRoleDefaultRoute(normalizedRole || ROLES.GENERAL_USER))
         return
       }
+    }
+
+    // Subscription / premium gating (orthogonal to roles). Client-side UX gate
+    // only — premium actions are also enforced server-side.
+    if (to.meta.requiresFeature && !userStore.hasFeature(to.meta.requiresFeature)) {
+      console.log('🔒 Feature not in plan, redirecting to upgrade:', to.meta.requiresFeature)
+      next({ name: 'upgrade', query: { feature: to.meta.requiresFeature } })
+      return
     }
 
     next()

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PayMongo Webhook Handler
  * 
  * This Edge Function receives webhooks from PayMongo when payments are completed.
@@ -26,186 +26,233 @@ const PAYMONGO_WEBHOOK_SECRET = Deno.env.get('PAYMONGO_WEBHOOK_SECRET') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-/**
- * Verify webhook signature from PayMongo
- */
-function verifyWebhookSignature(
-  payload: string,
-  signature: string,
-  secret: string
-): boolean {
-  if (!secret) {
-    console.warn('⚠️ PAYMONGO_WEBHOOK_SECRET not set, skipping signature verification')
-    return true // Allow in development if secret not set
-  }
+// Allow unsigned webhooks ONLY when explicitly opted in (local dev). Default
+// is fail-closed: no secret + no opt-in => reject.
+const ALLOW_UNSIGNED_WEBHOOKS = Deno.env.get('ALLOW_UNSIGNED_WEBHOOKS') === 'true'
+// Reject events whose signed timestamp is older/newer than this (replay guard).
+const SIGNATURE_TOLERANCE_SECONDS = 300
 
-  // PayMongo uses HMAC-SHA256 for webhook signatures
-  // Format: timestamp,payload (separated by comma)
-  // Signature: HMAC-SHA256(timestamp + payload, secret)
-  
-  // For production, implement proper signature verification
-  // This is a simplified version - enhance based on PayMongo docs
-  try {
-    const encoder = new TextEncoder()
-    const keyData = encoder.encode(secret)
-    const payloadData = encoder.encode(payload)
-    
-    // Import crypto key
-    const cryptoKey = crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    )
-    
-    // Note: This is a placeholder - check PayMongo's actual signature format
-    // PayMongo may use a different signature method
-    return true // For now, allow if secret is set
-  } catch (error) {
-    console.error('Error verifying signature:', error)
-    return false
-  }
+interface SignatureCheck {
+  ok: boolean
+  reason?: string
 }
 
-/**
- * Process wallet top-up payment
- */
-async function processWalletTopUp(
-  supabase: any,
-  paymentId: string,
-  sessionId: string,
-  amount: number,
-  userId: string
-) {
-  console.log('💰 Processing wallet top-up:', { paymentId, sessionId, amount, userId })
-
-  // Check if transaction already processed (idempotency)
-  const { data: existingTx } = await supabase
-    .from('wallet_transactions')
-    .select('id, status')
-    .eq('external_reference', paymentId)
-    .single()
-
-  if (existingTx) {
-    if (existingTx.status === 'completed') {
-      console.log('✅ Transaction already processed:', existingTx.id)
-      return { success: true, message: 'Already processed', transactionId: existingTx.id }
-    }
-    // Update existing pending transaction
-    const { error: updateError } = await supabase
-      .from('wallet_transactions')
-      .update({
-        status: 'completed',
-        external_reference: paymentId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existingTx.id)
-
-    if (updateError) {
-      throw new Error(`Failed to update transaction: ${updateError.message}`)
-    }
-  }
-
-  // Use atomic function to update balance
-  const { data: balanceResult, error: balanceError } = await supabase.rpc(
-    'update_wallet_balance_atomic',
-    {
-      p_user_id: userId,
-      p_amount: amount,
-      p_operation: 'add',
-    }
+/** Lowercase hex HMAC-SHA256 digest. */
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
   )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
 
-  if (balanceError) {
-    // If balance update fails, create transaction record for tracking
-    console.error('❌ Balance update failed:', balanceError)
-    
-    // Try to create/update transaction record for manual review
-    if (!existingTx) {
-      await supabase.from('wallet_transactions').insert({
-        account_id: null, // Will be set after finding wallet
-        user_id: userId,
-        type: 'deposit',
-        amount: amount,
-        status: 'failed',
-        payment_method: 'gcash',
-        description: `Wallet top-up via PayMongo (failed)`,
-        reference_id: `pm_${paymentId}`,
-        external_reference: paymentId,
-      })
-    }
-    
-    throw new Error(`Failed to update wallet balance: ${balanceError.message}`)
-  }
-
-  // If transaction doesn't exist, create it now
-  if (!existingTx) {
-    // Get wallet account ID
-    const { data: wallet } = await supabase
-      .from('wallet_accounts')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
-
-    if (wallet) {
-      await supabase.from('wallet_transactions').insert({
-        account_id: wallet.id,
-        user_id: userId,
-        type: 'deposit',
-        amount: amount,
-        status: 'completed',
-        payment_method: 'gcash',
-        description: `Wallet top-up via PayMongo`,
-        reference_id: `pm_${paymentId}`,
-        external_reference: paymentId,
-      })
-    }
-  }
-
-  console.log('✅ Wallet top-up processed successfully')
-  return { success: true, newBalance: balanceResult }
+/** Constant-time string compare. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let result = 0
+  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return result === 0
 }
 
 /**
- * Process marketplace purchase payment
+ * Verify a PayMongo webhook signature with replay protection.
+ *
+ * Header format: `t=<unix_seconds>,te=<test_sig>,li=<live_sig>`.
+ * Signed message is `${t}.${rawBody}`, HMAC-SHA256 with the webhook secret,
+ * hex-encoded. We compare against li (live) then te (test).
  */
-async function processMarketplacePurchase(
+async function verifyWebhookSignature(
+  payload: string,
+  signatureHeader: string,
+  secret: string,
+  nowSeconds: number,
+): Promise<SignatureCheck> {
+  if (!secret) {
+    if (ALLOW_UNSIGNED_WEBHOOKS) {
+      console.warn('PAYMONGO_WEBHOOK_SECRET not set; ALLOW_UNSIGNED_WEBHOOKS=true - accepting unsigned (DEV ONLY)')
+      return { ok: true }
+    }
+    return { ok: false, reason: 'PAYMONGO_WEBHOOK_SECRET not configured' }
+  }
+  if (!signatureHeader) {
+    return { ok: false, reason: 'missing signature header' }
+  }
+
+  const parts: Record<string, string> = {}
+  for (const kv of signatureHeader.split(',')) {
+    const [k, v] = kv.split('=').map((s) => s.trim())
+    if (k && v) parts[k] = v
+  }
+
+  const timestamp = parts.t
+  const provided = parts.li || parts.te
+  if (!timestamp || !provided) {
+    return { ok: false, reason: 'malformed signature header' }
+  }
+
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts) || Math.abs(nowSeconds - ts) > SIGNATURE_TOLERANCE_SECONDS) {
+    return { ok: false, reason: 'timestamp outside tolerance (possible replay)' }
+  }
+
+  const expected = await hmacSha256Hex(secret, `${timestamp}.${payload}`)
+  return timingSafeEqual(expected, provided)
+    ? { ok: true }
+    : { ok: false, reason: 'signature mismatch' }
+}
+
+/** Mark a recorded webhook event as fully processed (best-effort). */
+async function markEventProcessed(supabase: any, eventId: string) {
+  try {
+    await supabase
+      .from('webhook_events')
+      .update({ status: 'processed', processed_at: new Date().toISOString() })
+      .eq('provider', 'paymongo')
+      .eq('event_id', eventId)
+  } catch (err) {
+    console.warn('Failed to mark webhook event processed:', (err as Error)?.message)
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 3 — supplier fulfillment saga (TS port of src/services/credits/
+// fulfillmentSaga.js; keep the two in sync). Runs only for 'supplier'-sourced
+// purchases, AFTER process_marketplace_purchase has committed. On supplier
+// failure it calls the idempotent refund_purchase RPC to compensate.
+// No real vendor SDK exists yet, so it uses a deterministic mock supplier
+// (CREDIT_SUPPLIER defaults to 'mock').
+// ───────────────────────────────────────────────────────────────────────────
+let _mockOrderSeq = 0
+function mockPlaceOrder(referenceId: string, quantity: number) {
+  if (!(quantity > 0)) throw new Error('placeOrder requires a positive quantity')
+  const n = ++_mockOrderSeq
+  return { orderId: `mock_order_${n}_${referenceId}`, registrySerial: `ECO-MOCK-REG-${n}` }
+}
+function mockRetire(orderId: string, registrySerial: string) {
+  return { registrySerial, retirementReceiptUrl: `https://mock.local/registry/retire/${orderId}` }
+}
+
+async function runFulfillment(
   supabase: any,
-  paymentId: string,
-  sessionId: string,
-  amount: number,
-  metadata: any
-) {
-  console.log('🛒 Processing marketplace purchase:', { paymentId, sessionId, amount, metadata })
+  opts: { transactionId: string; quantity: number; certificateId: string | null },
+): Promise<{ status: string; error?: string }> {
+  const { transactionId, quantity, certificateId } = opts
+  const supplierId = (Deno.env.get('CREDIT_SUPPLIER') || 'mock').trim()
 
-  // Marketplace purchases are handled in PaymentCallbackView
-  // This webhook just confirms payment - actual purchase logic in callback
-  // Could be enhanced to handle purchase completion here for better security
-
-  const { data: existingPurchase } = await supabase
-    .from('credit_purchases')
-    .select('id, status')
-    .eq('payment_reference', sessionId)
+  // 1) Ensure a supplier_orders row (idempotent on transaction_id).
+  await supabase.from('supplier_orders').upsert(
+    { transaction_id: transactionId, certificate_id: certificateId, quantity, supplier_id: supplierId, status: 'pending' },
+    { onConflict: 'transaction_id', ignoreDuplicates: true },
+  )
+  const { data: order } = await supabase
+    .from('supplier_orders')
+    .select('*')
+    .eq('transaction_id', transactionId)
     .single()
 
-  if (existingPurchase && existingPurchase.status === 'completed') {
-    console.log('✅ Purchase already processed')
-    return { success: true, message: 'Already processed' }
+  if (order && (order.status === 'retired' || order.status === 'refunded')) {
+    return { status: order.status }
   }
 
-  // Update purchase status if exists
-  if (existingPurchase) {
-    await supabase
-      .from('credit_purchases')
-      .update({
-        status: 'completed',
-        updated_at: new Date().toISOString(),
+  const patch = async (p: Record<string, unknown>) =>
+    supabase
+      .from('supplier_orders')
+      .update({ ...p, updated_at: new Date().toISOString() })
+      .eq('transaction_id', transactionId)
+
+  const compensate = async (reason: string) => {
+    await patch({ status: 'failed', last_error: reason })
+    const { error } = await supabase.rpc('refund_purchase', {
+      p_transaction_id: transactionId,
+      p_reason: `Auto-refund (supplier fulfillment): ${reason}`,
+    })
+    if (error) return { status: 'failed', error: reason }
+    await patch({ status: 'refunded' })
+    return { status: 'refunded', error: reason }
+  }
+
+  // 2) placeOrder
+  let registrySerial = order?.registry_serial as string | null
+  let supplierOrderId = order?.supplier_order_id as string | null
+  if (!order || order.status === 'pending' || order.status === 'failed') {
+    try {
+      const placed = mockPlaceOrder(transactionId, quantity)
+      registrySerial = placed.registrySerial
+      supplierOrderId = placed.orderId
+      await patch({
+        status: 'ordered',
+        supplier_order_id: supplierOrderId,
+        registry_serial: registrySerial,
+        attempts: (order?.attempts ?? 0) + 1,
       })
-      .eq('id', existingPurchase.id)
+    } catch (err) {
+      return compensate((err as Error)?.message || 'placeOrder failed')
+    }
   }
 
-  return { success: true }
+  // 3) retire
+  let retirementReceiptUrl: string | null = null
+  try {
+    const retired = mockRetire(supplierOrderId as string, registrySerial as string)
+    retirementReceiptUrl = retired.retirementReceiptUrl
+    await patch({ status: 'retired', retirement_receipt_url: retirementReceiptUrl })
+  } catch (err) {
+    return compensate((err as Error)?.message || 'retire failed')
+  }
+
+  // 4) Persist registry info onto the certificate (non-critical).
+  if (certificateId) {
+    try {
+      await supabase
+        .from('certificates')
+        .update({ registry_serial: registrySerial, registry_receipt_url: retirementReceiptUrl })
+        .eq('id', certificateId)
+    } catch (err) {
+      console.warn('attachRegistryInfo failed (non-critical):', (err as Error)?.message)
+    }
+  }
+
+  return { status: 'retired' }
+}
+
+// Fetch the quantity + listing source for a settled transaction, and any
+// certificate already generated for it.
+async function loadFulfillmentContext(supabase: any, transactionId: string) {
+  const { data: txn } = await supabase
+    .from('credit_transactions')
+    .select('id, quantity, listing_id')
+    .eq('id', transactionId)
+    .single()
+  if (!txn) return null
+
+  let source = 'local'
+  if (txn.listing_id) {
+    const { data: listing } = await supabase
+      .from('credit_listings')
+      .select('source')
+      .eq('id', txn.listing_id)
+      .single()
+    source = listing?.source || 'local'
+  }
+
+  let certificateId: string | null = null
+  try {
+    const { data: certs } = await supabase
+      .from('certificates')
+      .select('id')
+      .eq('transaction_id', transactionId)
+      .limit(1)
+    certificateId = certs?.[0]?.id ?? null
+  } catch (err) {
+    console.warn('certificate lookup failed (non-critical):', (err as Error)?.message)
+  }
+
+  return { quantity: Number(txn.quantity) || 0, source, certificateId }
 }
 
 serve(async (req) => {
@@ -217,87 +264,266 @@ serve(async (req) => {
     })
   }
 
+  // Hoisted so the catch block can record the failure against the event row for
+  // DB-visible diagnosis (otherwise a thrown handler leaves webhook_events at
+  // 'received' with error=null and PayMongo just retries silently).
+  let dbClient: any = null
+  let currentEventId: string | null = null
+
   try {
-    // Get webhook signature from headers
-    const signature = req.headers.get('x-paymongo-signature') || ''
+    // PayMongo sends the signature in the `paymongo-signature` header.
+    const signature =
+      req.headers.get('paymongo-signature') || req.headers.get('x-paymongo-signature') || ''
     const payload = await req.text()
     const webhookData = JSON.parse(payload)
 
-    console.log('📥 Webhook received:', {
+    console.log('ðŸ“¥ Webhook received:', {
       type: webhookData.type,
-      event: webhookData.data?.attributes?.event,
+      event: webhookData.data?.attributes?.type ?? webhookData.data?.attributes?.event,
     })
 
-    // Verify webhook signature
-    if (!verifyWebhookSignature(payload, signature, PAYMONGO_WEBHOOK_SECRET)) {
-      console.error('❌ Invalid webhook signature')
+    // Verify webhook signature (HMAC-SHA256) with replay protection.
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    const sigCheck = await verifyWebhookSignature(payload, signature, PAYMONGO_WEBHOOK_SECRET, nowSeconds)
+    if (!sigCheck.ok) {
+      console.error('âŒ Invalid webhook signature')
       return new Response(JSON.stringify({ error: 'Invalid signature' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Only process 'checkout.payment.paid' events
-    const eventType = webhookData.data?.attributes?.event
-    if (eventType !== 'checkout.payment.paid') {
-      console.log('ℹ️ Ignoring event type:', eventType)
+    // PayMongo nests the event name at data.attributes.type (e.g.
+    // 'checkout_session.payment.paid'); some older docs call it
+    // 'checkout.payment.paid'. Accept the known paid-event names so a webhook
+    // registered either way still settles; anything else is acknowledged + ignored.
+    const eventType = webhookData.data?.attributes?.type ?? webhookData.data?.attributes?.event
+    if (![
+      'checkout_session.payment.paid',
+      'checkout.payment.paid',
+      'payment.paid',
+    ].includes(eventType)) {
+      console.log('â„¹ï¸ Ignoring event type:', eventType)
       return new Response(JSON.stringify({ message: 'Event ignored' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Extract payment data
-    const paymentData = webhookData.data?.attributes?.data
-    const paymentId = paymentData?.id
-    const sessionId = webhookData.data?.attributes?.data?.attributes?.checkout_session?.id
-    const amount = paymentData?.attributes?.amount / 100 // Convert from cents
-    const metadata = paymentData?.attributes?.metadata || {}
+    // The event resource is the checkout_session; the settled payment lives in
+    // its `payments` array. Fall back to the resource itself if PayMongo ever
+    // delivers a bare payment object.
+    const resource = webhookData.data?.attributes?.data
+    const resourceAttrs = resource?.attributes ?? {}
+    const payment = resourceAttrs.payments?.[0] ?? resource
+    const sessionId = resource?.id // cs_... checkout session id (used as payment_reference)
+    const paymentId = payment?.id ?? sessionId // pay_... provider payment reference
+    // Metadata (incl. payment_intent_id) is set on the checkout session at creation.
+    const metadata = resourceAttrs.metadata ?? payment?.attributes?.metadata ?? {}
 
-    if (!paymentId || !amount) {
-      throw new Error('Missing payment data')
+    if (!paymentId) {
+      throw new Error('Missing payment id in webhook payload')
     }
 
     // Initialize Supabase client with service role (bypasses RLS)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    dbClient = supabase
 
-    // Determine payment type from metadata
-    const userId = metadata.user_id
-    const transactionId = metadata.transaction_id
-    const isWalletTopUp = metadata.method && ['gcash', 'maya'].includes(metadata.method)
+    // Event-level idempotency. Record the event keyed by (provider, event_id).
+    // A unique-violation means we've seen it before: short-circuit ONLY if the
+    // prior attempt actually finished (status 'processed'); otherwise fall
+    // through and (re)process — PayMongo retries unacknowledged events.
+    const eventId = webhookData.data?.id || paymentId
+    currentEventId = eventId
+    const { error: dedupError } = await supabase.from('webhook_events').insert({
+      provider: 'paymongo',
+      event_id: eventId,
+      event_type: eventType,
+      payload: webhookData,
+      status: 'received',
+    })
+    if (dedupError) {
+      if (dedupError.code === '23505') {
+        const { data: prior } = await supabase
+          .from('webhook_events')
+          .select('status')
+          .eq('provider', 'paymongo')
+          .eq('event_id', eventId)
+          .single()
+        if (prior?.status === 'processed') {
+          console.log('Duplicate webhook event ignored:', eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Already processed (duplicate event)' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+      } else {
+        // Table missing / other error: log and continue. Per-handler idempotency
+        // (below) still prevents double-crediting until the migration is applied.
+        console.warn('webhook_events insert failed (continuing):', dedupError.message)
+      }
+    }
 
-    if (isWalletTopUp && userId) {
-      // Process wallet top-up
-      const result = await processWalletTopUp(supabase, paymentId, sessionId, amount, userId)
-      
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'Wallet top-up processed',
-        ...result,
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+    // The only supported settlement path is a recorded payment_intent (set on
+    // the checkout session at creation). Legacy metadata-driven paths
+    // (transaction_id / method-based wallet top-up) have been removed.
+    const paymentIntentId = metadata.payment_intent_id
+
+    // Server-authoritative marketplace purchase (Phase 1.2/1.5): the checkout
+    // recorded a payment_intent; settle it atomically (decrement + ownership +
+    // ledger) via the RPC. This is the source of truth, not the callback page.
+    if (paymentIntentId) {
+      // Subscription intents activate a plan instead of settling a purchase.
+      // The plan + user come from the stored intent (authoritative), not the
+      // webhook metadata.
+      const { data: intentRow } = await supabase
+        .from('payment_intents')
+        .select('purpose, user_id, status, metadata, amount')
+        .eq('id', paymentIntentId)
+        .single()
+
+      // Wallet top-up (Phase 1 P5): credit the balance server-side (source of
+      // truth), record a completed wallet_transactions row keyed on the checkout
+      // session id (so the callback's waitForWebhookTransaction finds it).
+      if (intentRow?.purpose === 'wallet_topup') {
+        if (intentRow.status === 'paid') {
+          await markEventProcessed(supabase, eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Top-up already credited' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        const topupAmount = Number(intentRow.amount)
+        const { error: balErr } = await supabase.rpc('update_wallet_balance_atomic', {
+          p_user_id: intentRow.user_id,
+          p_amount: topupAmount,
+          p_operation: 'add',
+        })
+        if (balErr) {
+          // Leave the event unprocessed so PayMongo retries.
+          throw new Error(`wallet top-up failed: ${balErr.message}`)
+        }
+
+        try {
+          const { data: wallet } = await supabase
+            .from('wallet_accounts')
+            .select('id')
+            .eq('user_id', intentRow.user_id)
+            .single()
+          if (wallet) {
+            const { data: existingWt } = await supabase
+              .from('wallet_transactions')
+              .select('id')
+              .eq('external_reference', sessionId)
+              .maybeSingle()
+            if (!existingWt) {
+              await supabase.from('wallet_transactions').insert({
+                account_id: wallet.id,
+                user_id: intentRow.user_id,
+                type: 'deposit',
+                amount: topupAmount,
+                status: 'completed',
+                payment_method: 'paymongo',
+                description: 'Wallet top-up via PayMongo',
+                reference_id: `pm_${paymentId}`,
+                external_reference: sessionId,
+              })
+            }
+          }
+        } catch (err) {
+          console.warn('wallet_transactions record failed (non-critical):', (err as Error)?.message)
+        }
+
+        await supabase
+          .from('payment_intents')
+          .update({ status: 'paid', provider_payment_id: paymentId, updated_at: new Date().toISOString() })
+          .eq('id', paymentIntentId)
+
+        await markEventProcessed(supabase, eventId)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Wallet topped up', amount: topupAmount }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (intentRow?.purpose === 'subscription') {
+        if (intentRow.status === 'paid') {
+          // Idempotent: already activated by a prior delivery of this event.
+          await markEventProcessed(supabase, eventId)
+          return new Response(
+            JSON.stringify({ success: true, message: 'Subscription already active' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        const planKey = intentRow.metadata?.plan
+        const { data: newExpiry, error: subErr } = await supabase.rpc('activate_subscription', {
+          p_user_id: intentRow.user_id,
+          p_plan: planKey,
+        })
+        if (subErr) {
+          // Leave the event unprocessed so PayMongo retries.
+          throw new Error(`activate_subscription failed: ${subErr.message}`)
+        }
+
+        await supabase
+          .from('payment_intents')
+          .update({ status: 'paid', provider_payment_id: paymentId, updated_at: new Date().toISOString() })
+          .eq('id', paymentIntentId)
+
+        await markEventProcessed(supabase, eventId)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Subscription activated', plan: planKey, expiresAt: newExpiry }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      const { data: txnId, error: rpcError } = await supabase.rpc('process_marketplace_purchase', {
+        p_payment_intent_id: paymentIntentId,
+        p_provider_payment_id: paymentId,
       })
-    } else if (transactionId) {
-      // Process marketplace purchase
-      const result = await processMarketplacePurchase(
-        supabase,
-        paymentId,
-        sessionId,
-        amount,
-        metadata
+      if (rpcError) {
+        // Leave the event unprocessed so PayMongo retries.
+        throw new Error(`process_marketplace_purchase failed: ${rpcError.message}`)
+      }
+
+      // Phase 3 — fulfill 'supplier'-sourced credits via the external registry.
+      // Local credits need no external retirement. Saga failure is already
+      // compensated by refund_purchase, so we still mark the event processed
+      // (the purchase itself succeeded); leaving it unprocessed would thrash.
+      let fulfillment = 'skipped'
+      try {
+        const ctx = txnId ? await loadFulfillmentContext(supabase, txnId) : null
+        if (ctx && ctx.source === 'supplier') {
+          const result = await runFulfillment(supabase, {
+            transactionId: txnId,
+            quantity: ctx.quantity,
+            certificateId: ctx.certificateId,
+          })
+          fulfillment = result.status
+        }
+      } catch (err) {
+        console.error('Fulfillment saga error (non-blocking):', (err as Error)?.message)
+        fulfillment = 'error'
+      }
+
+      await markEventProcessed(supabase, eventId)
+      return new Response(
+        JSON.stringify({ success: true, message: 'Purchase settled', transactionId: txnId, fulfillment }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
       )
-      
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'Purchase processed',
-        ...result,
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    } else {
-      console.warn('⚠️ Unknown payment type or missing metadata')
+    }
+
+    // No payment_intent_id on the event → nothing actionable. Legacy
+    // metadata-driven settlement paths (method-based wallet top-up,
+    // transaction_id purchase) have been removed. Acknowledge + mark processed.
+    {
+      console.warn('âš ï¸ Unknown payment type or missing metadata')
+      // Terminal: acknowledged (200 → no PayMongo retry) but no actionable
+      // metadata, so nothing settles. Mark it processed so it doesn't linger at
+      // 'received' and trip reconcile_financials()'s webhook_stuck check.
+      await markEventProcessed(supabase, eventId)
       return new Response(JSON.stringify({
         success: false,
         message: 'Unknown payment type',
@@ -307,38 +533,27 @@ serve(async (req) => {
       })
     }
   } catch (error) {
-    console.error('❌ Webhook processing error:', error)
+    console.error('âŒ Webhook processing error:', error)
+    const message = (error as Error)?.message || 'Webhook processing failed'
+    // Persist the failure against the event row so it's diagnosable from SQL
+    // (status stays 'received' so PayMongo keeps retrying and reconcile still
+    // flags it as stuck). Best-effort — never mask the original error.
+    if (dbClient && currentEventId) {
+      try {
+        await dbClient
+          .from('webhook_events')
+          .update({ error: message })
+          .eq('provider', 'paymongo')
+          .eq('event_id', currentEventId)
+      } catch (persistErr) {
+        console.warn('Failed to record webhook error:', (persistErr as Error)?.message)
+      }
+    }
     return new Response(JSON.stringify({
-      error: error.message || 'Webhook processing failed',
+      error: message,
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<<<<<<< HEAD
-
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 191b09e226eebf78c886c5d495f26a15031099cd
-=======
->>>>>>> cdeda1ddb03759c7616575d52de04771aba3c655

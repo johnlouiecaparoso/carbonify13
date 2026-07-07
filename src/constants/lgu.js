@@ -33,6 +33,8 @@ export function computeWasteEmissions(generated, diverted) {
   const baseline = g * EMISSION_PER_TONNE
   const avoided = d * EMISSION_PER_TONNE
   return {
+    generated: g, // sanitized (>= 0)
+    diverted: d, // sanitized + clamped to <= generated
     baseline, // if all generated waste were landfilled
     avoided, // avoided by diversion
     net: baseline - avoided, // actual emissions after diversion

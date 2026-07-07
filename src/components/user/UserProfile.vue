@@ -53,14 +53,14 @@ const roleDisplayName = computed(() => {
 const roleColor = computed(() => {
   switch (userRole.value) {
     case ROLES.SUPER_ADMIN:
-      return 'var(--ecolink-purple-500)'
+      return 'var(--carbonify-purple-500)'
     case ROLES.ADMIN:
-      return 'var(--ecolink-red-500)'
+      return 'var(--carbonify-red-500)'
     case ROLES.VERIFIER:
-      return 'var(--ecolink-blue-500)'
+      return 'var(--carbonify-blue-500)'
     case ROLES.USER:
     default:
-      return 'var(--ecolink-gray-500)'
+      return 'var(--carbonify-gray-500)'
   }
 })
 
@@ -243,9 +243,9 @@ onMounted(() => {
   gap: 24px;
   margin-bottom: 32px;
   padding: 24px;
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: var(--radius);
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
 }
 
 .profile-avatar {
@@ -264,7 +264,7 @@ onMounted(() => {
 }
 
 .avatar-circle {
-  background: var(--ecolink-primary);
+  background: var(--carbonify-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -285,7 +285,7 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .role-badge {
@@ -305,8 +305,8 @@ onMounted(() => {
 }
 
 .profile-section {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
   padding: 24px;
 }
@@ -315,20 +315,20 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .error-message {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px;
   border-radius: var(--radius);
   margin-bottom: 16px;
 }
 
 .success-message {
-  background: var(--ecolink-success-bg);
-  color: var(--ecolink-success);
+  background: var(--carbonify-success-bg);
+  color: var(--carbonify-success);
   padding: 12px;
   border-radius: var(--radius);
   margin-bottom: 16px;
@@ -348,12 +348,12 @@ onMounted(() => {
 
 .detail-item label {
   font-weight: 500;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 14px;
 }
 
 .detail-item span {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 16px;
 }
 
@@ -371,11 +371,11 @@ onMounted(() => {
 
 .form-group label {
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .form-help {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 12px;
 }
 
@@ -401,18 +401,18 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
   border-radius: var(--radius);
 }
 
 .security-label {
   flex: 1;
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .security-status {
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-family: monospace;
 }
 </style>

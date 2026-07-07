@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 // Mock Supabase client

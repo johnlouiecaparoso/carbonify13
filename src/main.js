@@ -8,12 +8,17 @@ import { initializeMobile } from '@/utils/mobile'
 import { optimizeImageLoading } from '@/utils/imageOptimization'
 import { setupServiceWorkerCache } from '@/utils/cache'
 import { initSupabase } from '@/services/supabaseClient'
+import { initSentry } from '@/utils/sentry'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
 app.use(router)
+
+// Optional error tracking — dormant unless VITE_SENTRY_DSN is set (the SDK is
+// only loaded when a DSN exists). Fire-and-forget so it never delays mount.
+initSentry(app, router)
 
 // Initialize Supabase client (errors handled internally)
 initSupabase().catch(() => {
@@ -30,7 +35,7 @@ if (typeof window !== 'undefined') {
     if ('caches' in window) {
       caches.keys().then((names) => {
         names.forEach((name) => {
-          if (name.includes('ecolink')) {
+          if (name.includes('carbonify')) {
             caches.delete(name)
           }
         })

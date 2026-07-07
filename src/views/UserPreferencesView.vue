@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import UiButton from '@/components/ui/Button.vue'
-import UiInput from '@/components/ui/Input.vue'
 
 const preferencesStore = usePreferencesStore()
 
@@ -119,7 +118,7 @@ function exportPreferences() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'ecolink-preferences.json'
+  a.download = 'carbonify-preferences.json'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -146,7 +145,7 @@ function importPreferences(event) {
 
         alert('Preferences imported successfully!')
         window.location.reload()
-      } catch (error) {
+      } catch {
         alert('Error importing preferences. Please check the file format.')
       }
     }
@@ -159,7 +158,7 @@ function importPreferences(event) {
   <div class="preferences-page">
     <div class="preferences-header">
       <h1 class="page-title">User Preferences</h1>
-      <p class="page-description">Customize your EcoLink experience</p>
+      <p class="page-description">Customize your Carbonify experience</p>
     </div>
 
     <div class="preferences-container">

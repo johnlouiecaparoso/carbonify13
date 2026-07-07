@@ -1,4 +1,4 @@
-# If I am an LGU User — What I Need from Ecolink *(bonus role)*
+# If I am an LGU User — What I Need from Carbonify *(bonus role)*
 
 **Who I am:** A local government unit (city/municipality/barangay) tracking community emissions, monitoring waste diversion, reporting city ESG, and endorsing local projects. My success = I can quantify and report my jurisdiction's climate progress and back credible local projects.
 

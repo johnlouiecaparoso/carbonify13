@@ -1,4 +1,4 @@
-# If I am a Buyer / Investor — What I Need from Ecolink
+# If I am a Buyer / Investor — What I Need from Carbonify
 
 **Who I am:** A corporation, SME, or individual buying carbon credits to offset emissions, meet ESG/CSR goals, or invest. My success = I can find *trustworthy* credits, buy them easily, prove I bought them, and report the offset.
 

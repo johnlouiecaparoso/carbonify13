@@ -146,7 +146,7 @@
                   :class="['tab-button', { active: activeTab === 'purchases' }]"
                   @click="activeTab = 'purchases'"
                 >
-                  Purchases ({{ purchaseHistory.length }})
+                  Purchases ({{ purchaseTotal }})
                 </button>
                 <button
                   :class="['tab-button', { active: activeTab === 'retirements' }]"
@@ -198,6 +198,25 @@
                     </button>
                   </div>
                 </div>
+
+                <!-- Purchase pagination -->
+                <div v-if="purchaseTotalPages > 1" class="pagination">
+                  <button
+                    class="page-btn"
+                    :disabled="purchasePage <= 1 || loadingPurchases"
+                    @click="goToPurchasePage(purchasePage - 1)"
+                  >
+                    Previous
+                  </button>
+                  <span class="page-info">Page {{ purchasePage }} of {{ purchaseTotalPages }}</span>
+                  <button
+                    class="page-btn"
+                    :disabled="purchasePage >= purchaseTotalPages || loadingPurchases"
+                    @click="goToPurchasePage(purchasePage + 1)"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
 
               <!-- Retirement History -->
@@ -240,6 +259,13 @@
         </div>
       </div>
     </div>
+
+    <Toast
+      v-if="toast.show"
+      :type="toast.type"
+      :message="toast.message"
+      @close="toast.show = false"
+    />
   </div>
 </template>
 
@@ -248,10 +274,20 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getUserCreditPortfolio, retireCredits } from '@/services/marketplaceService'
-import { getUserTransactionHistory } from '@/services/transactionHistoryService'
+import {
+  getUserPurchaseHistoryPage,
+  getUserRetirementHistory,
+} from '@/services/transactionHistoryService'
+import Toast from '@/components/ui/Toast.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
+
+// Lightweight in-app toast (replaces blocking window.alert on retire).
+const toast = ref({ show: false, type: 'success', message: '' })
+function showToast(message, type = 'success') {
+  toast.value = { show: true, type, message }
+}
 
 // Form data
 const selectedProject = ref('')
@@ -264,6 +300,11 @@ const availableProjects = ref([])
 const purchaseHistory = ref([])
 const retirementHistory = ref([])
 const activeTab = ref('purchases') // 'purchases' or 'retirements'
+// Server-side pagination for the purchases tab.
+const PURCHASE_PAGE_SIZE = 10
+const purchasePage = ref(1)
+const purchaseTotal = ref(0)
+const loadingPurchases = ref(false)
 const loading = ref(false)
 const error = ref('')
 const generatingCerts = ref(false)
@@ -288,6 +329,34 @@ const canRetire = computed(() => {
   )
 })
 
+const purchaseTotalPages = computed(() =>
+  Math.max(1, Math.ceil(purchaseTotal.value / PURCHASE_PAGE_SIZE)),
+)
+
+// Load one page of purchases (server-side). Retirements load in full separately.
+async function loadPurchasesPage(page = 1) {
+  const userId = userStore.session?.user?.id || userStore.user?.id
+  if (!userId) return
+  loadingPurchases.value = true
+  try {
+    const { rows, total } = await getUserPurchaseHistoryPage({
+      userId,
+      limit: PURCHASE_PAGE_SIZE,
+      offset: (page - 1) * PURCHASE_PAGE_SIZE,
+    })
+    purchaseHistory.value = rows
+    purchaseTotal.value = total
+    purchasePage.value = page
+  } finally {
+    loadingPurchases.value = false
+  }
+}
+
+function goToPurchasePage(page) {
+  const target = Math.min(Math.max(1, page), purchaseTotalPages.value)
+  if (target !== purchasePage.value) loadPurchasesPage(target)
+}
+
 // Methods
 const loadUserCredits = async () => {
   const userId = userStore.session?.user?.id || userStore.user?.id
@@ -310,20 +379,26 @@ const loadUserCredits = async () => {
       timeoutPromise,
     ])
 
-    // Transform the data to include project details (only show credits with quantity > 0)
+    // Transform the data to include project details (only show credits with quantity > 0).
+    // getUserCreditPortfolio returns FLAT fields (project_id, project_title, ...) — not a
+    // nested project_credits.projects object. The dropdown key stays the ownership-row id,
+    // but we MUST carry the real project_id: retire_credits_atomic matches on it, so dropping
+    // it (the old bug) made every retirement fail with "insufficient credits".
     availableProjects.value = credits
       .filter((credit) => credit.quantity > 0)
       .map((credit) => ({
-        id: credit.project_credits?.projects?.id || credit.id,
-        name: credit.project_credits?.projects?.title || 'Unknown Project',
-        project_title: credit.project_credits?.projects?.title || 'Unknown Project',
+        id: credit.id,
+        project_id: credit.project_id,
+        name: credit.project_title || 'Unknown Project',
+        project_title: credit.project_title || 'Unknown Project',
         credits: credit.quantity,
         quantity: credit.quantity,
-        category: credit.project_credits?.projects?.category || 'Unknown',
-        location: credit.project_credits?.projects?.location || 'Unknown',
+        category: credit.project_category || 'Unknown',
+        location: credit.project_location || 'Unknown',
       }))
 
-    // Load complete transaction history (purchases and retirements)
+    // Load transaction history: purchases paginate server-side; retirements
+    // load in full (typically far fewer rows).
     try {
       const userId = userStore.session?.user?.id || userStore.user?.id
       if (!userId) {
@@ -332,39 +407,18 @@ const loadUserCredits = async () => {
         retirementHistory.value = []
         return
       }
-      
+
       // Add timeout protection for transaction history
       const historyTimeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Transaction history timeout')), 30000)
       )
-      
-      const history = await Promise.race([
-        getUserTransactionHistory(userId),
+
+      const retirements = await Promise.race([
+        Promise.all([loadPurchasesPage(1), getUserRetirementHistory(userId)]),
         historyTimeoutPromise,
-      ])
-      
-      purchaseHistory.value = history.purchases || []
-      retirementHistory.value = history.retirements || []
-      
-      console.log('✅ Transaction history loaded:', {
-        purchases: purchaseHistory.value.length,
-        retirements: retirementHistory.value.length,
-        purchaseDetails: purchaseHistory.value.map(p => ({
-          id: p.id,
-          project_title: p.project_title,
-          has_certificate: !!p.certificate,
-          certificate_number: p.certificate_number
-        }))
-      })
-      
-      // Log any purchases without certificates for debugging
-      const purchasesWithoutCert = purchaseHistory.value.filter(p => !p.certificate)
-      if (purchasesWithoutCert.length > 0) {
-        console.warn('⚠️ Found purchases without certificates:', purchasesWithoutCert.length)
-        purchasesWithoutCert.forEach(p => {
-          console.warn('  - Purchase ID:', p.id, 'Project:', p.project_title, 'Date:', p.date)
-        })
-      }
+      ]).then(([, r]) => r)
+
+      retirementHistory.value = retirements || []
     } catch (historyError) {
       console.error('❌ Error loading transaction history:', historyError)
       purchaseHistory.value = []
@@ -408,8 +462,10 @@ const handleRetire = async () => {
       throw new Error('User not authenticated')
     }
 
-    // Get project ID from selected credit
-    const projectId = selectedCredit.id
+    // Get project ID from selected credit. NOTE: the portfolio item's `id` is the
+    // credit_ownership row id; the actual project id is `project_id`. Passing the
+    // wrong one makes retire_credits_atomic find no matching credits.
+    const projectId = selectedCredit.project_id || selectedCredit.id
     if (!projectId) {
       throw new Error('Project ID not found')
     }
@@ -431,11 +487,12 @@ const handleRetire = async () => {
     // Reload data
     await loadUserCredits()
 
-    // Show success message
-    alert(`Successfully retired ${creditsToRetireValue} credits from ${projectName}!`)
+    // Show success toast
+    showToast(`Successfully retired ${creditsToRetireValue} credits from ${projectName}!`, 'success')
   } catch (err) {
     console.error('Error retiring credits:', err)
     error.value = err.message || 'Failed to retire credits. Please try again.'
+    showToast(error.value, 'error')
   } finally {
     loading.value = false
   }
@@ -1013,5 +1070,33 @@ onMounted(() => {
   border-radius: 8px;
   text-align: center;
   margin-bottom: 1.5rem;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.page-btn {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: #64748b;
+  font-size: 0.9rem;
 }
 </style>

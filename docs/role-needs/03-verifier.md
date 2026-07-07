@@ -1,4 +1,4 @@
-# If I am a Verifier — What I Need from Ecolink
+# If I am a Verifier — What I Need from Carbonify
 
 **Who I am:** A 3rd‑party or CSU/DENR technical reviewer who validates projects and verifies annual monitoring reports, approving or rejecting Verified Emission Reductions (VERs). My success = I can review thoroughly, consistently, and defensibly, and my decisions are auditable.
 

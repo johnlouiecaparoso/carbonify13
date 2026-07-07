@@ -205,12 +205,12 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .header p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .controls {
@@ -222,8 +222,8 @@ onMounted(() => {
 }
 
 .error-message {
-  background: var(--ecolink-error-bg);
-  color: var(--ecolink-error);
+  background: var(--carbonify-error-bg);
+  color: var(--carbonify-error);
   padding: 12px;
   border-radius: var(--radius);
   margin-bottom: 16px;
@@ -232,14 +232,14 @@ onMounted(() => {
 .loading {
   text-align: center;
   padding: 40px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .users-table {
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: var(--radius);
   overflow: hidden;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
 }
 
 table {
@@ -251,17 +251,17 @@ th,
 td {
   padding: 12px 16px;
   text-align: left;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 th {
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 td {
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .role-badge {
@@ -273,23 +273,23 @@ td {
 }
 
 .badge-super-admin {
-  background: var(--ecolink-purple-100);
-  color: var(--ecolink-purple-700);
+  background: var(--carbonify-purple-100);
+  color: var(--carbonify-purple-700);
 }
 
 .badge-admin {
-  background: var(--ecolink-red-100);
-  color: var(--ecolink-red-700);
+  background: var(--carbonify-red-100);
+  color: var(--carbonify-red-700);
 }
 
 .badge-verifier {
-  background: var(--ecolink-blue-100);
-  color: var(--ecolink-blue-700);
+  background: var(--carbonify-blue-100);
+  color: var(--carbonify-blue-700);
 }
 
 .badge-user {
-  background: var(--ecolink-gray-100);
-  color: var(--ecolink-gray-700);
+  background: var(--carbonify-gray-100);
+  color: var(--carbonify-gray-700);
 }
 
 .modal-overlay {
@@ -306,7 +306,7 @@ td {
 }
 
 .modal {
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   border-radius: var(--radius);
   padding: 24px;
   min-width: 400px;
@@ -317,7 +317,7 @@ td {
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .form-group {
@@ -328,16 +328,16 @@ td {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .role-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
-  background: var(--ecolink-bg);
-  color: var(--ecolink-text);
+  background: var(--carbonify-bg);
+  color: var(--carbonify-text);
 }
 
 .modal-actions {

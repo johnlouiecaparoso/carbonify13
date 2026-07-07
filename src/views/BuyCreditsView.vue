@@ -44,7 +44,7 @@
 
             <!-- Error State -->
             <div v-else-if="error" class="error-state">
-              <div class="error-icon">⚠️</div>
+              <div class="error-icon"><span class="material-symbols-outlined">warning</span></div>
               <h3>Unable to load credits</h3>
               <p>{{ error }}</p>
               <button @click="loadCredits" class="retry-button">Try Again</button>
@@ -52,7 +52,7 @@
 
             <!-- Empty State -->
             <div v-else-if="credits.length === 0" class="empty-state">
-              <div class="empty-icon">🌱</div>
+              <div class="empty-icon"><span class="material-symbols-outlined">eco</span></div>
               <h3>No credits available</h3>
               <p>Check back later for new carbon credit listings</p>
             </div>
@@ -133,7 +133,7 @@
                         :class="['payment-method-card', { active: selectedPaymentMethod === method.value }]"
                         @click="selectedPaymentMethod = method.value"
                       >
-                        <div class="payment-method-icon">{{ method.icon }}</div>
+                        <div class="payment-method-icon material-symbols-outlined">{{ method.icon }}</div>
                         <div class="payment-method-info">
                           <div class="payment-method-name">{{ method.label }}</div>
                           <div v-if="method.value === 'wallet'" class="wallet-balance">
@@ -147,7 +147,8 @@
                       </div>
                     </div>
                     <div v-if="selectedPaymentMethod === 'wallet' && walletBalance < totalPrice" class="error-message">
-                      ⚠️ Your wallet balance (${{ walletBalance.toFixed(2) }}) is insufficient for this purchase (${{ totalPrice.toFixed(2) }})
+                      <span class="material-symbols-outlined inline-ico" aria-hidden="true">warning</span>
+                      Your wallet balance (₱{{ walletBalance.toFixed(2) }}) is insufficient for this purchase (₱{{ totalPrice.toFixed(2) }})
                     </div>
                   </div>
 
@@ -170,14 +171,14 @@
               <h3 class="payment-title">Payment Methods</h3>
               <div class="payment-options">
                 <div class="payment-option">
-                  <div class="payment-icon">💳</div>
+                  <div class="payment-icon material-symbols-outlined">smartphone</div>
                   <div class="payment-info">
                     <h4>GCash</h4>
                     <p>2% processing fee</p>
                   </div>
                 </div>
                 <div class="payment-option">
-                  <div class="payment-icon">🏦</div>
+                  <div class="payment-icon material-symbols-outlined">account_balance</div>
                   <div class="payment-info">
                     <h4>Maya</h4>
                     <p>2.5% processing fee</p>
@@ -223,19 +224,19 @@ const paymentMethods = [
   {
     value: 'wallet',
     label: 'Wallet Balance',
-    icon: '💳',
+    icon: 'account_balance_wallet',
     description: 'Pay from your wallet',
   },
   {
     value: 'gcash',
     label: 'GCash',
-    icon: '📱',
+    icon: 'smartphone',
     description: 'Pay via GCash (PayMongo)',
   },
   {
     value: 'maya',
     label: 'Maya',
-    icon: '🏦',
+    icon: 'account_balance',
     description: 'Pay via Maya (PayMongo)',
   },
 ]
@@ -365,7 +366,7 @@ const processPurchase = async () => {
 
     if (result.success) {
       alert(
-        `🎉 Purchase Successful!\n\n` +
+        `Purchase Successful!\n\n` +
           `Credits: ${purchaseQuantity.value}\n` +
           `Project: ${selectedCredit.value.title}\n` +
           `Total: $${totalPrice.value.toFixed(2)}\n\n` +
@@ -857,6 +858,12 @@ onMounted(async () => {
 
 .payment-icon {
   font-size: 1.5rem;
+}
+
+.inline-ico {
+  font-size: 1.1em;
+  vertical-align: middle;
+  margin-right: 0.25rem;
 }
 
 .payment-info h4 {

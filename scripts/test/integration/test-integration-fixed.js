@@ -24,7 +24,7 @@ function loadEnv() {
     })
 
     return envVars
-  } catch (error) {
+  } catch {
     console.warn('⚠️  Could not load .env file, using process.env')
     return process.env
   }
@@ -48,7 +48,7 @@ async function testDatabaseConnection() {
   console.log('🔍 Testing database connection...')
 
   try {
-    const { data, error } = await supabase.from('profiles').select('count').limit(1)
+    const { error } = await supabase.from('profiles').select('count').limit(1)
 
     if (error) {
       console.error('❌ Database connection failed:', error.message)
@@ -166,7 +166,7 @@ async function testAuthentication() {
 
   try {
     // Test sign up
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: 'test@example.com',
       password: 'testpassword123',
     })
@@ -178,7 +178,7 @@ async function testAuthentication() {
     }
 
     // Test sign in
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email: 'test@example.com',
       password: 'testpassword123',
     })
@@ -201,7 +201,7 @@ async function testRLSPolicies() {
 
   try {
     // Test if we can read profiles (should work)
-    const { data: profiles, error: profilesError } = await supabase
+    const { error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .limit(1)
@@ -213,7 +213,7 @@ async function testRLSPolicies() {
     console.log('✅ RLS policies working for profiles')
 
     // Test if we can read projects (should work)
-    const { data: projects, error: projectsError } = await supabase
+    const { error: projectsError } = await supabase
       .from('projects')
       .select('*')
       .limit(1)

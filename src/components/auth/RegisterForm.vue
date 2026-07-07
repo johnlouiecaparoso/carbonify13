@@ -1,12 +1,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { registerWithEmail } from '@/services/authService'
-import { useUserStore } from '@/store/userStore'
+import { registerWithEmail, signInWithGoogle } from '@/services/authService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 
 const router = useRouter()
+const googleLoading = ref(false)
 const name = ref('')
 const email = ref('')
 const password = ref('')
@@ -18,7 +18,17 @@ const emailError = ref('')
 const passwordError = ref('')
 const confirmError = ref('')
 // Removed showPassword and showConfirm as UiInput handles password visibility internally
-const store = useUserStore()
+
+async function signUpGoogle() {
+  errorMessage.value = ''
+  googleLoading.value = true
+  try {
+    await signInWithGoogle()
+  } catch (err) {
+    errorMessage.value = err?.message || 'Could not start Google sign-up.'
+    googleLoading.value = false
+  }
+}
 
 async function handleSubmit() {
   errorMessage.value = ''
@@ -74,7 +84,7 @@ async function handleSubmit() {
   <div class="register-form-container">
     <div class="register-header">
       <h2 class="register-title">Create your account</h2>
-      <p class="register-subtitle">Get started with EcoLink in minutes.</p>
+      <p class="register-subtitle">Get started with Carbonify in minutes.</p>
     </div>
     <form class="form-grid" @submit.prevent="handleSubmit">
       <!-- Full Name Input -->
@@ -152,6 +162,29 @@ async function handleSubmit() {
         <span>Create Account</span>
       </UiButton>
     </form>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <button type="button" class="social-button" :disabled="googleLoading" @click="signUpGoogle">
+      <img
+        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+        alt=""
+        class="social-icon"
+      />
+      <span>{{ googleLoading ? 'Redirecting…' : 'Sign up with Google' }}</span>
+    </button>
+
+    <div class="role-apply-box">
+      <p class="role-apply-title">Applying as a Project Developer or Verifier?</p>
+      <p class="role-apply-text">
+        These roles require additional details (business registration, accreditation, supporting
+        documents) and are reviewed before approval.
+      </p>
+      <div class="role-apply-links">
+        <router-link to="/apply?role=project-developer">Apply as a Project Developer →</router-link>
+        <router-link to="/apply?role=verifier">Apply as a Verifier →</router-link>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -339,5 +372,88 @@ button[disabled] {
   .form-grid {
     gap: 1rem;
   }
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  margin: 1.25rem 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.auth-divider span {
+  padding: 0 0.75rem;
+}
+
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.social-button:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.social-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.social-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.role-apply-box {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+.role-apply-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #374151;
+}
+.role-apply-text {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+.role-apply-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.role-apply-links a {
+  color: #069e2d;
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-decoration: none;
 }
 </style>

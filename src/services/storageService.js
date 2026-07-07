@@ -1,4 +1,3 @@
-import { getSupabase } from '@/services/supabaseClient'
 
 /**
  * Storage service for handling file uploads to Supabase Storage
@@ -79,7 +78,7 @@ export async function uploadProfilePhoto(file, userId) {
     const filePath = fileName
 
     // Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('avatars')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -124,12 +123,154 @@ export async function uploadProfilePhoto(file, userId) {
 }
 
 /**
+ * Upload a project compliance/technical document to Supabase Storage.
+ *
+ * Stores the file in the public `project-documents` bucket under a per-user,
+ * per-project path and returns the permanent public URL. Used by the Submit /
+ * Edit Project form so the required PDFs (PDD, baseline, additionality, LGU
+ * endorsement, ECC, land title, MOA, …) are actually retrievable by verifiers,
+ * admins, and buyers — previously only the filename was saved and every link
+ * was dead.
+ *
+ * @param {File} file - The document file to upload
+ * @param {string} userId - The uploading user's ID (namespaces the path)
+ * @param {string} [label] - Optional document label (e.g. 'pdd', 'ecc')
+ * @returns {Promise<string>} - The storage object PATH (bucket is private; use
+ *   getSignedProjectDocumentUrl / resolveDocumentUrls to render a link).
+ */
+export async function uploadProjectDocument(file, userId, label = 'doc') {
+  const { getSupabaseAsync } = await import('@/services/supabaseClient')
+  const supabase = await getSupabaseAsync()
+
+  if (!supabase) {
+    throw new Error('Supabase client not available')
+  }
+  if (!file) {
+    throw new Error('No file provided')
+  }
+  if (!userId) {
+    throw new Error('You must be signed in to upload documents.')
+  }
+
+  // Validate type + size (mirror the bucket policy so failures surface early).
+  const validTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ]
+  if (file.type && !validTypes.includes(file.type)) {
+    throw new Error(`"${file.name}" is not an accepted document type (PDF, image, or Word).`)
+  }
+  const maxSize = 25 * 1024 * 1024 // 25MB — matches the bucket file_size_limit
+  if (file.size > maxSize) {
+    throw new Error(`"${file.name}" is too large. Maximum document size is 25MB.`)
+  }
+
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || !sessionData?.session) {
+      throw new Error('Your session has expired. Please refresh the page and try again.')
+    }
+
+    // Build a safe, unique, namespaced path: userId/label_timestamp_slug.ext
+    const dotIdx = file.name.lastIndexOf('.')
+    const fileExt = dotIdx >= 0 ? file.name.slice(dotIdx + 1).toLowerCase() : 'bin'
+    const safeLabel = String(label || 'doc').replace(/[^a-z0-9_-]/gi, '').slice(0, 40) || 'doc'
+    const timestamp = Date.now()
+    const rand = Math.random().toString(36).slice(2, 8)
+    const filePath = `${userId}/${safeLabel}_${timestamp}_${rand}.${fileExt}`
+
+    const { error } = await supabase.storage
+      .from('project-documents')
+      .upload(filePath, file, { cacheControl: '3600', upsert: false })
+
+    if (error) {
+      console.error('Error uploading project document:', error)
+      if (error.message?.includes('Bucket not found')) {
+        throw new Error(
+          'Document storage is not configured yet. Ask an admin to apply the project-documents bucket migration.',
+        )
+      }
+      if (error.message?.includes('JWT') || error.message?.includes('token') || error.message?.includes('authorization')) {
+        throw new Error('Your session has expired. Please refresh the page and try again.')
+      }
+      throw new Error(error.message || `Failed to upload "${file.name}".`)
+    }
+
+    // Private bucket → return the object path; links are minted as signed URLs.
+    return filePath
+  } catch (error) {
+    console.error('Error in uploadProjectDocument:', error)
+    throw error
+  }
+}
+
+/**
+ * Create a short-lived signed URL for a project document stored in the private
+ * `project-documents` bucket. Requires an authenticated session (RLS).
+ * @param {string} path - The storage object path returned by uploadProjectDocument
+ * @param {number} [expiresIn] - Lifetime in seconds (default 1 hour)
+ * @returns {Promise<string|null>} - A signed URL, or null if it can't be created
+ */
+export async function getSignedProjectDocumentUrl(path, expiresIn = 3600) {
+  if (!path) return null
+  try {
+    const { getSupabaseAsync } = await import('@/services/supabaseClient')
+    const supabase = await getSupabaseAsync()
+    if (!supabase) return null
+    const { data, error } = await supabase.storage
+      .from('project-documents')
+      .createSignedUrl(path, expiresIn)
+    if (error) {
+      // Anonymous viewers (no RLS SELECT) land here — that's expected.
+      return null
+    }
+    return data?.signedUrl || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resolve a list of supporting-document records into renderable links.
+ * Accepts a JSON string or array. For each doc, fills `.url` with a signed URL
+ * derived from its `.path`; falls back to any legacy public `.url` already stored.
+ * @param {Array|string} docs
+ * @returns {Promise<Array>} docs with a usable (possibly null) `.url`
+ */
+export async function resolveDocumentUrls(docs) {
+  let list = docs
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list)
+    } catch {
+      list = []
+    }
+  }
+  if (!Array.isArray(list)) return []
+  return Promise.all(
+    list.map(async (doc) => {
+      if (!doc) return doc
+      if (doc.path) {
+        const signed = await getSignedProjectDocumentUrl(doc.path)
+        return { ...doc, url: signed || doc.url || null }
+      }
+      return { ...doc, url: doc.url || null } // legacy public-URL docs
+    }),
+  )
+}
+
+/**
  * Delete a profile photo from Supabase Storage
  * @param {string} fileUrl - The URL of the file to delete
  * @param {string} userId - The user ID
  * @returns {Promise<void>}
  */
-export async function deleteProfilePhoto(fileUrl, userId) {
+export async function deleteProfilePhoto(fileUrl) {
   // Use async version to ensure Supabase is initialized
   const { getSupabaseAsync } = await import('@/services/supabaseClient')
   const supabase = await getSupabaseAsync()

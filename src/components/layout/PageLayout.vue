@@ -9,7 +9,7 @@
       <header class="top-nav">
         <div class="nav-left">
           <button class="nav-btn home-btn" @click="goHome" title="Go to Home">
-            <span class="nav-icon">🏠</span>
+            <span class="nav-icon material-symbols-outlined">home</span>
             <span class="nav-text">Home</span>
           </button>
           <div class="breadcrumb">
@@ -69,7 +69,7 @@ const pageTitle = computed(() => {
     '/database': 'Database Management',
     '/tables': 'Table Management',
   }
-  return titles[route.path] || 'EcoLink'
+  return titles[route.path] || 'Carbonify'
 })
 
 const userProfile = computed(() => {
@@ -127,7 +127,7 @@ function goHome() {
 .page-layout {
   display: flex;
   min-height: 100vh;
-  background: var(--ecolink-bg);
+  background: var(--carbonify-bg);
 }
 
 .main-content {
@@ -138,8 +138,8 @@ function goHome() {
 }
 
 .top-nav {
-  background: var(--ecolink-surface);
-  border-bottom: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border-bottom: 1px solid var(--carbonify-border);
   padding: 1rem 1.5rem;
   display: flex;
   align-items: center;
@@ -160,7 +160,7 @@ function goHome() {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: var(--ecolink-primary-500);
+  background: var(--carbonify-primary-500);
   color: white;
   border: none;
   border-radius: 8px;
@@ -171,12 +171,12 @@ function goHome() {
 }
 
 .nav-btn:hover {
-  background: var(--ecolink-primary-600);
+  background: var(--carbonify-primary-600);
   transform: translateY(-1px);
 }
 
 .home-btn {
-  background: var(--ecolink-primary-500);
+  background: var(--carbonify-primary-500);
 }
 
 .nav-icon {
@@ -191,13 +191,13 @@ function goHome() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 0.875rem;
 }
 
 .breadcrumb-item {
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .nav-right {
@@ -211,15 +211,15 @@ function goHome() {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 1rem;
-  background: var(--ecolink-primary-50);
+  background: var(--carbonify-primary-50);
   border-radius: 8px;
-  border: 1px solid var(--ecolink-primary-200);
+  border: 1px solid var(--carbonify-primary-200);
 }
 
 .user-avatar {
   width: 2rem;
   height: 2rem;
-  background: var(--ecolink-primary-500);
+  background: var(--carbonify-primary-500);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -252,13 +252,13 @@ function goHome() {
 .user-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   line-height: 1.2;
 }
 
 .user-role {
   font-size: 0.75rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   text-transform: capitalize;
 }
 

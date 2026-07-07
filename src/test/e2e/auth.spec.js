@@ -60,7 +60,7 @@ test.describe('Authentication Flow', () => {
 
   test('should handle login with demo credentials', async ({ page }) => {
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'demo@ecolink.io')
+    await page.fill('input[type="email"]', 'demo@carbonify.io')
     await page.fill('input[type="password"]', 'demo123')
     await page.click('button[type="submit"]')
 

@@ -357,7 +357,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem 0;
-  border-bottom: 1px solid var(--ecolink-border);
+  border-bottom: 1px solid var(--carbonify-border);
 }
 
 .back-btn {
@@ -395,13 +395,13 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .page-subtitle {
   margin: 0;
   font-size: 1rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .header-actions {
@@ -422,8 +422,8 @@ onMounted(() => {
 }
 
 .metric-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   padding: 1.5rem;
   display: flex;
@@ -439,7 +439,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ecolink-primary-50);
+  background: var(--carbonify-primary-50);
   border-radius: 8px;
 }
 
@@ -451,7 +451,7 @@ onMounted(() => {
   margin: 0 0 0.5rem 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -460,7 +460,7 @@ onMounted(() => {
   margin: 0 0 0.25rem 0;
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .metric-change {
@@ -482,8 +482,8 @@ onMounted(() => {
 }
 
 .chart-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--shadow-md);
@@ -494,15 +494,15 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem;
-  background: var(--ecolink-primary-50);
-  border-bottom: 1px solid var(--ecolink-primary-200);
+  background: var(--carbonify-primary-50);
+  border-bottom: 1px solid var(--carbonify-primary-200);
 }
 
 .chart-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-primary-700);
+  color: var(--carbonify-primary-700);
 }
 
 .chart-controls {
@@ -512,10 +512,10 @@ onMounted(() => {
 
 .period-select {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 6px;
-  background: var(--ecolink-surface);
-  color: var(--ecolink-text);
+  background: var(--carbonify-surface);
+  color: var(--carbonify-text);
   font-size: 0.875rem;
 }
 
@@ -529,7 +529,7 @@ onMounted(() => {
 
 .placeholder-chart {
   text-align: center;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .chart-icon {
@@ -543,8 +543,8 @@ onMounted(() => {
 }
 
 .reports-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--shadow-md);
@@ -555,15 +555,15 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem;
-  background: var(--ecolink-primary-50);
-  border-bottom: 1px solid var(--ecolink-primary-200);
+  background: var(--carbonify-primary-50);
+  border-bottom: 1px solid var(--carbonify-primary-200);
 }
 
 .card-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--ecolink-primary-700);
+  color: var(--carbonify-primary-700);
 }
 
 .reports-grid {
@@ -578,15 +578,15 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
   transition: all 0.2s;
 }
 
 .report-item:hover {
-  background: var(--ecolink-primary-50);
-  border-color: var(--ecolink-primary-300);
+  background: var(--carbonify-primary-50);
+  border-color: var(--carbonify-primary-300);
 }
 
 .report-icon {
@@ -596,7 +596,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ecolink-primary-100);
+  background: var(--carbonify-primary-100);
   border-radius: 6px;
 }
 
@@ -609,13 +609,13 @@ onMounted(() => {
   margin: 0 0 0.25rem 0;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .report-info p {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 /* Responsive */
@@ -664,8 +664,8 @@ onMounted(() => {
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--ecolink-border);
-  border-top: 3px solid var(--ecolink-primary);
+  border: 3px solid var(--carbonify-border);
+  border-top: 3px solid var(--carbonify-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -687,23 +687,23 @@ onMounted(() => {
 }
 
 .data-card {
-  background: var(--ecolink-surface);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-surface);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
 .card-header {
   padding: 20px 24px;
-  border-bottom: 1px solid var(--ecolink-border);
-  background: var(--ecolink-bg);
+  border-bottom: 1px solid var(--carbonify-border);
+  background: var(--carbonify-bg);
 }
 
 .card-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .data-content {
@@ -724,7 +724,7 @@ onMounted(() => {
 
 .stat-label {
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-size: 14px;
 }
 
@@ -735,8 +735,8 @@ onMounted(() => {
 }
 
 .stat-value {
-  background: var(--ecolink-primary-50);
-  color: var(--ecolink-primary);
+  background: var(--carbonify-primary-50);
+  color: var(--carbonify-primary);
   padding: 4px 8px;
   border-radius: var(--radius);
   font-size: 12px;
@@ -755,8 +755,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
 }
 
@@ -764,13 +764,13 @@ onMounted(() => {
   margin: 0 0 4px 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .project-category {
   margin: 0;
   font-size: 14px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .project-stats {
@@ -782,13 +782,13 @@ onMounted(() => {
 
 .credits-sold {
   font-size: 14px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
   font-weight: 500;
 }
 
 .revenue {
   font-size: 14px;
-  color: var(--ecolink-primary);
+  color: var(--carbonify-primary);
   font-weight: 600;
 }
 
@@ -804,8 +804,8 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: var(--ecolink-bg);
-  border: 1px solid var(--ecolink-border);
+  background: var(--carbonify-bg);
+  border: 1px solid var(--carbonify-border);
   border-radius: var(--radius);
 }
 
@@ -816,7 +816,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ecolink-primary-50);
+  background: var(--carbonify-primary-50);
   border-radius: var(--radius);
 }
 
@@ -828,13 +828,13 @@ onMounted(() => {
   margin: 0 0 4px 0;
   font-size: 14px;
   font-weight: 500;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .activity-meta {
   margin: 0;
   font-size: 12px;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
 }
 
 .status-badge {
@@ -846,23 +846,23 @@ onMounted(() => {
 }
 
 .status-badge.approved {
-  background: var(--ecolink-success-bg);
-  color: var(--ecolink-success);
+  background: var(--carbonify-success-bg);
+  color: var(--carbonify-success);
 }
 
 .status-badge.submitted {
-  background: var(--ecolink-warning-bg);
-  color: var(--ecolink-warning);
+  background: var(--carbonify-warning-bg);
+  color: var(--carbonify-warning);
 }
 
 .status-badge.purchase {
-  background: var(--ecolink-primary-50);
-  color: var(--ecolink-primary);
+  background: var(--carbonify-primary-50);
+  color: var(--carbonify-primary);
 }
 
 .status-badge.neutral {
-  background: var(--ecolink-muted-bg);
-  color: var(--ecolink-muted);
+  background: var(--carbonify-muted-bg);
+  color: var(--carbonify-muted);
 }
 
 /* Empty States */
@@ -883,7 +883,7 @@ onMounted(() => {
 
 .empty-state p {
   margin: 0;
-  color: var(--ecolink-muted);
+  color: var(--carbonify-muted);
   font-size: 14px;
 }
 </style>

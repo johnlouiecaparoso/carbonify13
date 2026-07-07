@@ -5,7 +5,7 @@ test.describe('Basic App Functionality', () => {
     await page.goto('/')
 
     // Check if the page loads without errors
-    await expect(page).toHaveTitle(/EcoLink/)
+    await expect(page).toHaveTitle(/Carbonify/)
 
     // Check for the main brand title
     await expect(page.locator('h1.hero-title')).toContainText(
@@ -18,7 +18,7 @@ test.describe('Basic App Functionality', () => {
 
     // Check if login page loads
     await expect(page).toHaveURL('/login')
-    await expect(page.locator('h1')).toContainText('ECOLINK')
+    await expect(page.locator('h1')).toContainText('CARBONIFY')
   })
 
   test('should navigate to register page', async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe('Basic App Functionality', () => {
 
     // Check if register page loads
     await expect(page).toHaveURL('/register')
-    await expect(page.locator('h1')).toContainText('ECOLINK')
+    await expect(page.locator('h1')).toContainText('CARBONIFY')
   })
 
   test('should navigate to marketplace page', async ({ page }) => {

@@ -91,7 +91,7 @@ function handleCancel() {
   <div class="topup-form">
     <div class="form-header">
       <h2 class="form-title">Top Up Wallet</h2>
-      <p class="form-description">Add funds to your EcoLink wallet</p>
+      <p class="form-description">Add funds to your Carbonify wallet</p>
     </div>
 
     <form @submit.prevent="handleSubmit" class="form-grid">
@@ -238,7 +238,7 @@ function handleCancel() {
 .input-label {
   font-weight: 600;
   font-size: 14px;
-  color: var(--ecolink-text);
+  color: var(--carbonify-text);
 }
 
 .amount-buttons {
@@ -249,23 +249,23 @@ function handleCancel() {
 
 .amount-btn {
   padding: 12px 8px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
-  background: var(--ecolink-surface);
-  color: var(--ecolink-text);
+  background: var(--carbonify-surface);
+  color: var(--carbonify-text);
   font-weight: 600;
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .amount-btn:hover {
-  border-color: var(--ecolink-primary-500);
-  background: var(--ecolink-primary-50);
+  border-color: var(--carbonify-primary-500);
+  background: var(--carbonify-primary-50);
 }
 
 .amount-btn.active {
-  border-color: var(--ecolink-primary-500);
-  background: var(--ecolink-primary-500);
+  border-color: var(--carbonify-primary-500);
+  background: var(--carbonify-primary-500);
   color: white;
 }
 
@@ -284,20 +284,20 @@ function handleCancel() {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--ecolink-border);
+  border: 1px solid var(--carbonify-border);
   border-radius: 8px;
-  background: var(--ecolink-surface);
+  background: var(--carbonify-surface);
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .payment-method:hover {
-  border-color: var(--ecolink-primary-500);
+  border-color: var(--carbonify-primary-500);
 }
 
 .payment-method.active {
-  border-color: var(--ecolink-primary-500);
-  background: var(--ecolink-primary-50);
+  border-color: var(--carbonify-primary-500);
+  background: var(--carbonify-primary-50);
 }
 
 .payment-radio {
@@ -312,7 +312,7 @@ function handleCancel() {
   height: 32px;
   border-radius: 8px;
   background: rgba(6, 158, 45, 0.12);
-  color: var(--ecolink-primary-600, #047857);
+  color: var(--carbonify-primary-600, #047857);
   font-size: 22px;
 }
 
@@ -362,13 +362,13 @@ function handleCancel() {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--ecolink-primary-700);
+  color: var(--carbonify-primary-700);
 }
 
 .payment-info ul {
   margin: 0;
   padding-left: 20px;
-  color: var(--ecolink-primary-600);
+  color: var(--carbonify-primary-600);
   font-size: 14px;
 }
 

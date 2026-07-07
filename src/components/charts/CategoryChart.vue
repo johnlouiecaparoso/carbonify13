@@ -6,10 +6,12 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Chart, ArcElement, Tooltip, Legend, Title } from 'chart.js'
+import { Chart, DoughnutController, ArcElement, Tooltip, Legend, Title } from 'chart.js'
 
-// Register Chart.js components
-Chart.register(ArcElement, Tooltip, Legend, Title)
+// Register Chart.js components. The CONTROLLER (DoughnutController) must be
+// registered too — registering only ArcElement throws
+// "'doughnut' is not a registered controller" on Chart.js v4.
+Chart.register(DoughnutController, ArcElement, Tooltip, Legend, Title)
 
 const props = defineProps({
   data: {

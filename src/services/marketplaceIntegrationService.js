@@ -190,7 +190,7 @@ export class MarketplaceIntegrationService {
         category: project.category || 'Renewable Energy',
         location: project.location || 'Unknown Location',
         vintage_year: new Date().getFullYear(),
-        verification_standard: 'EcoLink Standard',
+        verification_standard: 'Carbonify Standard',
         expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
         listed_at: new Date().toISOString(),
       }

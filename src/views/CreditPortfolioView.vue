@@ -10,7 +10,28 @@
               Manage your carbon credit portfolio and track your environmental impact
             </p>
           </div>
+          <div class="header-actions">
+            <button
+              class="btn btn-export"
+              :disabled="exporting"
+              title="Download your offset/ESG report as a PDF"
+              @click="downloadEsg('pdf')"
+            >
+              {{ exporting === 'pdf' ? 'Preparing…' : 'ESG report (PDF)' }}
+            </button>
+            <button
+              class="btn btn-export outline"
+              :disabled="exporting"
+              title="Download your offset/ESG report as a CSV"
+              @click="downloadEsg('csv')"
+            >
+              {{ exporting === 'csv' ? 'Preparing…' : 'CSV' }}
+            </button>
+          </div>
         </div>
+        <p v-if="exportMessage" class="export-message" :class="{ error: exportError }">
+          {{ exportMessage }}
+        </p>
       </div>
     </div>
 
@@ -95,8 +116,17 @@
                   </svg>
                 </div>
                 <div class="stat-content">
-                  <h3>${{ portfolioValue.toLocaleString() }}</h3>
+                  <h3>₱{{ portfolioValue.toLocaleString() }}</h3>
                   <p>Portfolio Value</p>
+                  <p
+                    v-if="marketPrice > 0 && pnl.pricedCredits > 0"
+                    class="pnl"
+                    :class="pnl.unrealizedPnl >= 0 ? 'up' : 'down'"
+                  >
+                    {{ pnl.unrealizedPnl >= 0 ? '▲' : '▼' }}
+                    ₱{{ Math.abs(pnl.unrealizedPnl).toLocaleString() }}
+                    ({{ pnl.unrealizedPnlPct >= 0 ? '+' : '' }}{{ pnl.unrealizedPnlPct }}%) vs market
+                  </p>
                 </div>
               </div>
             </div>
@@ -182,6 +212,13 @@
                 </div>
 
                 <div class="credit-actions">
+                  <button
+                    v-if="credit.ownership_status !== 'retired' && credit.quantity > 0"
+                    class="btn btn-sm btn-primary"
+                    @click="router.push('/retire')"
+                  >
+                    Retire Credits
+                  </button>
                   <button class="btn btn-sm btn-outline" @click="router.push('/wallet')">
                     Manage in Wallet
                   </button>
@@ -257,6 +294,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { creditOwnershipService } from '@/services/creditOwnershipService'
+import { exportEsgReportCsv, exportEsgReportPdf } from '@/services/esgReportService'
+import { getMarketStats } from '@/services/registryService'
+import { computePortfolioPnl } from '@/services/portfolioAnalytics'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -272,11 +312,51 @@ const creditStats = ref({
 const loading = ref(false)
 const error = ref('')
 
+// ESG / offset report export
+const exporting = ref('') // '' | 'pdf' | 'csv'
+const exportMessage = ref('')
+const exportError = ref(false)
+
+async function downloadEsg(format) {
+  // Diagnostic: confirms the click handler fired (look for this in the console).
+  console.log(`[ESG] export button clicked → ${format}`)
+  const userId = userStore.session?.user?.id
+  if (!userId) {
+    exportError.value = true
+    exportMessage.value = 'Please sign in to download your report.'
+    return
+  }
+  if (exporting.value) return
+
+  exporting.value = format
+  exportMessage.value = 'Preparing your report…'
+  exportError.value = false
+  try {
+    const data =
+      format === 'pdf' ? await exportEsgReportPdf(userId) : await exportEsgReportCsv(userId)
+    const total = data?.totals?.totalCredits ?? 0
+    console.log('[ESG] report generated', data?.totals)
+    exportMessage.value =
+      total > 0
+        ? `Your ESG/offset report downloaded (${total} credit${total === 1 ? '' : 's'} covered).`
+        : 'Report downloaded — you have no credits to disclose yet.'
+  } catch (e) {
+    console.error('[ESG] export failed:', e)
+    exportError.value = true
+    exportMessage.value = e?.message || 'Could not generate your report. Please try again.'
+  } finally {
+    exporting.value = ''
+  }
+}
+
 // Computed
-const portfolioValue = computed(() => {
-  // Calculate portfolio value based on average credit price
-  return creditStats.value.total_owned * 25 // Assuming $25 per credit average
-})
+// Current market price per credit (avg of active listings), loaded with the portfolio.
+const marketPrice = ref(0)
+
+// Real position: cost basis vs current market value + unrealized P&L.
+const pnl = computed(() => computePortfolioPnl(creditPortfolio.value, marketPrice.value))
+
+const portfolioValue = computed(() => pnl.value.marketValue)
 
 const totalOwnedCredits = computed(() =>
   creditPortfolio.value.reduce((sum, record) => sum + (record.quantity || 0), 0),
@@ -347,12 +427,14 @@ async function loadPortfolio() {
   error.value = ''
 
   try {
-    const [portfolio, stats] = await Promise.all([
+    const [portfolio, stats, market] = await Promise.all([
       creditOwnershipService.getUserCreditPortfolio(userStore.session.user.id),
       creditOwnershipService.getUserCreditStats(userStore.session.user.id),
+      getMarketStats().catch(() => null),
     ])
 
     creditPortfolio.value = portfolio || []
+    marketPrice.value = Number(market?.avg_price) || 0
     creditStats.value = stats || {
       total_owned: 0,
       total_retired: 0,
@@ -416,7 +498,56 @@ onMounted(() => {
 .header-content {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.btn-export {
+  background: #ffffff;
+  color: #04773b;
+  border: 2px solid #ffffff;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.btn-export:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-export.outline {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.btn-export.outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.export-message {
+  color: #ecfdf5;
+  font-size: 0.875rem;
+  margin: 0.75rem 0 0;
+}
+
+.export-message.error {
+  color: #fee2e2;
 }
 
 .page-title {
@@ -495,6 +626,18 @@ onMounted(() => {
   font-size: 0.875rem;
   color: var(--text-muted, #718096);
   margin: 0;
+}
+
+.stat-content .pnl {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.stat-content .pnl.up {
+  color: #059669;
+}
+.stat-content .pnl.down {
+  color: #dc2626;
 }
 
 /* Holdings Section */

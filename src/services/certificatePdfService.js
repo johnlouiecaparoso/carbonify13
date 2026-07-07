@@ -7,7 +7,7 @@ export async function generateCertificatePDF(certificate, transaction = null) {
     let jsPDF
     try {
       jsPDF = (await import('jspdf')).default
-    } catch (importError) {
+    } catch {
       console.warn('jsPDF not available, using text fallback')
       throw new Error('jsPDF not installed')
     }
@@ -32,7 +32,7 @@ export async function generateCertificatePDF(certificate, transaction = null) {
     // Verification URL + QR code (graceful fallback if the qrcode lib is absent)
     const origin = typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin
-      : 'https://ecolink.com'
+      : 'https://carbonify.com'
     const verifyUrl = `${origin}/verify/${certificate.certificate_number}`
     let qrDataUrl = null
     try {
@@ -60,7 +60,7 @@ export async function generateCertificatePDF(certificate, transaction = null) {
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(22)
     doc.setFont('helvetica', 'bold')
-    doc.text('EcoLink', 18, 20)
+    doc.text('Carbonify', 18, 20)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'normal')
     doc.text('Carbon Credit Certificate', 18, 30)
@@ -213,7 +213,7 @@ export async function generateCertificatePDF(certificate, transaction = null) {
 
     doc.setFontSize(8)
     doc.setTextColor(...mutedColor)
-    doc.text('This certificate is issued by EcoLink and verifies the ownership/retirement of carbon credits.', 148, footerY + 6, {
+    doc.text('This certificate is issued by Carbonify and verifies the ownership/retirement of carbon credits.', 148, footerY + 6, {
       align: 'center',
       maxWidth: 257,
     })

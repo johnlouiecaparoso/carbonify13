@@ -26,7 +26,6 @@ export async function verifyTestAccounts() {
 
     // Check for expected roles
     const expectedRoles = ['admin', 'verifier', 'user']
-    const foundRoles = profiles.map((p) => p.role)
     const testAccountProfiles = profiles.filter((p) => expectedRoles.includes(p.role))
 
     console.log('✅ Found profiles with test roles:')
@@ -62,9 +61,9 @@ export async function testAccountLogins() {
   const supabase = getSupabase()
 
   const testAccounts = [
-    { email: 'admin@ecolink.test', password: 'admin123', expectedRole: 'admin' },
-    { email: 'verifier@ecolink.test', password: 'verifier123', expectedRole: 'verifier' },
-    { email: 'user@ecolink.test', password: 'user123', expectedRole: 'user' },
+    { email: 'admin@carbonify.test', password: 'admin123', expectedRole: 'admin' },
+    { email: 'verifier@carbonify.test', password: 'verifier123', expectedRole: 'verifier' },
+    { email: 'user@carbonify.test', password: 'user123', expectedRole: 'user' },
   ]
 
   console.log('🔐 Testing login functionality for test accounts...')

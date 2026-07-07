@@ -19,7 +19,7 @@ async function sha256Hex(input) {
  * matches the one stored at issuance.
  */
 export function buildCertificateSignaturePayload(cert) {
-  return [
+  const segments = [
     cert.certificate_number,
     cert.certificate_type,
     cert.project_title,
@@ -28,8 +28,15 @@ export function buildCertificateSignaturePayload(cert) {
     cert.vintage_year,
     cert.beneficiary_name,
   ]
-    .map((value) => String(value ?? ''))
-    .join('|')
+
+  // Back-compat: only registry-backed certificates extend the payload. Locally
+  // minted certs (registry_serial absent) hash exactly as before, so every
+  // certificate signed before Phase 3 still verifies.
+  if (cert.registry_serial) {
+    segments.push(cert.registry_serial, cert.registry_receipt_url)
+  }
+
+  return segments.map((value) => String(value ?? '')).join('|')
 }
 
 /**
@@ -43,9 +50,10 @@ export async function computeCertificateHash(cert) {
  * Compute and persist the signature for a freshly created certificate row.
  * Non-critical: a failure here never blocks issuance.
  */
-async function signCertificateRecord(supabase, certificate) {
+async function signCertificateRecord(supabase, certificate, { force = false } = {}) {
   try {
-    if (!certificate || certificate.signature_hash) return certificate
+    if (!certificate) return certificate
+    if (certificate.signature_hash && !force) return certificate
     const hash = await computeCertificateHash(certificate)
     const signedAt = new Date().toISOString()
     const { error } = await supabase
@@ -86,6 +94,54 @@ async function attachCreditSerial(supabase, certificate, serial) {
     console.warn('⚠️ Could not attach credit serial (non-critical):', err)
   }
   return certificate
+}
+
+/**
+ * Phase 3 — record an external registry serial + retirement receipt on a
+ * certificate after the supplier-fulfillment saga retires the credit, then
+ * RE-SIGN the record (the signature payload now includes the registry fields).
+ *
+ * Called server-side by the fulfillment saga. Accepts a certificate id or a
+ * certificate row. Best-effort: returns the (possibly unchanged) record rather
+ * than throwing, so a write hiccup never reverses a successful retirement.
+ *
+ * @param {object} supabase
+ * @param {string|object} certificateRef        certificate id, or a row with at least { id }.
+ * @param {{registrySerial?: string|null, registryReceiptUrl?: string|null}} info
+ * @returns {Promise<object|null>}
+ */
+export async function attachRegistryInfo(supabase, certificateRef, { registrySerial, registryReceiptUrl } = {}) {
+  if (!supabase || !certificateRef) return null
+  try {
+    let certificate =
+      typeof certificateRef === 'string' ? null : certificateRef
+    const certId = typeof certificateRef === 'string' ? certificateRef : certificateRef.id
+    if (!certId) return certificate
+
+    if (!certificate) {
+      const { data } = await supabase.from('certificates').select('*').eq('id', certId).single()
+      certificate = data
+    }
+    if (!certificate) return null
+
+    const { error } = await supabase
+      .from('certificates')
+      .update({ registry_serial: registrySerial ?? null, registry_receipt_url: registryReceiptUrl ?? null })
+      .eq('id', certId)
+    if (error) {
+      console.warn('⚠️ Could not store registry info (non-critical):', error.message)
+      return certificate
+    }
+
+    certificate.registry_serial = registrySerial ?? null
+    certificate.registry_receipt_url = registryReceiptUrl ?? null
+
+    // Re-sign: the payload now includes the registry fields.
+    return signCertificateRecord(supabase, certificate, { force: true })
+  } catch (err) {
+    console.warn('⚠️ attachRegistryInfo failed (non-critical):', err)
+    return null
+  }
 }
 
 /**
@@ -673,7 +729,7 @@ export async function generateMissingCertificates(userId) {
     }
 
     // Get existing certificates to find which transactions are missing certificates
-    const { data: existingCerts, error: certError } = await supabase
+    const { data: existingCerts } = await supabase
       .from('certificates')
       .select('transaction_id')
       .eq('user_id', userId)

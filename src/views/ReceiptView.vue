@@ -179,6 +179,13 @@
                 <button class="btn btn-primary btn-sm" @click="downloadReceipt(receipt)">
                   Download PDF
                 </button>
+                <button
+                  class="btn btn-outline btn-sm"
+                  :disabled="invoicingId === (receipt.transaction_id || receipt.id)"
+                  @click="downloadInvoice(receipt)"
+                >
+                  {{ invoicingId === (receipt.transaction_id || receipt.id) ? 'Preparing…' : 'VAT Invoice' }}
+                </button>
                 <button class="btn btn-outline btn-sm" @click="viewReceiptDetails(receipt)">
                   View Details
                 </button>
@@ -196,6 +203,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getUserReceipts, downloadReceipt as downloadReceiptFile } from '@/services/receiptService'
+import { downloadVatInvoice } from '@/services/vatInvoiceService'
 
 const route = useRoute()
 const router = useRouter()
@@ -205,6 +213,21 @@ const receipts = ref([])
 const loading = ref(false)
 const error = ref('')
 const selectedReceipt = ref(null)
+const invoicingId = ref(null)
+
+async function downloadInvoice(receipt) {
+  const txId = receipt.transaction_id || receipt.id
+  if (!txId || invoicingId.value) return
+  invoicingId.value = txId
+  try {
+    await downloadVatInvoice(txId)
+  } catch (err) {
+    console.error('Error generating VAT invoice:', err)
+    alert(err.message || 'Failed to generate the VAT invoice. Please try again.')
+  } finally {
+    invoicingId.value = null
+  }
+}
 
 async function loadReceipts() {
   if (!userStore.session?.user?.id) {
