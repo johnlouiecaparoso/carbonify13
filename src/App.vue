@@ -231,7 +231,7 @@ onMounted(async () => {
           <div class="policy-modal-body">
             <!-- Shared pre-production status notice (controls during pre-production) -->
             <div class="policy-notice">
-              <strong>⚠️ Platform status — please read.</strong>
+              <strong><span class="material-symbols-outlined" aria-hidden="true" style="font-size: 1.1em; vertical-align: middle;">warning</span> Platform status — please read.</strong>
               Carbonify is currently a <strong>pre-production / demonstration platform</strong> (academic
               capstone stage). Carbon credits here are <strong>simulated</strong> and are <strong>not</strong>
               registered with or retired against any external registry (Verra/VCS, Gold Standard, CAR, ACR);

@@ -779,7 +779,7 @@ async function openVerificationModal(project, newStatus) {
     // validation mints/lists credits, so it shouldn't happen on a blank rubric.
     let rubricWarning = ''
     if (newStatus === 'validated' && rubricProgress.value && !rubricProgress.value.complete) {
-      rubricWarning = `\n\n⚠️ The validation rubric is incomplete (${rubricProgress.value.requiredDone}/${rubricProgress.value.requiredTotal} required items assessed, score ${rubricProgress.value.percent}%). Validate anyway?`
+      rubricWarning = `\n\nWarning: the validation rubric is incomplete (${rubricProgress.value.requiredDone}/${rubricProgress.value.requiredTotal} required items assessed, score ${rubricProgress.value.percent}%). Validate anyway?`
     }
     confirmed = await confirm({
       type: 'success',

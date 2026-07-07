@@ -311,7 +311,10 @@ function formatNumber(num) {
 }
 
 .swipe-hint::before {
-  content: '👆';
+  content: 'swipe';
+  font-family: 'Material Symbols Outlined';
+  font-size: 1.1em;
+  line-height: 1;
   animation: swipe-hint 2s ease-in-out infinite;
 }
 

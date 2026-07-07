@@ -9,7 +9,7 @@
       <header class="top-nav">
         <div class="nav-left">
           <button class="nav-btn home-btn" @click="goHome" title="Go to Home">
-            <span class="nav-icon">🏠</span>
+            <span class="nav-icon material-symbols-outlined">home</span>
             <span class="nav-text">Home</span>
           </button>
           <div class="breadcrumb">

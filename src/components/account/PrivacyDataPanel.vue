@@ -32,7 +32,8 @@
 
       <div v-if="pendingDeletion" class="pending-banner">
         <span>
-          ⏳ A deletion request is pending (submitted {{ formatDate(pendingDeletion.created_at) }}).
+          <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 1.1em; vertical-align: middle;">hourglass_top</span>
+          A deletion request is pending (submitted {{ formatDate(pendingDeletion.created_at) }}).
         </span>
         <button class="btn-ghost" :disabled="cancelling" @click="onCancelDeletion">
           {{ cancelling ? 'Cancelling…' : 'Cancel request' }}

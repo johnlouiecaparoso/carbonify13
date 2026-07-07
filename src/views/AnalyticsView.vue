@@ -218,23 +218,23 @@ onMounted(() => {
       <!-- Buying / Selling tabs -->
       <div class="tab-bar">
         <button class="tab" :class="{ active: activeTab === 'buying' }" @click="switchTab('buying')">
-          🛒 Buying
+          <span class="material-symbols-outlined tab-ico" aria-hidden="true">shopping_cart</span> Buying
         </button>
         <button class="tab" :class="{ active: activeTab === 'selling' }" @click="switchTab('selling')">
-          💸 Selling
+          <span class="material-symbols-outlined tab-ico" aria-hidden="true">sell</span> Selling
           <span v-if="!canSeeSelling" class="material-symbols-outlined tab-lock" aria-hidden="true">lock</span>
         </button>
       </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
-        <div class="loading-spinner">⏳</div>
+        <div class="loading-spinner"><span class="material-symbols-outlined">progress_activity</span></div>
         <p>Loading analytics data...</p>
       </div>
 
       <!-- Error State -->
       <div v-else-if="error" class="error-state">
-        <div class="error-icon">❌</div>
+        <div class="error-icon"><span class="material-symbols-outlined">error</span></div>
         <p>{{ error }}</p>
         <button class="btn btn-primary" @click="activeTab === 'selling' ? loadSellingData() : loadCarbonImpactData()">
           Retry
@@ -255,7 +255,7 @@ onMounted(() => {
         <div class="analytics-card">
           <div class="card-header">
             <h3>Portfolio Value</h3>
-            <span class="card-icon">💰</span>
+            <span class="card-icon material-symbols-outlined">account_balance_wallet</span>
           </div>
           <div class="card-content">
             <div class="metric-value">
@@ -270,7 +270,7 @@ onMounted(() => {
         <div class="analytics-card">
           <div class="card-header">
             <h3>Credits Purchased</h3>
-            <span class="card-icon">🌱</span>
+            <span class="card-icon material-symbols-outlined">eco</span>
           </div>
           <div class="card-content">
             <div class="metric-value">
@@ -285,7 +285,7 @@ onMounted(() => {
         <div class="analytics-card">
           <div class="card-header">
             <h3>CO₂ Offset</h3>
-            <span class="card-icon">🌍</span>
+            <span class="card-icon material-symbols-outlined">public</span>
           </div>
           <div class="card-content">
             <div class="metric-value">
@@ -304,7 +304,7 @@ onMounted(() => {
         <div class="analytics-card">
           <div class="card-header">
             <h3>Projects Supported</h3>
-            <span class="card-icon">🏗️</span>
+            <span class="card-icon material-symbols-outlined">construction</span>
           </div>
           <div class="card-content">
             <div class="metric-value">
@@ -349,7 +349,7 @@ onMounted(() => {
               :key="purchase.date"
               class="activity-item"
             >
-              <div class="activity-icon">🛒</div>
+              <div class="activity-icon"><span class="material-symbols-outlined">shopping_cart</span></div>
               <div class="activity-content">
                 <div class="activity-title">Purchased {{ purchase.credits }} credits</div>
                 <div class="activity-description">
@@ -375,28 +375,28 @@ onMounted(() => {
        >
         <div class="analytics-grid">
           <div class="analytics-card">
-            <div class="card-header"><h3>Available Balance</h3><span class="card-icon">💰</span></div>
+            <div class="card-header"><h3>Available Balance</h3><span class="card-icon material-symbols-outlined">account_balance_wallet</span></div>
             <div class="card-content">
               <div class="metric-value">{{ currency(sellerBalance.available) }}</div>
               <div class="metric-change">Withdrawable now</div>
             </div>
           </div>
           <div class="analytics-card">
-            <div class="card-header"><h3>In Escrow</h3><span class="card-icon">🔒</span></div>
+            <div class="card-header"><h3>In Escrow</h3><span class="card-icon material-symbols-outlined">lock</span></div>
             <div class="card-content">
               <div class="metric-value">{{ currency(sellerBalance.held) }}</div>
               <div class="metric-change">Held until release</div>
             </div>
           </div>
           <div class="analytics-card">
-            <div class="card-header"><h3>Credits Sold</h3><span class="card-icon">🌱</span></div>
+            <div class="card-header"><h3>Credits Sold</h3><span class="card-icon material-symbols-outlined">eco</span></div>
             <div class="card-content">
               <div class="metric-value">{{ sellingSummary.creditsSold.toLocaleString() }}</div>
               <div class="metric-change positive">{{ sellingSummary.totalSales }} completed sales</div>
             </div>
           </div>
           <div class="analytics-card">
-            <div class="card-header"><h3>Total Revenue</h3><span class="card-icon">📈</span></div>
+            <div class="card-header"><h3>Total Revenue</h3><span class="card-icon material-symbols-outlined">trending_up</span></div>
             <div class="card-content">
               <div class="metric-value">{{ currency(sellingSummary.revenue) }}</div>
               <div class="metric-change positive">Gross, before fees</div>
@@ -416,7 +416,7 @@ onMounted(() => {
           <div class="activity-list">
             <div v-if="sales.length === 0" class="empty-activity"><p>No sales yet.</p></div>
             <div v-for="sale in sales.slice(0, 10)" :key="sale.id" class="activity-item">
-              <div class="activity-icon">🪙</div>
+              <div class="activity-icon"><span class="material-symbols-outlined">toll</span></div>
               <div class="activity-content">
                 <div class="activity-title">Sold {{ sale.quantity }} credits</div>
                 <div class="activity-description">Status: {{ sale.status }}</div>
@@ -432,7 +432,7 @@ onMounted(() => {
           <div class="activity-list">
             <div v-if="payouts.length === 0" class="empty-activity"><p>No withdrawals yet.</p></div>
             <div v-for="p in payouts" :key="p.id" class="activity-item">
-              <div class="activity-icon">🏦</div>
+              <div class="activity-icon"><span class="material-symbols-outlined">account_balance</span></div>
               <div class="activity-content">
                 <div class="activity-title">Withdrawal {{ currency(p.amount) }}</div>
                 <div class="activity-description">
@@ -698,6 +698,22 @@ onMounted(() => {
 .error-icon {
   font-size: 4rem;
   margin-bottom: 1rem;
+}
+
+.tab-ico {
+  font-size: 1.1rem;
+  vertical-align: middle;
+}
+
+.loading-spinner .material-symbols-outlined {
+  display: inline-block;
+  animation: analytics-spin 1s linear infinite;
+}
+
+@keyframes analytics-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-state p,

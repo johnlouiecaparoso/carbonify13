@@ -1116,7 +1116,7 @@ async function handlePurchase() {
     }
 
     await success({
-      title: 'Purchase Successful! 🎉',
+      title: 'Purchase Successful!',
       message: `You purchased ${purchaseQuantity.value} credits from "${selectedListing.value.project_title}" for ${formatCurrency(totalAmount, currency)}. Your carbon credits have been added to your portfolio!`,
       confirmText: 'OK',
     })
