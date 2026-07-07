@@ -70,6 +70,9 @@ All aggregates come from Postgres so they stay RLS-safe:
 **In-app dashboards (the default — no new dependencies):**
 - **Chart.js** is already a dependency; reusable chart components live in
   [src/components/charts/](../src/components/charts/) (`PortfolioChart`, `CategoryChart`).
+  ⚠️ Chart.js v4 is tree-shaken — you **must `Chart.register()` the controller** for each
+  chart type (`LineController`, `DoughnutController`, `BarController`, …), not just the
+  element/scale, or the chart throws `"<type>" is not a registered controller` at runtime.
 - Back each dashboard with a **`SECURITY DEFINER` aggregate RPC** that returns only
   aggregates (the `public_market_stats()` pattern) — never raw PII, and role-gate with
   `is_admin()` / `auth.uid()` as appropriate.

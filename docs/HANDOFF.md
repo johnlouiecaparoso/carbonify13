@@ -1,5 +1,14 @@
 # Carbonify — Handoff (current state)
 
+> 🖤 **2026-07-07 (latest) — FREEMIUM ANALYTICS + UI POLISH.** (1) **Analytics is now on
+> for every role** (profile menu → Insights → Analytics) with a **freemium split**: free
+> users get the summary metric cards; **Pro** unlocks the trend charts, category breakdown,
+> full history, and the Selling tab. (2) **Fixed the analytics crash** — Chart.js v4
+> needed the controllers registered (`LineController`/`DoughnutController`); this also fixed
+> `/market` and the LGU ESG chart. (3) **Replaced all rendered emojis with monochrome
+> Material Symbols icons** across the UI (dev console logs + dead `_hidden/` views left as
+> is). Build ✅ ESLint ✅ 150 tests ✅. See [ANALYTICS.md](ANALYTICS.md).
+
 > 📊 **2026-07-07 (later) — LIVE STATS + ANALYTICS.** The homepage hero stats were
 > **hardcoded placeholders** (2.3M / 150+ / 45 / 5.2M) — now wired to **real data** via
 > `public_market_stats()` (Retired / Active Projects / Credits Available / CO2 Reduced;
