@@ -174,7 +174,14 @@ async function select(reportId) {
   try {
     selected.value = await getReport(reportId)
     approvedQuantity.value = Number(selected.value.proposed_vers || 0)
-    vintageYear.value = new Date().getFullYear()
+    // Default the vintage to the report's period/vintage when available so the
+    // verifier isn't re-typing it for prior-year reports.
+    vintageYear.value = Number(
+      selected.value.vintage_year ||
+        selected.value.vintage ||
+        (selected.value.period_end ? new Date(selected.value.period_end).getFullYear() : 0) ||
+        new Date().getFullYear(),
+    )
     notes.value = ''
   } catch (err) {
     setMessage(err.message || 'Failed to load report', true)
@@ -217,6 +224,13 @@ async function doApprove() {
 }
 
 async function doReject() {
+  // Rejecting is destructive for the developer's report — require a reason and
+  // an explicit confirm (mirrors the Approve guard).
+  if (!notes.value || notes.value.trim().length < 5) {
+    setMessage('Please add a brief reason (min 5 characters) before rejecting.', true)
+    return
+  }
+  if (!confirm('Reject this MRV report? The developer will be notified with your reason.')) return
   working.value = true
   setMessage('')
   try {

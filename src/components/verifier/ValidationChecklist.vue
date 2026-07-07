@@ -87,6 +87,8 @@ const props = defineProps({
   projectId: { type: String, required: true },
 })
 
+const emit = defineEmits(['progress'])
+
 const sections = CHECKLIST_SECTIONS
 const levels = RUBRIC_LEVELS
 const checklist = ref({})
@@ -97,6 +99,17 @@ const msg = ref(null)
 const progress = computed(() => requiredProgress(checklist.value))
 const score = computed(() => rubricScore(checklist.value))
 const bandMeta = computed(() => BAND_META[score.value.band] || BAND_META.none)
+
+// Surface rubric completion to the parent (ProjectApprovalPanel) so it can warn
+// before a project is validated with required items still unassessed.
+const status = computed(() => ({
+  requiredDone: progress.value.done,
+  requiredTotal: progress.value.total,
+  percent: score.value.percent,
+  band: score.value.band,
+  complete: progress.value.total > 0 && progress.value.done === progress.value.total,
+}))
+watch(status, (v) => emit('progress', v), { immediate: true, deep: true })
 
 function scoreOf(key) {
   return itemScore(checklist.value, key)

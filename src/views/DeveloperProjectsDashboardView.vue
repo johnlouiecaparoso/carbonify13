@@ -55,6 +55,19 @@
 
         <div v-if="loading" class="state-card">Loading your projects...</div>
         <div v-else-if="errorMessage" class="state-card error">{{ errorMessage }}</div>
+        <!-- First-run: developer has no projects at all -->
+        <div v-else-if="stats.total === 0" class="empty-hero">
+          <span class="material-symbols-outlined empty-hero__icon" aria-hidden="true">forest</span>
+          <h2 class="empty-hero__title">Submit your first carbon project</h2>
+          <p class="empty-hero__text">
+            List your project, attach the required documents, and a verifier will review it.
+            Once validated, your credits go on sale in the marketplace.
+          </p>
+          <button class="submit-btn" type="button" @click="goToSubmitProject">
+            Submit your first project
+          </button>
+        </div>
+        <!-- Have projects, but none match the active filter -->
         <div v-else-if="filteredProjects.length === 0" class="state-card">
           No projects found for this status.
         </div>
@@ -308,7 +321,7 @@ onMounted(() => {
 
 .page-header {
   padding: 2rem 0;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
 }
 
 .page-title {
@@ -379,14 +392,14 @@ onMounted(() => {
 }
 
 .status-tab.active {
-  border-color: var(--primary-color, #10b981);
-  color: var(--primary-color, #10b981);
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
   background: #ecfdf5;
 }
 
 .submit-btn {
   border: none;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: #fff;
   padding: 0.65rem 1rem;
   border-radius: 10px;
@@ -482,6 +495,47 @@ onMounted(() => {
 .status-badge.needs_revision {
   background: #fef3c7;
   color: #92400e;
+}
+
+.status-badge.submitted,
+.status-badge.in_review {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.status-badge.validated {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.draft {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.empty-hero {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  max-width: 560px;
+  margin: 1.5rem auto;
+}
+.empty-hero__icon {
+  font-size: 3rem;
+  color: var(--primary-color, #069e2d);
+}
+.empty-hero__title {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 1.35rem;
+  color: var(--text-primary, #111827);
+}
+.empty-hero__text {
+  margin: 0 auto 1.25rem;
+  max-width: 420px;
+  color: var(--text-secondary, #4a5568);
+  line-height: 1.6;
 }
 
 .notes-box {

@@ -192,7 +192,11 @@
 
         <ProjectAssessmentPanel :project="activeProject" />
 
-        <ValidationChecklist :key="activeProject.id" :project-id="activeProject.id" />
+        <ValidationChecklist
+          :key="activeProject.id"
+          :project-id="activeProject.id"
+          @progress="rubricProgress = $event"
+        />
 
         <!-- Verifier sets the price per credit (developers no longer provide it). -->
         <div
@@ -216,7 +220,8 @@
           </div>
           <p class="verifier-price-hint">
             You set the price (PHP) buyers pay per carbon credit — it is saved when you
-            <strong>Validate</strong> the project. Leave blank to use the category default.
+            <strong>Validate</strong> the project. Leave blank to keep the current price (or
+            the category default if none is set yet).
           </p>
         </div>
 
@@ -444,6 +449,9 @@ const activeProject = computed(() =>
 
 const slaDays = ref(5)
 const verifierPrice = ref('')
+// Latest rubric-completion snapshot emitted by ValidationChecklist, used to warn
+// before validating a project whose required rubric items aren't all assessed.
+const rubricProgress = ref(null)
 
 // Pre-fill the price box with any existing value when the verifier switches
 // projects, so they can confirm or adjust it.
@@ -769,10 +777,16 @@ async function openVerificationModal(project, newStatus) {
     verifierNotes = notes
     confirmed = true
   } else {
+    // When validating, warn if the required rubric items aren't all assessed —
+    // validation mints/lists credits, so it shouldn't happen on a blank rubric.
+    let rubricWarning = ''
+    if (newStatus === 'validated' && rubricProgress.value && !rubricProgress.value.complete) {
+      rubricWarning = `\n\n⚠️ The validation rubric is incomplete (${rubricProgress.value.requiredDone}/${rubricProgress.value.requiredTotal} required items assessed, score ${rubricProgress.value.percent}%). Validate anyway?`
+    }
     confirmed = await confirm({
       type: 'success',
       title: `Confirm ${statusLabel}?`,
-      message: `Are you sure you want to mark "${project.title}" as ${statusLabel.toLowerCase()}? This action cannot be undone.`,
+      message: `Are you sure you want to mark "${project.title}" as ${statusLabel.toLowerCase()}? This action cannot be undone.${rubricWarning}`,
       confirmText: `Confirm ${statusLabel}`,
       cancelText: 'Cancel',
     })
@@ -791,11 +805,16 @@ async function openVerificationModal(project, newStatus) {
     if (newStatus === 'validated' || newStatus === 'approved') {
       const price = Number(verifierPrice.value)
       if (Number.isFinite(price) && price > 0) {
+        // Do NOT swallow this: if the price fails to persist, validation would
+        // mint/list credits at the wrong (or unset) price. Abort and tell the
+        // verifier instead of showing a false success.
         try {
           await projectService.updateProject(project.id, { credit_price: price })
           project.credit_price = price
         } catch (priceErr) {
-          console.warn('Could not save verifier price (continuing):', priceErr?.message)
+          throw new Error(
+            `Could not save the credit price (₱${price}). The project was NOT validated. ${priceErr?.message || 'Please try again.'}`,
+          )
         }
       }
     }
@@ -938,13 +957,13 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .filter-tab:hover {
-  border-color: var(--primary-color, #10b981);
-  color: var(--primary-color, #10b981);
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
 }
 
 .filter-tab.active {
-  background: var(--primary-color, #10b981);
-  border-color: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
+  border-color: var(--primary-color, #069e2d);
   color: white;
   box-shadow: 0 10px 18px rgba(16, 185, 129, 0.18);
 }
@@ -961,7 +980,7 @@ async function openVerificationModal(project, newStatus) {
   width: 48px;
   height: 48px;
   border: 4px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--primary-color, #10b981);
+  border-top-color: var(--primary-color, #069e2d);
   border-radius: 50%;
   animation: spin 1s ease-in-out infinite;
   margin: 0 auto 16px;
@@ -986,7 +1005,7 @@ async function openVerificationModal(project, newStatus) {
 
 .retry-btn {
   padding: 10px 18px;
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   border: none;
   border-radius: 8px;
@@ -1206,7 +1225,7 @@ async function openVerificationModal(project, newStatus) {
 
 .project-list-item.active {
   background: rgba(16, 185, 129, 0.16);
-  border-left: 3px solid var(--primary-color, #10b981);
+  border-left: 3px solid var(--primary-color, #069e2d);
 }
 
 .project-list-title {
@@ -1250,17 +1269,25 @@ async function openVerificationModal(project, newStatus) {
   letter-spacing: 0.04em;
 }
 
-.status-badge.pending {
+.status-badge.pending,
+.status-badge.submitted {
   background: rgba(253, 224, 71, 0.18);
   color: #92400e;
 }
 
-.status-badge.under_review {
+.status-badge.under_review,
+.status-badge.in_review {
   background: rgba(147, 197, 253, 0.2);
   color: #1d4ed8;
 }
 
-.status-badge.approved {
+.status-badge.needs_revision {
+  background: rgba(251, 146, 60, 0.2);
+  color: #9a3412;
+}
+
+.status-badge.approved,
+.status-badge.validated {
   background: rgba(34, 197, 94, 0.18);
   color: #166534;
 }
@@ -1362,7 +1389,7 @@ async function openVerificationModal(project, newStatus) {
 
 .detail-section h4 .material-symbols-outlined {
   font-size: 1.2rem;
-  color: var(--primary-color, #10b981);
+  color: var(--primary-color, #069e2d);
 }
 
 .detail-section p {
@@ -1456,7 +1483,7 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.success {
-  background: var(--primary-color, #10b981);
+  background: var(--primary-color, #069e2d);
   color: white;
   box-shadow: 0 12px 20px rgba(16, 185, 129, 0.22);
 }
@@ -1482,8 +1509,8 @@ async function openVerificationModal(project, newStatus) {
 }
 
 .action-btn.outline:hover:not(:disabled) {
-  border-color: var(--primary-color, #10b981);
-  color: var(--primary-color, #10b981);
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
 }
 
 .action-btn.outline.danger {

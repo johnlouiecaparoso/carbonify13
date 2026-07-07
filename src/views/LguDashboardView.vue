@@ -90,8 +90,12 @@
         <section v-else-if="activeTab === 'records'" class="panel">
           <h2>Records & Waste Diversion</h2>
           <div v-if="loadingRecords" class="muted">Loading…</div>
+          <div v-else-if="recordsError" class="load-error">
+            {{ recordsError }} <button class="link-btn" @click="loadRecords">Retry</button>
+          </div>
           <div v-else-if="records.length === 0" class="muted">No records yet. Use the calculator to add one.</div>
-          <table v-else class="data-table">
+          <div v-else class="table-scroll">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Period</th>
@@ -115,6 +119,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
 
         <!-- City ESG -->
@@ -170,28 +175,44 @@
           <h2>Project Host Endorsements</h2>
           <p class="panel-sub">Endorse validated community projects in your jurisdiction.</p>
           <div v-if="loadingProjects" class="muted">Loading projects…</div>
+          <div v-else-if="projectsError" class="load-error">
+            {{ projectsError }} <button class="link-btn" @click="loadProjects">Retry</button>
+          </div>
           <div v-else-if="communityProjects.length === 0" class="muted">No validated projects to review.</div>
-          <div v-else class="endorse-list">
-            <div v-for="p in communityProjects" :key="p.id" class="endorse-card">
-              <div class="endorse-info">
-                <span class="endorse-title">{{ p.title }}</span>
-                <span class="endorse-meta">{{ p.category }} · {{ p.location }}</span>
-                <span class="endorse-count">{{ p.endorsement_count }} endorsement(s)</span>
-              </div>
-              <div class="endorse-actions">
-                <span v-if="p.my_endorsement" class="my-decision" :class="p.my_endorsement.decision">
-                  You {{ p.my_endorsement.decision }}
-                </span>
-                <button class="btn btn-sm btn-primary" @click="decide(p, 'endorsed')" :disabled="busyId === p.id">
-                  Endorse
-                </button>
-                <button class="btn btn-sm btn-outline" @click="decide(p, 'declined')" :disabled="busyId === p.id">
-                  Decline
-                </button>
+          <template v-else>
+            <p v-if="endorseMessage" class="message" :class="{ error: endorseError }">{{ endorseMessage }}</p>
+            <div class="endorse-list">
+              <div v-for="p in communityProjects" :key="p.id" class="endorse-card">
+                <div class="endorse-info">
+                  <span class="endorse-title">{{ p.title }}</span>
+                  <span class="endorse-meta">{{ p.category }} · {{ p.location }}</span>
+                  <span class="endorse-count">{{ p.endorsement_count }} endorsement(s)</span>
+                  <router-link :to="`/projects/${p.id}`" class="endorse-view">
+                    Review project details →
+                  </router-link>
+                </div>
+                <div class="endorse-decide">
+                  <textarea
+                    v-model="endorseNotes[p.id]"
+                    class="endorse-notes"
+                    rows="2"
+                    placeholder="Optional note / rationale for this decision"
+                  ></textarea>
+                  <div class="endorse-actions">
+                    <span v-if="p.my_endorsement" class="my-decision" :class="p.my_endorsement.decision">
+                      You {{ p.my_endorsement.decision }}
+                    </span>
+                    <button class="btn btn-sm btn-primary" @click="decide(p, 'endorsed')" :disabled="busyId === p.id">
+                      Endorse
+                    </button>
+                    <button class="btn btn-sm btn-outline" @click="decide(p, 'declined')" :disabled="busyId === p.id">
+                      Decline
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          <p v-if="endorseMessage" class="message" :class="{ error: endorseError }">{{ endorseMessage }}</p>
+          </template>
         </section>
       </div>
     </div>
@@ -282,6 +303,9 @@ const loadingProjects = ref(false)
 const busyId = ref(null)
 const endorseMessage = ref('')
 const endorseError = ref(false)
+const recordsError = ref('')
+const projectsError = ref('')
+const endorseNotes = ref({})
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -300,6 +324,16 @@ async function saveRecord() {
   isError.value = false
   if (!calc.wasteGenerated || calc.wasteGenerated <= 0) {
     message.value = 'Enter the waste generated (tonnes).'
+    isError.value = true
+    return
+  }
+  if (Number(calc.wasteDiverted) < 0) {
+    message.value = 'Diverted waste cannot be negative.'
+    isError.value = true
+    return
+  }
+  if (Number(calc.wasteDiverted) > Number(calc.wasteGenerated)) {
+    message.value = 'Diverted waste cannot exceed the waste generated. Please check your figures.'
     isError.value = true
     return
   }
@@ -325,10 +359,12 @@ async function saveRecord() {
 
 async function loadRecords() {
   loadingRecords.value = true
+  recordsError.value = ''
   try {
     records.value = await getMyEmissionsRecords(userStore.session?.user?.id)
   } catch (err) {
     console.warn('Failed to load records:', err?.message)
+    recordsError.value = err?.message || 'Could not load your records. Please try again.'
   } finally {
     loadingRecords.value = false
   }
@@ -346,10 +382,12 @@ async function removeRecord(id) {
 
 async function loadProjects() {
   loadingProjects.value = true
+  projectsError.value = ''
   try {
     communityProjects.value = await getCommunityProjects()
   } catch (err) {
     console.warn('Failed to load projects:', err?.message)
+    projectsError.value = err?.message || 'Could not load projects. Please try again.'
   } finally {
     loadingProjects.value = false
   }
@@ -360,8 +398,9 @@ async function decide(project, decision) {
   endorseMessage.value = ''
   endorseError.value = false
   try {
-    await endorseProject(project.id, decision)
+    await endorseProject(project.id, decision, (endorseNotes.value[project.id] || '').trim())
     endorseMessage.value = `Project ${decision}.`
+    delete endorseNotes.value[project.id]
     await loadProjects()
   } catch (err) {
     endorseMessage.value = err.message || 'Failed to record endorsement'
@@ -623,10 +662,64 @@ loadRecords()
   color: var(--primary-color, #069e2d);
 }
 
+.endorse-view {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-color, #069e2d);
+  text-decoration: none;
+  margin-top: 0.15rem;
+}
+
+.endorse-view:hover {
+  text-decoration: underline;
+}
+
+.endorse-decide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
+  min-width: 240px;
+}
+
+.endorse-notes {
+  width: 100%;
+  resize: vertical;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-color, #d1e7dd);
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.82rem;
+  box-sizing: border-box;
+}
+
 .endorse-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.load-error {
+  color: #991b1b;
+  background: #fee2e2;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.88rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
 }
 
 .my-decision {
@@ -685,5 +778,6 @@ loadRecords()
 @media (max-width: 768px) {
   .container { padding: 0 1rem; }
   .endorse-card { flex-direction: column; align-items: flex-start; }
+  .endorse-decide { align-items: stretch; min-width: 0; width: 100%; }
 }
 </style>

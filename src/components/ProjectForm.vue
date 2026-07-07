@@ -7,6 +7,7 @@ import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
+import { uploadProjectDocument } from '@/services/storageService'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
 import {
@@ -387,14 +388,6 @@ function validateForm() {
     }
   })
 
-  // Debug: Log form validation status
-  console.log('Form validation status:', {
-    isValid,
-    formData: formData.value,
-    errors: errors.value,
-    isFormValid: isFormValid.value,
-  })
-
   return isValid
 }
 
@@ -638,44 +631,42 @@ function onFileZoneClick(event) {
   triggerDocumentsSelect()
 }
 
+// Documents the developer MUST attach on a NEW submission (mirror the "*"
+// markers in the template). Feasibility is intentionally optional.
+const REQUIRED_DOCS = [
+  { field: 'pdd_file', label: 'PDD', key: 'pdd' },
+  { field: 'baseline_file', label: 'Baseline Report', key: 'baseline' },
+  { field: 'additionality_file', label: 'Additionality Justification', key: 'additionality' },
+  { field: 'leakage_file', label: 'Leakage Assessment', key: 'leakage' },
+  { field: 'safeguards_file', label: 'Safeguards Checklist', key: 'safeguards' },
+  { field: 'lgu_endorsement_file', label: 'LGU Endorsement', key: 'lgu_endorsement' },
+  { field: 'land_ownership_file', label: 'Land Ownership / Lease', key: 'land_ownership' },
+  { field: 'ecc_file', label: 'ECC / Permits', key: 'ecc' },
+  { field: 'moa_file', label: 'MOA / Agreements', key: 'moa' },
+]
+
+const OPTIONAL_DOCS = [{ field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' }]
+
+// How many required docs are still missing (drives the submit-button hint).
+const missingRequiredDocs = computed(() =>
+  REQUIRED_DOCS.filter((d) => !formData.value[d.field]).map((d) => d.label),
+)
+
 async function handleSubmit() {
-  console.log('[DEBUG] Form submit button clicked!')
-  console.log('[DEBUG] Form data:', formData.value)
-  console.log('[OK] isFormValid:', isFormValid.value)
-  
   clearErrors()
 
-  // Log validation status
-  const validationResult = validateForm()
-  console.log('[DEBUG] validateForm() result:', validationResult)
-  console.log('[ERROR] Current errors:', errors.value)
-  
-  if (!validationResult) {
-    console.warn('[WARN] Form validation failed, preventing submission')
+  if (!validateForm() || !isFormValid.value) {
+    errors.value.general =
+      errors.value.general || 'Please complete the required fields highlighted above.'
     return
   }
 
-  if (!isFormValid.value) {
-    console.warn('[WARN] isFormValid is false, preventing submission')
-    // Log which fields are failing validation
-    Object.keys(validationRules).forEach((field) => {
-      const value = formData.value[field]
-      const rule = validationRules[field]
-      console.log(`  - ${field}:`, {
-        value,
-        type: typeof value,
-        required: rule.required,
-        hasValue: value !== null && value !== undefined && value !== '',
-        isString: typeof value === 'string',
-        isNumber: typeof value === 'number',
-        stringLength: typeof value === 'string' ? value.length : 'N/A',
-        passesRequired: !rule.required || (value !== null && value !== undefined && value !== '' && (typeof value !== 'string' || value.trim() !== '') && (typeof value !== 'number' || !isNaN(value))),
-      })
-    })
+  // Require the compliance documents on a NEW submission — without them a
+  // verifier has nothing to review. (Edits preserve previously-uploaded docs.)
+  if (!isEditMode.value && missingRequiredDocs.value.length) {
+    errors.value.general = `Please attach all required documents before submitting. Missing: ${missingRequiredDocs.value.join(', ')}.`
     return
   }
-  
-  console.log('[OK] All validations passed, proceeding with submission...')
 
   loading.value = true
 
@@ -708,40 +699,79 @@ async function handleSubmit() {
       documents: [],
     }
 
-    // Attach technical & compliance documents with simple metadata
-    const addIfFile = (file, label) => {
-      if (file) {
-        projectData.documents.push({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          label,
-          uploadDate: new Date().toISOString(),
-        })
+    // Resolve the uploader id up-front — needed to namespace document uploads
+    // in storage before we know the created project id.
+    let uploaderId = userStore.session?.user?.id || userStore.profile?.id || null
+    if (!uploaderId) {
+      try {
+        const supa = (await import('@/services/supabaseClient')).getSupabase()
+        const {
+          data: { user },
+        } = await supa.auth.getUser()
+        uploaderId = user?.id || null
+      } catch {
+        /* uploadProjectDocument surfaces a clear "sign in" error below */
       }
     }
 
-    addIfFile(formData.value.pdd_file, 'pdd')
-    addIfFile(formData.value.baseline_file, 'baseline')
-    addIfFile(formData.value.additionality_file, 'additionality')
-    addIfFile(formData.value.leakage_file, 'leakage')
-    addIfFile(formData.value.safeguards_file, 'safeguards')
-    addIfFile(formData.value.feasibility_file, 'feasibility')
-    addIfFile(formData.value.lgu_endorsement_file, 'lgu_endorsement')
-    addIfFile(formData.value.land_ownership_file, 'land_ownership')
-    addIfFile(formData.value.ecc_file, 'ecc')
-    addIfFile(formData.value.moa_file, 'moa')
-
-    // Include any generic uploaded files as well
-    uploadedFiles.value.forEach((file) => {
+    // Upload each attached document to storage and store its real public URL.
+    // Previously only filename metadata was saved, so every download link was
+    // dead and verifiers could not open the evidence they must review.
+    const uploadDoc = async (file, label) => {
+      if (!file) return
+      // Edit mode may hold an already-uploaded doc object (has a url) — keep it.
+      if (file.url && !(file instanceof File)) {
+        projectData.documents.push({ name: file.name, size: file.size, type: file.type, label, url: file.url })
+        return
+      }
+      const url = await uploadProjectDocument(file, uploaderId, label)
       projectData.documents.push({
         name: file.name,
         size: file.size,
         type: file.type,
-        label: 'other',
-        uploadDate: file.uploadDate,
+        label,
+        url,
+        uploadDate: new Date().toISOString(),
       })
-    })
+    }
+
+    try {
+      for (const d of [...REQUIRED_DOCS, ...OPTIONAL_DOCS]) {
+        await uploadDoc(formData.value[d.field], d.key)
+      }
+      // Include any generic drag-and-drop uploads as well.
+      for (const f of uploadedFiles.value) {
+        if (f?.file instanceof File) {
+          const url = await uploadProjectDocument(f.file, uploaderId, 'other')
+          projectData.documents.push({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            label: 'other',
+            url,
+            uploadDate: f.uploadDate,
+          })
+        }
+      }
+    } catch (uploadErr) {
+      errors.value.general =
+        uploadErr?.message || 'Failed to upload one or more documents. Please try again.'
+      loading.value = false
+      return
+    }
+
+    // On edit, preserve previously-uploaded docs; only overwrite when new files
+    // were attached this time (an empty array leaves existing docs untouched).
+    if (isEditMode.value && projectData.documents.length) {
+      let existing = []
+      try {
+        const raw = props.project?.supporting_documents
+        existing = typeof raw === 'string' ? JSON.parse(raw) : Array.isArray(raw) ? raw : []
+      } catch {
+        existing = []
+      }
+      projectData.documents = [...existing, ...projectData.documents]
+    }
 
     // Convert project image to base64 for database storage
     if (projectImage.value) {
@@ -1326,6 +1356,16 @@ onMounted(() => {
               <input ref="moaInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'moa_file')" />
             </label>
           </div>
+
+          <p v-if="!isEditMode && missingRequiredDocs.length" class="doc-missing-hint">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            {{ missingRequiredDocs.length }} required document{{ missingRequiredDocs.length > 1 ? 's' : '' }} still needed:
+            {{ missingRequiredDocs.join(', ') }}.
+          </p>
+          <p v-else-if="!isEditMode" class="doc-complete-hint">
+            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+            All required documents attached.
+          </p>
         </div>
 
       <div class="form-subsection">
@@ -2533,6 +2573,30 @@ onMounted(() => {
   padding: 0.1rem 0.5rem;
 }
 
+.doc-missing-hint,
+.doc-complete-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 14px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.doc-missing-hint {
+  color: #b45309;
+}
+
+.doc-complete-hint {
+  color: var(--primary-color, #069e2d);
+}
+
+.doc-missing-hint .material-symbols-outlined,
+.doc-complete-hint .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
 .doc-card-desc {
   font-size: 0.78rem;
   line-height: 1.5;
@@ -2582,7 +2646,7 @@ onMounted(() => {
 
 .credibility-select:focus {
   outline: none;
-  border-color: #10b981;
+  border-color: #069e2d;
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 

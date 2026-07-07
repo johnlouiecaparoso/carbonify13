@@ -138,7 +138,12 @@
                 Contact our support team for assistance with project submission or verification
                 requirements.
               </p>
-              <button class="help-button">Contact Support</button>
+              <a
+                class="help-button"
+                href="mailto:support@carbonify.com?subject=Project%20submission%20help"
+              >
+                Contact Support
+              </a>
             </div>
           </div>
         </div>
@@ -378,6 +383,9 @@ onMounted(async () => {
 }
 
 .help-button {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
   background: var(--primary-color, #069e2d);
   color: white;
   border: none;

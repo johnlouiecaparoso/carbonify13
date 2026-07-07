@@ -6,6 +6,7 @@ import Withdraw from '@/components/wallet/Withdraw.vue'
 import KybForm from '@/components/wallet/KybForm.vue'
 
 const loading = ref(true)
+const loadError = ref('')
 const balance = ref({ available: 0, held: 0, currency: 'PHP' })
 const sales = ref([])
 const salesByProject = ref([])
@@ -34,6 +35,7 @@ function shortDate(d) {
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     const [b, s, sp, p, k] = await Promise.all([
       getSellerBalance(),
@@ -47,6 +49,10 @@ async function load() {
     salesByProject.value = sp
     payouts.value = p
     kyb.value = k
+  } catch (err) {
+    console.error('Failed to load seller earnings:', err)
+    loadError.value =
+      err?.message || 'We could not load your earnings right now. Please try again.'
   } finally {
     loading.value = false
   }
@@ -73,6 +79,15 @@ onMounted(load)
     </header>
 
     <div v-if="loading" class="muted">Loading…</div>
+
+    <div v-else-if="loadError" class="notice error">
+      <span class="material-symbols-outlined" aria-hidden="true">error</span>
+      <div class="notice-body">
+        <strong>Couldn't load your earnings.</strong>
+        {{ loadError }}
+        <div><button class="retry-btn" @click="load">Try again</button></div>
+      </div>
+    </div>
 
     <template v-else>
       <!-- KYB gate notice -->
@@ -235,6 +250,23 @@ onMounted(load)
   background: #fef3c7;
   color: #92400e;
 }
+.notice.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.retry-btn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.retry-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -257,7 +289,7 @@ onMounted(load)
   margin: 6px 0 12px;
 }
 .btn-primary {
-  background: #10b981;
+  background: #069e2d;
   color: #fff;
   border: none;
   border-radius: 8px;

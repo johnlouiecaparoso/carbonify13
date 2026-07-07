@@ -1,5 +1,17 @@
 # Carbonify — Handoff (current state)
 
+> 🎨 **2026-07-07 — ROLE-INTERFACE HARDENING (this session).** Audited + fixed the
+> **Project Developer, Verifier, and LGU** interfaces so we can onboard real project
+> developers. **Critical fix:** compliance documents now actually upload to storage (they
+> were never saved before — links were dead). Also: enforced required docs on submit,
+> fixed verifier status badges + silent price-save failure, developer Contact Support +
+> Seller Earnings error state, LGU diverted-tonnage clamp, brand-green unification,
+> role-aware landing, rubric-gated Validate, MRV reject confirm, and developer/LGU empty +
+> error states. Build ✅ ESLint ✅ **150 tests ✅**. **One new migration to apply:**
+> `20260707000000_project_documents_bucket.sql` (creates the `project-documents` bucket).
+> 👉 **Full changelog + today's test plan: [TODAY_2026-07-07.md](TODAY_2026-07-07.md).**
+> LGU self-application was intentionally deferred (LGU stays admin-provisioned).
+
 > 🔒 **2026-07-04 — SECURITY CLOSE-OUT + INTEGRITY HARDENING (this session).**
 > The P0 security items are now **applied + tested on the live project**: profiles
 > role/KYC lock (`20260703000300`), retire identity (`…000400`), self-purchase
@@ -137,6 +149,12 @@ to confirm an empty result.
 > | 16 | `20260702000000_fix_marketplace_ownership_status.sql` | ✅ applied | `credit_ownership.status = 'owned'` (was `'active'`, rejected by constraint). |
 > | 17 | `20260703000300_harden_profiles_role_kyc.sql` | ⬜ **pending** | 🔴 Blocks direct client writes to `profiles.role`/`kyc_level` (privilege escalation). Admin RPCs still work. **Verify a normal user can't self-promote.** |
 > | 18 | `20260703000400_retire_credits_authuid.sql` | ⬜ **pending** | Binds retirement identity to `auth.uid()`. **Retest flow E → reconcile 0.** |
+
+> 🆕 **2026-07-07 migration** (apply via SQL Editor; idempotent). See
+> [TODAY_2026-07-07.md](TODAY_2026-07-07.md).
+> | # | Migration | Status | Purpose |
+> |---|---|---|---|
+> | 19 | `20260707000000_project_documents_bucket.sql` | ⬜ **pending** | 🔴 Creates the `project-documents` storage bucket + RLS so developer compliance PDFs actually upload and are retrievable (were never stored before — dead links). **Apply before any real project submission.** |
 
 ---
 
@@ -360,6 +378,8 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 | **Legal entity · PSP/EMI · BIR/DPO · accredited VVB** | 9 🏛️ | business/legal |
 | **Money-path gated cutover** (server-authoritative Buy UI + RLS lockdown) | 1 | codeable now — see NOW_IMPLEMENTATION_PLAN Wave 3 |
 | **Code hygiene** (dual-column canonicalization, FK-fallback removal, split large views) | — | codeable now — Wave 2 |
+| **LGU self-application flow** (LGU can't self-request the role; admin-provisioned for now) | 5 | codeable — needs role-application service + admin-approval + DB constraint changes. See [TODAY_2026-07-07.md](TODAY_2026-07-07.md) §4 |
+| **Full accessibility pass** (`for`/`id` on all MRV/assessment/LGU form fields) | 7 | codeable now — partial done 2026-07-07 |
 
 > ✅ **2026-07-01 — DONE this session (built + runtime-verified):** seller per-project earnings ·
 > purchases pagination · structured additionality/permanence · saved-search/price alerts · admin
