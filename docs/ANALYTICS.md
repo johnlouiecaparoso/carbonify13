@@ -30,10 +30,17 @@ dropped (no country data — the platform is PH-focused) and replaced with
 | **Admin** | `/admin/audit-logs` | ✅ | Audit-log search. |
 | **Verifier** | `/verifier` | ⚠️ queue only | Review queue + SLA aging badges — **no dedicated analytics yet.** |
 
-> The `/analytics` route was previously disabled (redirected to `/`). It is now live
-> (`requiresAuth`) and linked in the profile dropdown under **Credits → Analytics**.
-> The **Selling** tab remains Pro-gated via `FEATURES.ADVANCED_ANALYTICS`
-> ([plans.js](../src/constants/plans.js)); buyers see the Buying tab free.
+> The `/analytics` route is live (`requiresAuth`) and linked for **every** role in the
+> profile dropdown under **Insights → Analytics**.
+>
+> **Freemium model** (`FEATURES.ADVANCED_ANALYTICS`, [plans.js](../src/constants/plans.js)):
+> - **Free (small access):** the four summary metric cards on the Buying tab (Portfolio
+>   Value, Credits Purchased, CO₂ Offset, Projects Supported) + a "Upgrade to Pro" note.
+> - **Pro:** everything above **plus** the trend charts, category breakdown, full purchase
+>   history, and the entire **Selling** tab (revenue, escrow, payouts).
+>
+> Gating is client UX only; deeper data is fetched only for entitled users. As always,
+> anything sensitive must also be enforced server-side.
 
 ### Gaps worth building
 - **Verifier analytics:** throughput (reviews/week), avg time-to-decision, approval vs

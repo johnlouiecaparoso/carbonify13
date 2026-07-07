@@ -397,6 +397,13 @@ const profileSections = computed(() => {
   }
   if (workspace.length) sections.push({ title: 'Workspace', items: workspace })
 
+  // Analytics is available to EVERY authenticated role. Free users get a summary;
+  // Pro unlocks the full dashboard (gated inside the view).
+  sections.push({
+    title: 'Insights',
+    items: [{ path: '/analytics', label: 'Analytics', icon: 'monitoring' }],
+  })
+
   // 2) Project developers: map + monitoring tucked under the profile menu.
   if (userStore.isProjectDeveloper) {
     sections.push(
@@ -445,7 +452,6 @@ const profileSections = computed(() => {
         items: [
           { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
           { path: '/retire', label: 'Retire Credits', icon: 'eco' },
-          { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
         ],
       },
       {

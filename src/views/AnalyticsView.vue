@@ -243,6 +243,14 @@ onMounted(() => {
 
       <!-- ───────── BUYING TAB ───────── -->
       <template v-else-if="activeTab === 'buying'">
+      <div v-if="!canSeeSelling" class="free-note">
+        <span class="material-symbols-outlined" aria-hidden="true">lock_open</span>
+        <span>
+          Free plan: summary metrics only.
+          <router-link to="/upgrade?feature=advanced_analytics">Upgrade to Pro</router-link>
+          for trend charts, category breakdown, full history, and selling analytics.
+        </span>
+      </div>
       <div class="analytics-grid">
         <div class="analytics-card">
           <div class="card-header">
@@ -269,7 +277,7 @@ onMounted(() => {
               {{ carbonImpactData?.summary?.totalCreditsPurchased?.toLocaleString() || '0' }}
             </div>
             <div class="metric-change positive">
-              Avg: ${{ Math.round(carbonImpactData?.summary?.averagePricePerCredit || 0) }}/credit
+              Avg: {{ currency(Math.round(carbonImpactData?.summary?.averagePricePerCredit || 0)) }}/credit
             </div>
           </div>
         </div>
@@ -309,45 +317,53 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Charts Section -->
-      <div class="charts-section">
-        <div class="chart-card">
-          <h3>Portfolio Performance</h3>
-          <PortfolioChart :data="portfolioChartData" :options="portfolioChartOptions" />
-        </div>
-
-        <div class="chart-card">
-          <h3>Credit Purchases by Category</h3>
-          <CategoryChart :data="categoryChartData" :options="categoryChartOptions" />
-        </div>
-      </div>
-
-      <!-- Recent Activity -->
-      <div class="activity-section">
-        <h3>Recent Purchases</h3>
-        <div class="activity-list">
-          <div v-if="carbonImpactData?.recentPurchases?.length === 0" class="empty-activity">
-            <p>No recent purchases found.</p>
+      <!-- Free tier gets the summary cards above. Charts + recent activity are a
+           Pro feature — free users see an upgrade prompt in their place. -->
+      <FeatureGate
+        :feature="FEATURES.ADVANCED_ANALYTICS"
+        title="Detailed analytics is a Pro feature"
+        message="You're seeing the free summary. Upgrade to Pro for trend charts, category breakdown, and your full purchase history."
+      >
+        <!-- Charts Section -->
+        <div class="charts-section">
+          <div class="chart-card">
+            <h3>Portfolio Performance</h3>
+            <PortfolioChart :data="portfolioChartData" :options="portfolioChartOptions" />
           </div>
-          <div
-            v-for="purchase in carbonImpactData?.recentPurchases || []"
-            :key="purchase.date"
-            class="activity-item"
-          >
-            <div class="activity-icon">🛒</div>
-            <div class="activity-content">
-              <div class="activity-title">Purchased {{ purchase.credits }} credits</div>
-              <div class="activity-description">
-                {{ purchase.project }} - {{ purchase.category }}
+
+          <div class="chart-card">
+            <h3>Credit Purchases by Category</h3>
+            <CategoryChart :data="categoryChartData" :options="categoryChartOptions" />
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="activity-section">
+          <h3>Recent Purchases</h3>
+          <div class="activity-list">
+            <div v-if="carbonImpactData?.recentPurchases?.length === 0" class="empty-activity">
+              <p>No recent purchases found.</p>
+            </div>
+            <div
+              v-for="purchase in carbonImpactData?.recentPurchases || []"
+              :key="purchase.date"
+              class="activity-item"
+            >
+              <div class="activity-icon">🛒</div>
+              <div class="activity-content">
+                <div class="activity-title">Purchased {{ purchase.credits }} credits</div>
+                <div class="activity-description">
+                  {{ purchase.project }} - {{ purchase.category }}
+                </div>
+                <div class="activity-time">{{ formatDate(purchase.date) }}</div>
               </div>
-              <div class="activity-time">{{ formatDate(purchase.date) }}</div>
-            </div>
-            <div class="activity-value">
-              {{ purchase.currency }}{{ purchase.amount.toLocaleString() }}
+              <div class="activity-value">
+                {{ purchase.currency }}{{ purchase.amount.toLocaleString() }}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </FeatureGate>
       </template>
 
       <!-- ───────── SELLING TAB (Pro: advanced analytics) ───────── -->
@@ -451,6 +467,23 @@ onMounted(() => {
   font-size: 1.125rem;
   color: var(--text-secondary);
   margin: 0 0 2rem 0;
+}
+
+.free-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #065f46;
+}
+.free-note a {
+  color: var(--primary-color, #069e2d);
+  font-weight: 700;
 }
 
 .tab-bar {
