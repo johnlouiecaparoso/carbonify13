@@ -81,6 +81,23 @@ export class ProjectWorkflowService {
           projectData.capacity !== '' &&
           !isNaN(Number(projectData.capacity)) && { capacity: Number(projectData.capacity) }),
         ...(projectData.capacity_unit && { capacity_unit: String(projectData.capacity_unit).trim() }),
+        ...(projectData.capex != null &&
+          projectData.capex !== '' &&
+          !isNaN(Number(projectData.capex)) && { capex: Number(projectData.capex) }),
+        ...(projectData.opex != null &&
+          projectData.opex !== '' &&
+          !isNaN(Number(projectData.opex)) && { opex: Number(projectData.opex) }),
+        ...(projectData.project_lifetime_years != null &&
+          projectData.project_lifetime_years !== '' &&
+          !isNaN(Number(projectData.project_lifetime_years)) && {
+            project_lifetime_years: Number(projectData.project_lifetime_years),
+          }),
+        ...(projectData.funding_target != null &&
+          projectData.funding_target !== '' &&
+          !isNaN(Number(projectData.funding_target)) && { funding_target: Number(projectData.funding_target) }),
+        ...(projectData.funding_raised != null &&
+          projectData.funding_raised !== '' &&
+          !isNaN(Number(projectData.funding_raised)) && { funding_raised: Number(projectData.funding_raised) }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
@@ -109,6 +126,11 @@ export class ProjectWorkflowService {
         'feedstock',
         'capacity',
         'capacity_unit',
+        'capex',
+        'opex',
+        'project_lifetime_years',
+        'funding_target',
+        'funding_raised',
       ]
       const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
       if (error && driftCols.some((c) => blob.includes(c))) {

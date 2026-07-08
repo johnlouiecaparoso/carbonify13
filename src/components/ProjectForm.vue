@@ -81,9 +81,12 @@ const formData = ref({
   ecc_file: null,
   moa_file: null,
 
-  // Financials (optional)
-  capex: '',
-  opex: '',
+  // Financials (optional) — power the Investor Portal's return model.
+  capex: '', // up-front capital expenditure (PHP)
+  opex: '', // annual operating expenditure (PHP/yr)
+  project_lifetime_years: '', // crediting/operating horizon (years)
+  funding_target: '', // capital being sought (PHP)
+  funding_raised: '', // capital committed so far (PHP)
   carbon_yield_projection: '',
 
   // Credibility metadata (optional, structured)
@@ -699,6 +702,9 @@ async function handleSubmit() {
       capacity_unit: formData.value.capacity_unit,
       capex: formData.value.capex,
       opex: formData.value.opex,
+      project_lifetime_years: formData.value.project_lifetime_years,
+      funding_target: formData.value.funding_target,
+      funding_raised: formData.value.funding_raised,
       carbon_yield_projection: formData.value.carbon_yield_projection,
       ...normalizeCredibility({
         additionality_type: formData.value.additionality_type,
@@ -991,6 +997,11 @@ onMounted(() => {
       feedstock: props.project.feedstock || '',
       capacity: props.project.capacity ?? '',
       capacity_unit: props.project.capacity_unit || '',
+      capex: props.project.capex ?? '',
+      opex: props.project.opex ?? '',
+      project_lifetime_years: props.project.project_lifetime_years ?? '',
+      funding_target: props.project.funding_target ?? '',
+      funding_raised: props.project.funding_raised ?? '',
       co_benefits: Array.isArray(props.project.co_benefits)
         ? props.project.co_benefits
             .map((c) => (typeof c === 'string' ? c : c?.label || c?.sdg || ''))
@@ -1294,6 +1305,48 @@ onMounted(() => {
                 v-model="formData.capacity_unit"
                 placeholder="e.g., MW, tonnes/year"
               />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-subsection optional">
+          <div class="subsection-header">
+            <h4 class="subsection-title">Financials (Optional)</h4>
+          </div>
+          <p class="field-help" style="margin-top: 0">
+            Used to model investor returns (IRR / NPV / payback) and funding needs on the Investor
+            Portal. All optional — leave blank if not applicable.
+          </p>
+
+          <div class="form-grid two-columns">
+            <div class="form-group">
+              <label for="capex" class="form-label"> Capital expenditure (CAPEX) </label>
+              <UiInput id="capex" v-model.number="formData.capex" type="number" min="0" step="any" placeholder="e.g., 5000000" />
+              <div class="field-help">Total up-front investment, in ₱.</div>
+            </div>
+            <div class="form-group">
+              <label for="opex" class="form-label"> Operating cost / year (OPEX) </label>
+              <UiInput id="opex" v-model.number="formData.opex" type="number" min="0" step="any" placeholder="e.g., 400000" />
+              <div class="field-help">Annual running cost, in ₱.</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="project_lifetime_years" class="form-label"> Project lifetime (years) </label>
+            <UiInput id="project_lifetime_years" v-model.number="formData.project_lifetime_years" type="number" min="0" step="1" placeholder="e.g., 10" />
+            <div class="field-help">Crediting / operating horizon used for the cashflow model.</div>
+          </div>
+
+          <div class="form-grid two-columns">
+            <div class="form-group">
+              <label for="funding_target" class="form-label"> Funding target </label>
+              <UiInput id="funding_target" v-model.number="formData.funding_target" type="number" min="0" step="any" placeholder="e.g., 6000000" />
+              <div class="field-help">Capital you are seeking, in ₱.</div>
+            </div>
+            <div class="form-group">
+              <label for="funding_raised" class="form-label"> Funding raised so far </label>
+              <UiInput id="funding_raised" v-model.number="formData.funding_raised" type="number" min="0" step="any" placeholder="e.g., 1500000" />
+              <div class="field-help">Capital committed to date, in ₱.</div>
             </div>
           </div>
         </div>

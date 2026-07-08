@@ -8,6 +8,7 @@ import {
   createVerifierGuard,
   createLguGuard,
 } from '@/middleware/roleGuard'
+import { FEATURES } from '@/constants/plans'
 
 // Lazy load components for better performance
 const HomepageView = () => import(/* webpackChunkName: "homepage" */ '@/views/HomepageView.vue')
@@ -69,6 +70,13 @@ const router = createRouter({
       path: '/biomass',
       name: 'biomass-marketplace',
       component: () => import('@/views/BiomassMarketplaceView.vue'),
+    },
+    {
+      // Investor Portal — pipeline + financial model + data room. Pro-gated.
+      path: '/investor',
+      name: 'investor-portal',
+      component: () => import('@/views/InvestorPortalView.vue'),
+      meta: { requiresAuth: true, requiresFeature: FEATURES.INVESTOR_PORTAL },
     },
     {
       path: '/biomass/sell',

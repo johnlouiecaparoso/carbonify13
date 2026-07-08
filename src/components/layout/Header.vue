@@ -356,6 +356,10 @@ const navItems = computed(() => {
     items.push({ path: '/lgu', label: 'LGU Tools' })
   }
 
+  if (userStore.isBuyerInvestor) {
+    items.push({ path: '/investor', label: 'Investor Portal' })
+  }
+
   return items
 })
 
@@ -434,6 +438,12 @@ const profileSections = computed(() => {
   // 3) Buyers / general / LGU users: account pages grouped by purpose. KYC gates
   //    transacting, so it leads the Account group.
   if (!(userStore.isAdmin || userStore.isVerifier)) {
+    if (userStore.isBuyerInvestor) {
+      sections.push({
+        title: 'Investor',
+        items: [{ path: '/investor', label: 'Investor Portal', icon: 'trending_up' }],
+      })
+    }
     sections.push(
       {
         title: 'Account',
