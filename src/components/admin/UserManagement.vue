@@ -119,6 +119,19 @@
         </div>
       </div>
     </div>
+
+    <ModernPrompt
+      :is-open="promptState.isOpen"
+      :type="promptState.type"
+      :title="promptState.title"
+      :message="promptState.message"
+      :confirm-text="promptState.confirmText"
+      :cancel-text="promptState.cancelText"
+      :show-cancel="promptState.showCancel"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="handleClose"
+    />
   </div>
 </template>
 
@@ -127,6 +140,17 @@ import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
 import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
 import { adminSetKybVerified } from '@/services/kybService'
+import { useModernPrompt } from '@/composables/useModernPrompt'
+import ModernPrompt from '@/components/ui/ModernPrompt.vue'
+
+const {
+  promptState,
+  success: showSuccess,
+  error: showError,
+  handleConfirm,
+  handleCancel,
+  handleClose,
+} = useModernPrompt()
 
 const users = ref([])
 const loading = ref(true)
@@ -240,10 +264,13 @@ async function saveUser() {
     }
 
     closeEditModal()
-    alert('User updated successfully!')
+    await showSuccess({ title: 'User updated', message: 'The account was updated successfully.' })
   } catch (err) {
     console.error('Error updating user:', err)
-    alert(err.message || 'Failed to update user. Please try again.')
+    await showError({
+      title: 'Update failed',
+      message: err.message || 'Failed to update user. Please try again.',
+    })
   }
 }
 
