@@ -142,6 +142,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/developer/ledger',
+      name: 'developer-asset-ledger',
+      component: () => import('@/views/CarbonAssetLedgerView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
       path: '/monitoring',
       name: 'monitoring-reports',
       component: () => import('@/views/MonitoringReportView.vue'),

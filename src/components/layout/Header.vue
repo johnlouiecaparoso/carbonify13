@@ -342,6 +342,7 @@ const navItems = computed(() => {
   if (userStore.isProjectDeveloper) {
     items.push({ path: '/submit-project', label: 'Submit Project' })
     items.push({ path: '/developer/projects', label: 'My Project Dashboard' })
+    items.push({ path: '/developer/ledger', label: 'Carbon Assets' })
     items.push({ path: '/sales', label: 'Seller Earnings' })
     // Project Map + Monitoring (MRV) live in the profile dropdown (accountLinks).
   }
@@ -389,6 +390,7 @@ const profileSections = computed(() => {
     workspace.push(
       { path: '/developer/projects', label: 'My Projects', icon: 'space_dashboard' },
       { path: '/submit-project', label: 'Submit Project', icon: 'add_circle' },
+      { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
       { path: '/sales', label: 'Seller Earnings', icon: 'payments' },
     )
   }

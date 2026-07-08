@@ -1,5 +1,14 @@
 # Carbonify — Handoff (current state)
 
+> 🧭 **2026-07-08 — EXPANSION FEATURES #1 + #2 SHIPPED.** Two of the seven proposed PH-market
+> expansion features are **code-complete** (🆕, runtime-unverified). **#2 — Carbon Asset
+> Management:** a developer asset-ledger at [`/developer/ledger`](../src/views/CarbonAssetLedgerView.vue)
+> that rolls up estimated/issued/pending/sold/retired/inventory (+ inventory & sold value) per
+> project via the pure, drift-safe [`aggregateAssetLedger`](../src/services/assetLedgerService.js)
+> (6 unit tests) — **no migration needed**. Linked in the developer top-nav + profile menu
+> ("Carbon Assets"). Build ✅ · ESLint 0 ✅ · **156 tests ✅**. **Next up: #3 — Biomass Marketplace
+> (feedstock RFQ).** The earlier #1 note follows.
+>
 > 🧭 **2026-07-08 — EXPANSION FEATURE #1 SHIPPED (Project Registry fields).** First of the
 > seven proposed PH-market expansion features is **code-complete** (🆕, runtime-unverified).
 > Added investor-facing registry fields to the project page: **feedstock**, **capacity**
@@ -11,10 +20,10 @@
 > ([projectService.js](../src/services/projectService.js),
 > [projectWorkflowService.js](../src/services/projectWorkflowService.js)), and Feedstock/Capacity
 > rows on [ProjectDetailView.vue](../src/views/ProjectDetailView.vue). Build ✅ · ESLint 0 ✅ ·
-> **150 tests ✅**. **⬜ To finish:** apply migration **#21** (§0) in the SQL Editor, then a
-> runtime click-through (submit a project with the new fields → confirm they render on the
-> detail page). Until applied, the app's drift-guard silently skips the new columns (no breakage,
-> just no persistence). **Next up (tomorrow):** expansion feature **#2 — Carbon Asset Management**
+> **150 tests ✅**. **Migration #21 APPLIED (2026-07-08)** — the form now persists
+> `feedstock`/`capacity`/`capacity_unit`/`methodology`. **⬜ To finish:** a runtime click-through
+> (submit a project with the new fields → confirm they render on the detail page).
+> **In progress:** expansion feature **#2 — Carbon Asset Management**
 > (developer asset-ledger view). See §3 "Proposed expansion features" for the full status table.
 
 > 📧 **2026-07-07 (latest) — SIGNUP EMAIL BLOCKER (config, not code).** Account creation
@@ -224,7 +233,7 @@ to confirm an empty result.
 > 🆕 **2026-07-08 migration** (apply via SQL Editor; idempotent, additive, drift-safe).
 > | # | Migration | Status | Purpose |
 > |---|---|---|---|
-> | 21 | `20260707000200_project_registry_fields.sql` | ⬜ **pending** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. No existing flow reads them yet; until applied the app's drift-guard skips them. **Apply, then submit a project with the new fields to verify they persist + render.** |
+> | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 
 ---
 
@@ -468,15 +477,15 @@ codebase — roughly ~60% is already built as extensions of existing modules, no
 | # | Feature | Status | What exists today | Gap to build |
 |---|---|---|---|---|
 | 1 | **Project Registry page** | 🆕 **code-complete (2026-07-08)** — migration #21 pending apply + runtime check | [ProjectDetailView.vue](../src/views/ProjectDetailView.vue) + `projects` table carry **GPS** (`geo_coordinates` + `boundary` GeoJSON, drawn on the map), **methodology** (now captured on the submit form), **feedstock**, **capacity** (+unit), **development status** (`projects.status`), **expected reductions** (`estimated_credits`), **documents** (real [`project-documents` bucket](../supabase/migrations/20260707000000_project_documents_bucket.sql): PDD/feasibility/MRV), co-benefits, additionality/permanence; **project developer** shown via the Developer profile card | ✅ shipped: `feedstock`/`capacity`/`capacity_unit` cols ([mig #21](../supabase/migrations/20260707000200_project_registry_fields.sql)) + form subsection + detail rows. **Remaining:** apply #21, runtime-verify |
-| 2 | **Carbon Asset Management** | 🟡 partial (~75%) | Credit **serials**, issued/pending **pool**, **sold** (`credit_transactions`), **retired** (atomic multi-row), **buyer history**, **inventory** (`credit_ownership`), [CreditPortfolioView](../src/views/CreditPortfolioView.vue), [SellerEarningsView](../src/views/SellerEarningsView.vue) | One **developer-facing asset-ledger view** rolling up issued/pending/sold/retired/inventory per project (aggregation over existing tables) |
+| 2 | **Carbon Asset Management** | 🆕 **code-complete (2026-07-08)** — no migration needed; runtime-unverified | Credit **serials**, issued/pending **pool**, **sold** (`credit_transactions`), **retired** (atomic multi-row), **buyer history**, **inventory** (`credit_ownership`), [CreditPortfolioView](../src/views/CreditPortfolioView.vue), [SellerEarningsView](../src/views/SellerEarningsView.vue) | ✅ shipped: developer **asset-ledger view** [`/developer/ledger`](../src/views/CarbonAssetLedgerView.vue) rolling up estimated/issued/pending/sold/retired/inventory (+value) per project via pure [`aggregateAssetLedger`](../src/services/assetLedgerService.js) over `projects`/`project_credits`/`credit_transactions`/`verified_emission_reductions`/`credit_retirements` (MRV tables drift-safe). 6 unit tests. **Remaining:** runtime click-through as a developer |
 | 3 | **Biomass Marketplace** (feedstock RFQ) | ❌ not started | Marketplace is **credits only**; `supplier_orders` is external-registry fulfillment, not feedstock | New **product catalog** table (pellets/biochar/rice husk/bagasse/Bana grass) + **request-for-quotation** flow; reuses cart/payment/KYB rails |
 | 4 | **MRV Dashboard** | 🟡 partial (~50%) | [MRV module](../supabase/migrations/20260604010000_create_mrv_module.sql) + [MonitoringReportView](../src/views/MonitoringReportView.vue) + [mrv.js](../src/constants/mrv.js) capture biomass, energy, CO₂ avoided/removed, hectares, methodology factors | Visual **roll-up dashboard**; **satellite** + **IoT** feeds are new external integrations (API keys + cost) |
 | 5 | **Investor Portal** | ❌ mostly not started | `buyer_investor` role + document/data-room foundation + [FeatureGate](../src/components/ui/FeatureGate.vue) plan gating exist | Financial model, **IRR**, project pipeline, offtake agreements, funding requirements as a gated view |
 | 6 | **Farmer Portal** | ❌ not started | No `farmer` role (see [roles.js](../src/constants/roles.js)); wallet/payout rails reusable | New role + registration + delivery uploads + payment tracking + training + plantation monitoring (couples to #3) |
 | 7 | **AI Project Assistant** | ❌ not started | No LLM integration (no `anthropic`/`openai` dep) | Supabase edge fn → Claude API with tool access to project/credit/MRV tables (answer queries, draft PDD/proposals). External API cost |
 
-> **Recommended build order** (features feed each other): ~~1~~ → **2** → 3 → 6 → 4 → 5 → 7.
-> **#1 done (2026-07-08, code-complete)**; **#2 (Carbon Asset Management) is next.**
+> **Recommended build order** (features feed each other): ~~1~~ → ~~2~~ → **3** → 6 → 4 → 5 → 7.
+> **#1 + #2 done (2026-07-08, code-complete)**; **#3 (Biomass Marketplace / feedstock RFQ) is next.**
 > Only #4 (satellite/IoT) and #7 (AI) require external services + running cost; the rest are
 > pure code on the current stack. See the same-day chat scoping for detail.
 
