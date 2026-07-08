@@ -65,6 +65,24 @@ const router = createRouter({
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
     },
     {
+      // Public biomass feedstock marketplace (browse + request-for-quotation).
+      path: '/biomass',
+      name: 'biomass-marketplace',
+      component: () => import('@/views/BiomassMarketplaceView.vue'),
+    },
+    {
+      path: '/biomass/sell',
+      name: 'biomass-sell',
+      component: () => import('@/views/BiomassSellView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/biomass/rfqs',
+      name: 'biomass-rfqs',
+      component: () => import('@/views/BiomassRfqsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       // Public carbon registry — anyone can browse/verify issued & retired credits.
       path: '/registry',
       name: 'registry',
@@ -392,7 +410,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
   // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback']
+  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback', 'biomass-marketplace']
   if (publicRoutes.includes(to.name)) {
     console.log('✅ Public route, allowing access')
     next()

@@ -300,6 +300,7 @@ const navItems = computed(() => {
   const baseItems = [
     { path: '/', label: 'Home' },
     { path: '/marketplace', label: 'Marketplace' },
+    { path: '/biomass', label: 'Biomass' },
     { path: '/market', label: 'Market' },
     { path: '/registry', label: 'Registry' },
     { path: '/about', label: 'About' },
@@ -392,6 +393,8 @@ const profileSections = computed(() => {
       { path: '/submit-project', label: 'Submit Project', icon: 'add_circle' },
       { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
       { path: '/sales', label: 'Seller Earnings', icon: 'payments' },
+      { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
+      { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
     )
   }
   if (userStore.isLguUser) {
@@ -454,6 +457,13 @@ const profileSections = computed(() => {
         items: [
           { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
           { path: '/retire', label: 'Retire Credits', icon: 'eco' },
+        ],
+      },
+      {
+        title: 'Biomass',
+        items: [
+          { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
+          { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
         ],
       },
       {
