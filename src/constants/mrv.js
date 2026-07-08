@@ -68,5 +68,29 @@ export function getMetricsForType(projectType) {
   return METRICS_BY_TYPE[projectType] || []
 }
 
+// Flat metric_key → { label, unit } map, built from every project type. Used by
+// the MRV dashboard to label aggregated activity-data sums (keys span types).
+const METRIC_META = {}
+for (const list of Object.values(METRICS_BY_TYPE)) {
+  for (const m of list) {
+    if (!METRIC_META[m.metric_key]) METRIC_META[m.metric_key] = { label: m.label, unit: m.unit }
+  }
+}
+
+/** Friendly label for an activity metric_key; falls back to a titleized key. */
+export function metricLabel(metricKey) {
+  return (
+    METRIC_META[metricKey]?.label ||
+    String(metricKey || '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  )
+}
+
+/** Unit for an activity metric_key (empty string if unknown). */
+export function metricUnit(metricKey) {
+  return METRIC_META[metricKey]?.unit || ''
+}
+
 /** Max evidence file size stored as a data URL (matches the app's data-URL pattern). */
 export const MAX_EVIDENCE_BYTES = 2 * 1024 * 1024 // 2MB

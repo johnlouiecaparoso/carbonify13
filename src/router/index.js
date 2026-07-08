@@ -169,6 +169,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/developer/mrv-dashboard',
+      name: 'developer-mrv-dashboard',
+      component: () => import('@/views/MrvDashboardView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
       path: '/monitoring',
       name: 'monitoring-reports',
       component: () => import('@/views/MonitoringReportView.vue'),

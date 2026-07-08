@@ -416,6 +416,7 @@ const profileSections = computed(() => {
         title: 'Project Tools',
         items: [
           { path: '/map', label: 'Project Map', icon: 'map' },
+          { path: '/developer/mrv-dashboard', label: 'MRV Dashboard', icon: 'query_stats' },
           { path: '/monitoring', label: 'Monitoring (MRV)', icon: 'monitoring' },
         ],
       },
