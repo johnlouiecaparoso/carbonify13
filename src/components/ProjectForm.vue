@@ -62,6 +62,12 @@ const formData = ref({
   end_date: '',
   host_entity: '',
 
+  // Registry metadata (optional) — investor-facing project registry fields.
+  methodology: '', // e.g. 'Verra VM0044', 'Gold Standard', 'Puro.earth', 'ISO 14064'
+  feedstock: '', // e.g. 'Rice husk', 'Coconut biomass', 'Sugarcane bagasse', 'Bana grass'
+  capacity: '', // nameplate/throughput figure (numeric)
+  capacity_unit: '', // unit for capacity, e.g. 'MW', 'tonnes/year'
+
   // Technical & compliance files (single-file inputs)
   pdd_file: null,
   baseline_file: null,
@@ -687,6 +693,10 @@ async function handleSubmit() {
       end_date: formData.value.end_date,
       host_entity: formData.value.host_entity,
       estimated_credits: formData.value.estimated_credits,
+      methodology: formData.value.methodology,
+      feedstock: formData.value.feedstock,
+      capacity: formData.value.capacity,
+      capacity_unit: formData.value.capacity_unit,
       capex: formData.value.capex,
       opex: formData.value.opex,
       carbon_yield_projection: formData.value.carbon_yield_projection,
@@ -977,6 +987,10 @@ onMounted(() => {
       geo_coordinates: props.project.geo_coordinates || '',
       boundary: props.project.boundary || null,
       expected_impact: props.project.expected_impact || '',
+      methodology: props.project.methodology || '',
+      feedstock: props.project.feedstock || '',
+      capacity: props.project.capacity ?? '',
+      capacity_unit: props.project.capacity_unit || '',
       co_benefits: Array.isArray(props.project.co_benefits)
         ? props.project.co_benefits
             .map((c) => (typeof c === 'string' ? c : c?.label || c?.sdg || ''))
@@ -1228,6 +1242,59 @@ onMounted(() => {
             <label for="host_entity" class="form-label"> Host Entity (LGU / Private / Coop) * </label>
             <UiInput id="host_entity" v-model="formData.host_entity" :class="{ error: errors.host_entity }" @blur="validateField('host_entity')" />
             <div v-if="errors.host_entity" class="field-error">{{ errors.host_entity }}</div>
+          </div>
+        </div>
+
+        <div class="form-subsection optional">
+          <div class="subsection-header">
+            <h4 class="subsection-title">Registry Details (Optional)</h4>
+          </div>
+          <p class="field-help" style="margin-top: 0">
+            These appear on your public project page and help buyers &amp; investors assess the
+            project at a glance.
+          </p>
+
+          <div class="form-group">
+            <label for="methodology" class="form-label"> Methodology / Standard </label>
+            <UiInput
+              id="methodology"
+              v-model="formData.methodology"
+              placeholder="e.g., Verra VM0044, Gold Standard, Puro.earth, ISO 14064"
+            />
+            <div class="field-help">The carbon standard / methodology the project follows.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="feedstock" class="form-label"> Feedstock / Input Material </label>
+            <UiInput
+              id="feedstock"
+              v-model="formData.feedstock"
+              placeholder="e.g., Rice husk, Coconut biomass, Sugarcane bagasse, Bana grass"
+            />
+            <div class="field-help">The biomass or input material the project uses.</div>
+          </div>
+
+          <div class="form-grid two-columns">
+            <div class="form-group">
+              <label for="capacity" class="form-label"> Capacity </label>
+              <UiInput
+                id="capacity"
+                type="number"
+                min="0"
+                step="any"
+                v-model.number="formData.capacity"
+                placeholder="e.g., 10"
+              />
+              <div class="field-help">Nameplate or throughput figure.</div>
+            </div>
+            <div class="form-group">
+              <label for="capacity_unit" class="form-label"> Capacity Unit </label>
+              <UiInput
+                id="capacity_unit"
+                v-model="formData.capacity_unit"
+                placeholder="e.g., MW, tonnes/year"
+              />
+            </div>
           </div>
         </div>
 

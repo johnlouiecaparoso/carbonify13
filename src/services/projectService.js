@@ -101,6 +101,12 @@ export class ProjectService {
         ...(projectData.permanence_years != null &&
           projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
         ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
+        ...(projectData.methodology && { methodology: String(projectData.methodology).trim() }),
+        ...(projectData.feedstock && { feedstock: String(projectData.feedstock).trim() }),
+        ...(projectData.capacity != null &&
+          projectData.capacity !== '' &&
+          !isNaN(Number(projectData.capacity)) && { capacity: Number(projectData.capacity) }),
+        ...(projectData.capacity_unit && { capacity_unit: String(projectData.capacity_unit).trim() }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
@@ -131,6 +137,10 @@ export class ProjectService {
         'additionality_type',
         'permanence_years',
         'reversal_risk',
+        'methodology',
+        'feedstock',
+        'capacity',
+        'capacity_unit',
       ]
       const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
       if (error && driftCols.some((c) => blob.includes(c))) {
@@ -283,6 +293,9 @@ export class ProjectService {
         'barangay',
         'municipality',
         'methodology',
+        'feedstock',
+        'capacity',
+        'capacity_unit',
         'vintage',
         'co_benefits',
         'boundary',

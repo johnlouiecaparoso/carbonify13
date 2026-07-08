@@ -72,6 +72,11 @@
               <h2>Project Details</h2>
               <dl class="facts">
                 <div><dt>Methodology</dt><dd>{{ project.methodology || '—' }}</dd></div>
+                <div v-if="project.feedstock"><dt>Feedstock</dt><dd>{{ project.feedstock }}</dd></div>
+                <div v-if="project.capacity != null && project.capacity !== ''">
+                  <dt>Capacity</dt>
+                  <dd>{{ formatNumber(project.capacity) }}{{ project.capacity_unit ? ' ' + project.capacity_unit : '' }}</dd>
+                </div>
                 <div><dt>Estimated credits</dt><dd>{{ formatNumber(project.estimated_credits) }}</dd></div>
                 <div><dt>Feasibility score</dt><dd>{{ project.feasibility_score ?? '—' }}</dd></div>
                 <div><dt>Social impact</dt><dd>{{ project.social_impact_score ?? '—' }}</dd></div>

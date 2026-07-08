@@ -1,5 +1,22 @@
 # Carbonify — Handoff (current state)
 
+> 🧭 **2026-07-08 — EXPANSION FEATURE #1 SHIPPED (Project Registry fields).** First of the
+> seven proposed PH-market expansion features is **code-complete** (🆕, runtime-unverified).
+> Added investor-facing registry fields to the project page: **feedstock**, **capacity**
+> (+unit), and wired **methodology** into the submit form (the column existed since
+> `20260607000400` but was never captured — only settable on edit). End-to-end across 5 files:
+> new migration `20260707000200_project_registry_fields.sql` (+ `feedstock` / `capacity` /
+> `capacity_unit` on `projects`), [ProjectForm.vue](../src/components/ProjectForm.vue) new
+> "Registry Details" subsection, both insert whitelists + drift-guards
+> ([projectService.js](../src/services/projectService.js),
+> [projectWorkflowService.js](../src/services/projectWorkflowService.js)), and Feedstock/Capacity
+> rows on [ProjectDetailView.vue](../src/views/ProjectDetailView.vue). Build ✅ · ESLint 0 ✅ ·
+> **150 tests ✅**. **⬜ To finish:** apply migration **#21** (§0) in the SQL Editor, then a
+> runtime click-through (submit a project with the new fields → confirm they render on the
+> detail page). Until applied, the app's drift-guard silently skips the new columns (no breakage,
+> just no persistence). **Next up (tomorrow):** expansion feature **#2 — Carbon Asset Management**
+> (developer asset-ledger view). See §3 "Proposed expansion features" for the full status table.
+
 > 📧 **2026-07-07 (latest) — SIGNUP EMAIL BLOCKER (config, not code).** Account creation
 > was returning `500: Error sending confirmation email`. Auth logs showed
 > `550 "yourdomain.com domain is not verified"` — the Supabase custom SMTP (Resend) still
@@ -203,6 +220,11 @@ to confirm an empty result.
 > |---|---|---|---|
 > | 19 | `20260707000000_project_documents_bucket.sql` | ⬜ **pending** | 🔴 Creates the `project-documents` storage bucket + RLS so developer compliance PDFs actually upload and are retrievable (were never stored before — dead links). **Apply before any real project submission.** |
 > | 20 | `20260707000100_project_documents_private.sql` | ⬜ **pending** | Makes that bucket **private** (compliance PDFs = sensitive PII) + authenticated SELECT for signed URLs. App resolves short-lived signed URLs; anon can no longer open raw docs. **Apply right after #19.** |
+
+> 🆕 **2026-07-08 migration** (apply via SQL Editor; idempotent, additive, drift-safe).
+> | # | Migration | Status | Purpose |
+> |---|---|---|---|
+> | 21 | `20260707000200_project_registry_fields.sql` | ⬜ **pending** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. No existing flow reads them yet; until applied the app's drift-guard skips them. **Apply, then submit a project with the new fields to verify they persist + render.** |
 
 ---
 
@@ -434,6 +456,29 @@ Legend: ✅ done & verified · 🆕 code-complete, runtime unverified · 🟡 pa
 > KYB-review console · refunds/disputes console · seller KYB submission form · admin KYC-level
 > override + level list. Migrations `20260701000000–000300` applied. All the codeable-backlog +
 > "built-but-not-clickable" gaps are closed.
+
+---
+
+### 🧭 Proposed expansion features (scoped 2026-07-07) — implemented vs not
+
+Seven product-expansion features were proposed (national biomass registry / MRV / investor
+data-room positioning for the PH market). This is their **real status** against the current
+codebase — roughly ~60% is already built as extensions of existing modules, not greenfield.
+
+| # | Feature | Status | What exists today | Gap to build |
+|---|---|---|---|---|
+| 1 | **Project Registry page** | 🆕 **code-complete (2026-07-08)** — migration #21 pending apply + runtime check | [ProjectDetailView.vue](../src/views/ProjectDetailView.vue) + `projects` table carry **GPS** (`geo_coordinates` + `boundary` GeoJSON, drawn on the map), **methodology** (now captured on the submit form), **feedstock**, **capacity** (+unit), **development status** (`projects.status`), **expected reductions** (`estimated_credits`), **documents** (real [`project-documents` bucket](../supabase/migrations/20260707000000_project_documents_bucket.sql): PDD/feasibility/MRV), co-benefits, additionality/permanence; **project developer** shown via the Developer profile card | ✅ shipped: `feedstock`/`capacity`/`capacity_unit` cols ([mig #21](../supabase/migrations/20260707000200_project_registry_fields.sql)) + form subsection + detail rows. **Remaining:** apply #21, runtime-verify |
+| 2 | **Carbon Asset Management** | 🟡 partial (~75%) | Credit **serials**, issued/pending **pool**, **sold** (`credit_transactions`), **retired** (atomic multi-row), **buyer history**, **inventory** (`credit_ownership`), [CreditPortfolioView](../src/views/CreditPortfolioView.vue), [SellerEarningsView](../src/views/SellerEarningsView.vue) | One **developer-facing asset-ledger view** rolling up issued/pending/sold/retired/inventory per project (aggregation over existing tables) |
+| 3 | **Biomass Marketplace** (feedstock RFQ) | ❌ not started | Marketplace is **credits only**; `supplier_orders` is external-registry fulfillment, not feedstock | New **product catalog** table (pellets/biochar/rice husk/bagasse/Bana grass) + **request-for-quotation** flow; reuses cart/payment/KYB rails |
+| 4 | **MRV Dashboard** | 🟡 partial (~50%) | [MRV module](../supabase/migrations/20260604010000_create_mrv_module.sql) + [MonitoringReportView](../src/views/MonitoringReportView.vue) + [mrv.js](../src/constants/mrv.js) capture biomass, energy, CO₂ avoided/removed, hectares, methodology factors | Visual **roll-up dashboard**; **satellite** + **IoT** feeds are new external integrations (API keys + cost) |
+| 5 | **Investor Portal** | ❌ mostly not started | `buyer_investor` role + document/data-room foundation + [FeatureGate](../src/components/ui/FeatureGate.vue) plan gating exist | Financial model, **IRR**, project pipeline, offtake agreements, funding requirements as a gated view |
+| 6 | **Farmer Portal** | ❌ not started | No `farmer` role (see [roles.js](../src/constants/roles.js)); wallet/payout rails reusable | New role + registration + delivery uploads + payment tracking + training + plantation monitoring (couples to #3) |
+| 7 | **AI Project Assistant** | ❌ not started | No LLM integration (no `anthropic`/`openai` dep) | Supabase edge fn → Claude API with tool access to project/credit/MRV tables (answer queries, draft PDD/proposals). External API cost |
+
+> **Recommended build order** (features feed each other): ~~1~~ → **2** → 3 → 6 → 4 → 5 → 7.
+> **#1 done (2026-07-08, code-complete)**; **#2 (Carbon Asset Management) is next.**
+> Only #4 (satellite/IoT) and #7 (AI) require external services + running cost; the rest are
+> pure code on the current stack. See the same-day chat scoping for detail.
 
 ---
 
