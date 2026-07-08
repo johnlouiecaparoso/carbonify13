@@ -38,6 +38,7 @@
                 <th>Email</th>
                 <th>Role</th>
                 <th>KYC Level</th>
+                <th>Business (KYB)</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -52,6 +53,11 @@
                   </span>
                 </td>
                 <td>{{ user.kyc_level || 0 }} · {{ kycLevelLabel(user.kyc_level) }}</td>
+                <td>
+                  <span class="kyb-badge" :class="user.kyb_verified ? 'kyb-verified' : 'kyb-none'">
+                    {{ user.kyb_verified ? 'Verified' : '—' }}
+                  </span>
+                </td>
                 <td>{{ formatDate(user.created_at) }}</td>
                 <td>
                   <button
@@ -95,6 +101,16 @@
                 verification flow (Profile → KYC).
               </small>
             </div>
+            <div v-if="selectedUser" class="form-group">
+              <label class="checkbox-label">
+                <input v-model="selectedUser.kyb_verified" type="checkbox" />
+                Business verified (KYB)
+              </label>
+              <small class="hint">
+                Clears the "Business verification required" gate (e.g. Sell
+                Feedstock, seller payouts). Overrides the KYB application flow.
+              </small>
+            </div>
             <div class="modal-actions">
               <button @click="saveUser" class="btn-primary">Save</button>
               <button @click="closeEditModal" class="btn-secondary">Cancel</button>
@@ -110,6 +126,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
 import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
+import { adminSetKybVerified } from '@/services/kybService'
 
 const users = ref([])
 const loading = ref(true)
@@ -202,10 +219,24 @@ async function saveUser() {
       fullName: selectedUser.value.full_name,
     })
 
+    // KYB verification is a separate admin-gated RPC; only call it when changed.
+    const original = users.value.find((u) => u.id === selectedUser.value.id)
+    let kybProfile = null
+    if (!!original?.kyb_verified !== !!selectedUser.value.kyb_verified) {
+      kybProfile = await adminSetKybVerified({
+        userId: selectedUser.value.id,
+        verified: !!selectedUser.value.kyb_verified,
+      })
+    }
+
     // Reflect the server's saved values locally.
     const index = users.value.findIndex((u) => u.id === selectedUser.value.id)
     if (index !== -1) {
-      users.value[index] = { ...users.value[index], ...(updated || selectedUser.value) }
+      users.value[index] = {
+        ...users.value[index],
+        ...(updated || selectedUser.value),
+        kyb_verified: (kybProfile || updated || selectedUser.value).kyb_verified,
+      }
     }
 
     closeEditModal()
@@ -310,6 +341,32 @@ th {
   border-radius: 20px;
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.kyb-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.kyb-verified {
+  background: #d1fae5;
+  color: #065f46;
+}
+.kyb-none {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.checkbox-label input {
+  width: 16px;
+  height: 16px;
 }
 
 .role-admin {

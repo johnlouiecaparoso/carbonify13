@@ -118,3 +118,21 @@ export async function reviewKyb(applicationId, approve, notes = '') {
   if (error) throw new Error(error.message || 'Failed to review KYB application')
   return data
 }
+
+/**
+ * Admin: directly set a user's KYB verification, independent of any application
+ * row. Used by User Management to verify (or un-verify) a business manually.
+ * Returns the updated profile row.
+ */
+export async function adminSetKybVerified({ userId, verified }) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!userId) throw new Error('userId is required')
+
+  const { data, error } = await supabase.rpc('admin_set_kyb_verified', {
+    p_user_id: userId,
+    p_verified: !!verified,
+  })
+  if (error) throw new Error(error.message || 'Failed to set KYB verification')
+  return data
+}
