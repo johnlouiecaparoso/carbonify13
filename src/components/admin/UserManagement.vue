@@ -102,9 +102,13 @@
               </small>
             </div>
             <div v-if="selectedUser" class="form-group">
-              <label class="checkbox-label">
-                <input v-model="selectedUser.kyb_verified" type="checkbox" />
-                Business verified (KYB)
+              <label>Business Verification (KYB)</label>
+              <label class="kyb-toggle">
+                <input v-model="selectedUser.kyb_verified" type="checkbox" class="kyb-switch-input" />
+                <span class="kyb-switch" aria-hidden="true"></span>
+                <span class="kyb-toggle-text">
+                  {{ selectedUser.kyb_verified ? 'Verified' : 'Not verified' }}
+                </span>
               </label>
               <small class="hint">
                 Clears the "Business verification required" gate (e.g. Sell
@@ -384,16 +388,57 @@ th {
   background: #f3f4f6;
   color: #9ca3af;
 }
-.checkbox-label {
-  display: flex;
+/* KYB toggle switch. Selectors are scoped under .form-group so they beat the
+   global `.form-group input { width: 100% }` / `label { display: block }`. */
+.form-group .kyb-toggle {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  margin: 2px 0 0;
   cursor: pointer;
   font-weight: 500;
 }
-.checkbox-label input {
-  width: 16px;
-  height: 16px;
+.form-group .kyb-toggle .kyb-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.kyb-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.kyb-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+.kyb-switch-input:checked + .kyb-switch {
+  background: #069e2d;
+}
+.kyb-switch-input:checked + .kyb-switch::after {
+  transform: translateX(18px);
+}
+.kyb-switch-input:focus-visible + .kyb-switch {
+  outline: 2px solid #069e2d;
+  outline-offset: 2px;
+}
+.kyb-toggle-text {
+  font-size: 0.9rem;
+  color: #374151;
 }
 
 .role-admin {
