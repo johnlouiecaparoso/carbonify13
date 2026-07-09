@@ -8,6 +8,7 @@
 | [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md) | The seven expansion features, scored bullet-by-bullet **against the code**. |
 | [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md) | 🔴 The click-through that proves any of it actually works. |
 | [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md) | Why a farmer's tCO₂e is calculated the way it is. |
+| [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md) | Whole-codebase audit: 4 bugs fixed, the rest ranked. Read the HIGH one. |
 | [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | What blocks real money (pentest, email confirmation). |
 
 

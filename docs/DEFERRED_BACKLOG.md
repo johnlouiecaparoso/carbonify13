@@ -93,3 +93,39 @@ record a `payment_intent` (purpose `wallet_topup`) for consistent reconciliation
 ## Carried into Phase 1
 - **Consolidate the 3 payment services** (`paymentService`, `realPaymentService`, `paymongoService`)
   behind one interface — this is Phase 1's "provider abstraction" task, handled there rather than as Phase 0 cleanup.
+
+---
+
+## From the 2026-07-09 whole-codebase audit ([CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md))
+
+### 8. Delete 30 verified-dead files 🟢
+Zero imports, not routed, not test fixtures. Includes `services/authServiceSimple.js` — a **mock auth
+service with a `demo@carbonify.io / demo123` login** sitting in the repo.
+
+**Two traps before deleting:**
+- `components/search/AdvancedSearch.vue` is dead but **pinned by `vite.config.js` manualChunks** —
+  remove that line in the same commit or the build breaks.
+- `services/credits/`, `services/payments/`, `services/payouts/` are imported **only by unit tests**.
+  They are the Phase 1–2 provider abstractions. Decide *abandoned vs pending wiring* before deleting;
+  the live path is `realPaymentService`/`paymongoService`.
+
+Also: `/mobile-test` is a **live route** in production routing. `vue-chartjs` is a dependency imported
+nowhere.
+
+### 9. Consolidate duplicated formatters 🟢
+`peso()` × 11, `round2()` × 9, `shortDate()` × 8, `formatCurrency()` × 6. Two competing currency
+conventions mean inconsistent formatting across the app. One `src/utils/format.js` fixes it.
+
+### 10. Route hand-rolled modals through `AccessibleModal.vue` 🟠
+26 raw `.modal-overlay` divs bypass the existing accessible modal (focus trap, Escape, `role="dialog"`).
+Keyboard users cannot Escape a payment dialog.
+
+### 11. Two tables back "transaction history" 🟠
+`creditOwnershipService` reads `credit_purchases`; `transactionHistoryService` reads
+`credit_transactions`. Same feature, different sources. `getUserTransactionHistory` also slices the
+merged list to `limit`, so a heavy trader's **retirements disappear** from the combined view.
+
+### 12. Grant hygiene on ~10 SECURITY DEFINER RPCs 🟠
+They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
+exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
+RPCs and one regression away from being a hole. One migration.

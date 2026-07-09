@@ -51,13 +51,17 @@
 ### 🔴 P0 — Blockers (do before ANY real user pays real money)
 | Item | Type | Where |
 |---|---|---|
-| Apply `20260703000300` — lock `profiles.role`/`kyc_level` (privilege escalation) | DB migration + retest | fix written |
-| Apply `20260703000400` — retirement identity = `auth.uid()` | DB migration + retest | fix written |
-| Redeploy `send-approval-email` with `verify_jwt=true` (open email relay) | Edge redeploy | change specified |
-| Redeploy `paymongo-checkout` to require a verified JWT (stop trusting client `user_id`) | Edge redeploy | change specified |
-| Turn on email confirmation with a custom SMTP provider | Dashboard | — |
+| ~~Apply `20260703000300` — lock `profiles.role`/`kyc_level`~~ | ✅ applied 2026-07-04 | **Still unverified at runtime** — see RUNBOOK §1 |
+| ~~Apply `20260703000400` — retirement identity = `auth.uid()`~~ | ✅ applied 2026-07-04 | — |
+| ~~Redeploy `send-approval-email` with `verify_jwt=true`~~ | ✅ done — but see the 🆕 relay row below: **it is still an authenticated relay** | — |
+| ~~Redeploy `paymongo-checkout` to require a verified JWT~~ | ✅ done — audit confirms it ignores client `user_id` | — |
 | Confirm `ALLOW_UNSIGNED_WEBHOOKS` unset + all edge secrets present | Dashboard | — |
 | Remove legacy/demo code paths (raw checkout branch, legacy webhook branches, `demo` purchase, dead wallet mutators) | Code + retest | recommended |
+| 🆕 **Retirement is not atomic** — `retire_credits_atomic` burns the credits, then a SEPARATE transaction writes `credit_retirements`. If that insert fails the units are gone with no retirement record or certificate. Move the insert inside the RPC, then retest flow E → `reconcile_financials()` = 0. | DB migration + retest | [CODE_AUDIT](CODE_AUDIT_2026-07-09.md) H1 |
+| 🆕 **`send-approval-email` is an authenticated arbitrary-email relay** — accepts caller-supplied `to`/`subject`/`html` with no admin check, so **any signed-in user can send arbitrary HTML mail from the Carbonify sender**. Resolve recipients server-side. | Edge redeploy | [CODE_AUDIT](CODE_AUDIT_2026-07-09.md) M1 |
+| 🆕 **Confirm RLS on the base-schema tables** — no migration enables RLS on `credit_ownership`, `credit_transactions`, `wallet_accounts`, `wallet_transactions`, `credit_listings`. If any is unprotected a client can forge credit ownership. Two SQL queries; run them. | SQL check | [CODE_AUDIT](CODE_AUDIT_2026-07-09.md) |
+| **Email confirmation is OFF by choice** — anyone can sign up with an address they do not control. Needs a domain (~₱600–900/yr), not a subscription. | Dashboard + domain | HANDOFF |
+| **Runtime verification of the expansion features** — 31 migrations applied, 0 exercised against the live DB. | Click-through | [RUNBOOK](RUNTIME_VERIFICATION_RUNBOOK.md) |
 | **Independent penetration test before switching to live keys** | External | — |
 
 ### 🟠 P1 — High (before scaling / to be genuinely credible)
@@ -132,6 +136,11 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 - [ ] Email confirmation on; `ALLOW_UNSIGNED_WEBHOOKS` unset; secrets present
 - [ ] Legacy/demo code paths removed
 - [ ] All 6 money flows reconcile to 0 after every change
+- [ ] **Retirement made atomic** (credits + retirement row commit together)
+- [ ] **`send-approval-email` no longer relays arbitrary recipients/content**
+- [ ] **RLS confirmed on `credit_ownership` / `credit_transactions` / wallet tables**
+- [ ] **Email confirmation re-enabled** with a verified sender domain
+- [ ] **Runtime verification runbook completed**
 - [ ] **Independent penetration test passed**
 - [ ] Sentry + reconciliation/webhook monitoring live
 

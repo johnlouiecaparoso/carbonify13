@@ -21,7 +21,7 @@ Create these once. Sign-up works because email confirmation is off (see HANDOFF 
 | Alias | Role | How to get it |
 |---|---|---|
 | **DEV** | `project_developer` | sign up → admin sets role in User Management |
-| **FARMER** | `farmer` | sign up → apply at `/apply?role=farmer` → **admin** approves |
+| **FARMER** | `farmer` | sign up → **`/register/farmer`** → **admin** approves (verifiers cannot) |
 | **INVESTOR** | `buyer_investor` + **Pro plan** | sign up → admin sets role → `/upgrade` to Pro |
 | **VERIFIER** | `verifier` | sign up → admin sets role |
 | **ADMIN** | `admin` | you already have one |
@@ -56,6 +56,39 @@ then run the equivalent from the app's network tab.)*
 - ❌ **If your role changed to admin:** stop everything. Migration #17 is not really applied.
   Nothing else in this runbook matters. Re-run `20260703000300_harden_profiles_role_kyc.sql`.
 
+### 1b. Are the money tables actually RLS-protected?
+
+**No migration in `supabase/migrations` enables RLS on `credit_ownership`, `credit_transactions`,
+`wallet_accounts`, `wallet_transactions`, or `credit_listings`** — they predate the tracked migrations
+and live in the base schema. If any is unprotected, a client can forge credit ownership directly, and
+every other guard in this app is decoration.
+
+Run in the SQL Editor:
+
+```sql
+select tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+  and tablename in ('credit_ownership','credit_transactions','wallet_accounts',
+                    'wallet_transactions','credit_listings','profiles','projects');
+```
+
+- ✅ **Expect:** `rowsecurity = true` on **every** row.
+- ❌ **Any `false`:** that table is wide open to any authenticated client. Stop and fix before real users.
+
+Then check no policy is a blanket allow:
+
+```sql
+select tablename, policyname, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+  and tablename in ('credit_ownership','credit_transactions','wallet_accounts',
+                    'wallet_transactions','credit_listings');
+```
+
+- ❌ **Any INSERT/UPDATE policy whose `qual` or `with_check` is just `true`** is a hole — a user could
+  insert credit-ownership rows for themselves.
+
 ---
 
 ## 2. Farmer chain — the newest, least-exercised code
@@ -64,7 +97,7 @@ This crosses **4 RPCs, 3 RLS policies, and 2 migrations written today**. It is t
 to break, so do it early.
 
 ### 2a. Farmer becomes a farmer
-1. **FARMER** → `/apply`, choose **Farmer**, submit.
+1. **FARMER** → **`/register/farmer`** (also linked from Login and Register), submit.
 2. **ADMIN** → the bell should show a *New Farmer application*. Approve it.
 
 - ✅ **Expect:** FARMER's role flips; signing in lands them on `/farmer`.
@@ -218,6 +251,7 @@ to break, so do it early.
 Tick these and the expansion features are runtime-verified:
 
 - [ ] §1 privilege escalation blocked
+- [ ] §1b RLS confirmed on all money tables; no blanket-`true` policies
 - [ ] Farmer approved, parcel + listing created, KYB bypassed
 - [ ] RFQ → quote → accept
 - [ ] Delivery logged with proof, confirmed **with a project**, marked paid
