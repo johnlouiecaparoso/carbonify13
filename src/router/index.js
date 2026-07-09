@@ -115,6 +115,13 @@ const router = createRouter({
       component: () => import('@/views/RoleApplicationView.vue'),
     },
     {
+      // A memorable URL to hand a farmer or cooperative on a leaflet or over the
+      // phone. "/apply?role=farmer" is not something you can say out loud.
+      path: '/register/farmer',
+      name: 'register-farmer',
+      redirect: () => ({ path: '/apply', query: { role: 'farmer' } }),
+    },
+    {
       path: '/retire',
       name: 'retire',
       component: () => import('@/views/RetireView.vue'),

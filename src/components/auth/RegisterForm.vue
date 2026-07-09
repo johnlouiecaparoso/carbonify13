@@ -69,8 +69,9 @@ async function handleSubmit() {
       password: password.value,
     })
 
-    // Redirect to login page on success
-    router.replace('/login')
+    // Signal the login page to confirm the account was created — otherwise the
+    // user lands on a bare sign-in form and can't tell whether it worked.
+    router.replace({ path: '/login', query: { registered: '1' } })
   } catch (err) {
     console.error('Registration failed:', err)
     errorMessage.value = err?.message || 'Unable to register. Please try again.'
@@ -113,6 +114,7 @@ async function handleSubmit() {
         <UiInput
           id="email"
           type="email"
+          autocomplete="email"
           placeholder="Email"
           v-model="email"
           :error="emailError"
@@ -130,6 +132,7 @@ async function handleSubmit() {
         <UiInput
           id="password"
           type="password"
+          autocomplete="new-password"
           placeholder="Create a strong password"
           v-model="password"
           :error="passwordError"
@@ -147,6 +150,7 @@ async function handleSubmit() {
         <UiInput
           id="confirm"
           type="password"
+          autocomplete="new-password"
           placeholder="Re-enter password"
           v-model="confirmPassword"
           :error="confirmError"
@@ -175,12 +179,13 @@ async function handleSubmit() {
     </button>
 
     <div class="role-apply-box">
-      <p class="role-apply-title">Applying as a Project Developer or Verifier?</p>
+      <p class="role-apply-title">Farming, developing, or verifying?</p>
       <p class="role-apply-text">
-        These roles require additional details (business registration, accreditation, supporting
-        documents) and are reviewed before approval.
+        A farmer needs only a name and location. Developers and verifiers are asked for business
+        registration or accreditation. All three are reviewed before approval.
       </p>
       <div class="role-apply-links">
+        <router-link to="/register/farmer">Register as a Farmer →</router-link>
         <router-link to="/apply?role=project-developer">Apply as a Project Developer →</router-link>
         <router-link to="/apply?role=verifier">Apply as a Verifier →</router-link>
       </div>
