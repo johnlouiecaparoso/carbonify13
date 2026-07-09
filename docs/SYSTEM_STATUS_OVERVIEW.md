@@ -2,6 +2,12 @@
 
 > **What this is:** A single, plain-language summary of **everything that is built** and **everything that is not yet built** in Carbonify, compiled from all the analysis docs in this folder.
 >
+> ⚠️ **2026-07-09 — this page predates the seven expansion features entirely.** For their honest,
+> bullet-by-bullet status (Project Registry, Carbon Asset Management, Biomass Marketplace, MRV
+> Dashboard, Investor Portal, Farmer Portal, AI Assistant) read
+> **[EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md)**. Feature-level "shipped" labels
+> elsewhere hide missing sub-items; the audit was checked against the code.
+>
 > ⚠️ **2026-07-03 — newer, authoritative status available.** This page predates the completed
 > money cutover and the pre-launch security review. For the current implemented-vs-not list
 > **by priority** and the go/no-go plan, use **[GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md)**;
