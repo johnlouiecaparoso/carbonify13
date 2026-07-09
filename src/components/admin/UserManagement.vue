@@ -79,12 +79,12 @@
           <div class="modal-content" @click.stop>
             <h3>Edit User</h3>
             <div v-if="selectedUser" class="form-group">
-              <label>Full Name</label>
-              <input v-model="selectedUser.full_name" type="text" />
+              <label for="um-full-name">Full Name</label>
+              <input id="um-full-name" v-model="selectedUser.full_name" type="text" />
             </div>
             <div v-if="selectedUser" class="form-group">
-              <label>Role</label>
-              <select v-model="selectedUser.role">
+              <label for="um-role">Role</label>
+              <select id="um-role" v-model="selectedUser.role">
                 <option value="general_user">General User</option>
                 <option value="buyer_investor">Buyer/Investor</option>
                 <option value="project_developer">Project Developer</option>
@@ -94,8 +94,8 @@
               </select>
             </div>
             <div v-if="selectedUser" class="form-group">
-              <label>KYC Level</label>
-              <select v-model.number="selectedUser.kyc_level">
+              <label for="um-kyc">KYC Level</label>
+              <select id="um-kyc" v-model.number="selectedUser.kyc_level">
                 <option v-for="t in KYC_LEVELS" :key="t.level" :value="t.level">
                   {{ t.level }} — {{ t.label }}
                 </option>
@@ -106,7 +106,7 @@
               </small>
             </div>
             <div v-if="selectedUser" class="form-group">
-              <label>Business Verification (KYB)</label>
+              <span class="field-caption">Business Verification (KYB)</span>
               <label class="kyb-toggle">
                 <input v-model="selectedUser.kyb_verified" type="checkbox" class="kyb-switch-input" />
                 <span class="kyb-switch" aria-hidden="true"></span>
@@ -510,6 +510,8 @@ th {
   margin-bottom: 1rem;
 }
 
+/* Caption above the KYB toggle. Not a <label>: the toggle wraps its own. */
+.form-group .field-caption,
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;

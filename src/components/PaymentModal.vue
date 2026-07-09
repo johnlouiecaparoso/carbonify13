@@ -280,8 +280,8 @@ watch(
         <!-- Payment Form -->
         <div v-if="!paymentIntent" class="payment-form">
           <div class="form-group">
-            <label>Payment Provider</label>
-            <select v-model="selectedProvider" class="form-select">
+            <label for="pay-provider">Payment Provider</label>
+            <select id="pay-provider" v-model="selectedProvider" class="form-select">
               <option v-for="provider in providers" :key="provider.id" :value="provider.id">
                 {{ provider.name }}
               </option>
@@ -289,8 +289,8 @@ watch(
           </div>
 
           <div class="form-group">
-            <label>Payment Method</label>
-            <select v-model="selectedMethod" class="form-select">
+            <label for="pay-method">Payment Method</label>
+            <select id="pay-method" v-model="selectedMethod" class="form-select">
               <option value="">Select payment method</option>
               <option v-for="method in availableMethods" :key="method" :value="method">
                 {{ method.replace('_', ' ').toUpperCase() }}

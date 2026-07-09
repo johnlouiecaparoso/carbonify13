@@ -100,8 +100,10 @@ onMounted(load)
 
     <div class="body">
       <div class="filters">
-        <input v-model="search" class="filter-input" type="search" placeholder="Search feedstock, location…" />
-        <select v-model="typeFilter" class="filter-input">
+        <label for="biomass-search" class="sr-only">Search feedstock</label>
+        <input id="biomass-search" v-model="search" class="filter-input" type="search" placeholder="Search feedstock, location…" />
+        <label for="biomass-type" class="sr-only">Filter by feedstock type</label>
+        <select id="biomass-type" v-model="typeFilter" class="filter-input">
           <option value="">All types</option>
           <option v-for="t in BIOMASS_PRODUCT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
         </select>
@@ -157,10 +159,11 @@ onMounted(load)
           <p class="muted small">{{ biomassTypeLabel(rfqProduct.product_type) }} · {{ rfqProduct.title }}</p>
 
           <div class="form-row">
-            <label>Quantity</label>
+            <label for="rfq-quantity">Quantity</label>
             <div class="qty-row">
-              <input v-model.number="rfqForm.quantity" type="number" min="0" step="any" placeholder="e.g. 20" />
-              <select v-model="rfqForm.unit">
+              <input id="rfq-quantity" v-model.number="rfqForm.quantity" type="number" min="0" step="any" placeholder="e.g. 20" />
+              <label for="rfq-unit" class="sr-only">Unit</label>
+              <select id="rfq-unit" v-model="rfqForm.unit">
                 <option v-for="u in BIOMASS_UNITS" :key="u" :value="u">{{ u }}</option>
               </select>
             </div>
@@ -168,16 +171,16 @@ onMounted(load)
           <div v-if="rfqEstimate != null" class="estimate">Est. at listed price: <strong>{{ peso(rfqEstimate) }}</strong></div>
 
           <div class="form-row">
-            <label>Delivery location <span class="opt">(optional)</span></label>
-            <input v-model="rfqForm.delivery_location" type="text" placeholder="Where should it be delivered?" />
+            <label for="rfq-location">Delivery location <span class="opt">(optional)</span></label>
+            <input id="rfq-location" v-model="rfqForm.delivery_location" type="text" placeholder="Where should it be delivered?" />
           </div>
           <div class="form-row">
-            <label>Needed by <span class="opt">(optional)</span></label>
-            <input v-model="rfqForm.needed_by" type="date" />
+            <label for="rfq-needed-by">Needed by <span class="opt">(optional)</span></label>
+            <input id="rfq-needed-by" v-model="rfqForm.needed_by" type="date" />
           </div>
           <div class="form-row">
-            <label>Message <span class="opt">(optional)</span></label>
-            <textarea v-model="rfqForm.message" rows="3" placeholder="Specs, moisture, packaging, etc."></textarea>
+            <label for="rfq-message">Message <span class="opt">(optional)</span></label>
+            <textarea id="rfq-message" v-model="rfqForm.message" rows="3" placeholder="Specs, moisture, packaging, etc."></textarea>
           </div>
 
           <p v-if="rfqError" class="notice error sm">{{ rfqError }}</p>
@@ -194,6 +197,7 @@ onMounted(load)
 </template>
 
 <style scoped>
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .biomass { min-height: 100%; }
 .hero {
   background: linear-gradient(135deg, #069e2d, #0b7a27);

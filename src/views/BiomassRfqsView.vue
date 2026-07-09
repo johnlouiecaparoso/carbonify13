@@ -410,16 +410,16 @@ onMounted(load)
         <h2>Quote this request</h2>
         <p class="muted small">{{ label(quoteRfq) }} · {{ Number(quoteRfq.quantity).toLocaleString('en-PH') }} {{ quoteRfq.unit }}</p>
         <div class="form-row">
-          <label>Price per {{ quoteRfq.unit }}</label>
-          <input v-model.number="quoteForm.price_per_unit" type="number" min="0" step="any" placeholder="e.g. 1500" />
+          <label for="quote-price">Price per {{ quoteRfq.unit }}</label>
+          <input id="quote-price" v-model.number="quoteForm.price_per_unit" type="number" min="0" step="any" placeholder="e.g. 1500" />
         </div>
         <div v-if="Number(quoteForm.price_per_unit) > 0" class="estimate">
           Total for {{ Number(quoteRfq.quantity).toLocaleString('en-PH') }} {{ quoteRfq.unit }}:
           <strong>{{ peso(Number(quoteForm.price_per_unit) * Number(quoteRfq.quantity)) }}</strong>
         </div>
         <div class="form-row">
-          <label>Message <span class="opt">(optional)</span></label>
-          <textarea v-model="quoteForm.message" rows="3" placeholder="Delivery terms, lead time, packaging…"></textarea>
+          <label for="quote-message">Message <span class="opt">(optional)</span></label>
+          <textarea id="quote-message" v-model="quoteForm.message" rows="3" placeholder="Delivery terms, lead time, packaging…"></textarea>
         </div>
         <p v-if="actionError" class="notice error sm">{{ actionError }}</p>
         <div class="modal-actions">

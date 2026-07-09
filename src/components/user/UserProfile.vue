@@ -152,23 +152,23 @@ onMounted(() => {
 
         <div v-if="!editing" class="profile-details">
           <div class="detail-item">
-            <label>Full Name</label>
+            <span class="detail-label">Full Name</span>
             <span>{{ userProfile?.full_name || 'Not set' }}</span>
           </div>
           <div class="detail-item">
-            <label>Email</label>
+            <span class="detail-label">Email</span>
             <span>{{ userStore.session?.user?.email || 'Not available' }}</span>
           </div>
           <div class="detail-item">
-            <label>Role</label>
+            <span class="detail-label">Role</span>
             <span>{{ roleDisplayName }}</span>
           </div>
           <div class="detail-item">
-            <label>KYC Level</label>
+            <span class="detail-label">KYC Level</span>
             <span>{{ userProfile?.kyc_level || 0 }}</span>
           </div>
           <div class="detail-item">
-            <label>Member Since</label>
+            <span class="detail-label">Member Since</span>
             <span>{{
               userProfile?.created_at
                 ? new Date(userProfile.created_at).toLocaleDateString()
@@ -346,7 +346,8 @@ onMounted(() => {
   gap: 4px;
 }
 
-.detail-item label {
+.detail-item label,
+.detail-item .detail-label {
   font-weight: 500;
   color: var(--carbonify-muted);
   font-size: 14px;

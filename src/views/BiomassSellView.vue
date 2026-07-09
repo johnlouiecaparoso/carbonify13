@@ -149,41 +149,41 @@ onMounted(load)
         <h2>List a feedstock product</h2>
         <div class="form-grid">
           <div class="fg">
-            <label>Product type</label>
-            <select v-model="form.product_type">
+            <label for="sell-type">Product type</label>
+            <select id="sell-type" v-model="form.product_type">
               <option value="">Select…</option>
               <option v-for="t in BIOMASS_PRODUCT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
             </select>
           </div>
           <div class="fg">
-            <label>Title</label>
-            <input v-model="form.title" type="text" placeholder="e.g. Dried rice husk, low moisture" />
+            <label for="sell-title">Title</label>
+            <input id="sell-title" v-model="form.title" type="text" placeholder="e.g. Dried rice husk, low moisture" />
           </div>
           <div class="fg span2">
-            <label>Description <span class="opt">(optional)</span></label>
-            <textarea v-model="form.description" rows="2" placeholder="Moisture, packaging, availability cadence…"></textarea>
+            <label for="sell-desc">Description <span class="opt">(optional)</span></label>
+            <textarea id="sell-desc" v-model="form.description" rows="2" placeholder="Moisture, packaging, availability cadence…"></textarea>
           </div>
           <div class="fg">
-            <label>Unit</label>
-            <select v-model="form.unit">
+            <label for="sell-unit">Unit</label>
+            <select id="sell-unit" v-model="form.unit">
               <option v-for="u in BIOMASS_UNITS" :key="u" :value="u">{{ u }}</option>
             </select>
           </div>
           <div class="fg">
-            <label>Price per {{ form.unit }} <span class="opt">(optional — blank = quote only)</span></label>
-            <input v-model.number="form.price_per_unit" type="number" min="0" step="any" placeholder="e.g. 1500" />
+            <label for="sell-price">Price per {{ form.unit }} <span class="opt">(optional — blank = quote only)</span></label>
+            <input id="sell-price" v-model.number="form.price_per_unit" type="number" min="0" step="any" placeholder="e.g. 1500" />
           </div>
           <div class="fg">
-            <label>Quantity available <span class="opt">(optional)</span></label>
-            <input v-model.number="form.quantity_available" type="number" min="0" step="any" placeholder="e.g. 500" />
+            <label for="sell-qty">Quantity available <span class="opt">(optional)</span></label>
+            <input id="sell-qty" v-model.number="form.quantity_available" type="number" min="0" step="any" placeholder="e.g. 500" />
           </div>
           <div class="fg">
-            <label>Location <span class="opt">(optional)</span></label>
-            <input v-model="form.location" type="text" placeholder="City / municipality" />
+            <label for="sell-location">Location <span class="opt">(optional)</span></label>
+            <input id="sell-location" v-model="form.location" type="text" placeholder="City / municipality" />
           </div>
           <div class="fg">
-            <label>Region <span class="opt">(optional)</span></label>
-            <input v-model="form.region" type="text" placeholder="e.g. Central Luzon" />
+            <label for="sell-region">Region <span class="opt">(optional)</span></label>
+            <input id="sell-region" v-model="form.region" type="text" placeholder="e.g. Central Luzon" />
           </div>
         </div>
 
