@@ -23,6 +23,7 @@
             <option value="admin">Admin</option>
             <option value="verifier">Verifier</option>
             <option value="project_developer">Project Developer</option>
+            <option value="farmer">Farmer</option>
             <option value="general_user">General User</option>
           </select>
         </div>
@@ -85,6 +86,9 @@
               <label>Role</label>
               <select v-model="selectedUser.role">
                 <option value="general_user">General User</option>
+                <option value="buyer_investor">Buyer/Investor</option>
+                <option value="project_developer">Project Developer</option>
+                <option value="farmer">Farmer</option>
                 <option value="verifier">Verifier</option>
                 <option value="admin">Admin</option>
               </select>
@@ -210,6 +214,9 @@ function formatRole(role) {
     admin: 'Admin',
     verifier: 'Verifier',
     project_developer: 'Project Developer',
+    farmer: 'Farmer',
+    buyer_investor: 'Buyer/Investor',
+    lgu_user: 'LGU User',
     general_user: 'General User',
   }
   return roleMap[role] || role

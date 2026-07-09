@@ -7,6 +7,7 @@ import {
   createAdminGuard,
   createVerifierGuard,
   createLguGuard,
+  createFarmerGuard,
 } from '@/middleware/roleGuard'
 import { FEATURES } from '@/constants/plans'
 
@@ -201,6 +202,15 @@ const router = createRouter({
       meta: {
         requiresAuth: true,
         requiresLgu: true,
+      },
+    },
+    {
+      path: '/farmer',
+      name: 'farmer-portal',
+      component: () => import('@/views/FarmerPortalView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresFarmer: true,
       },
     },
     {
@@ -531,7 +541,7 @@ router.beforeEach(async (to, from, next) => {
 
     // IMPORTANT: Ensure profile is loaded before checking role-specific routes
     // This prevents navigation issues where role isn't loaded yet
-    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFeature) {
+    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFarmer || to.meta.requiresFeature) {
       if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
         console.log('⏳ Profile/role not loaded yet, fetching before route check...')
         try {
@@ -561,6 +571,17 @@ router.beforeEach(async (to, from, next) => {
       const guardResult = await lguGuard(to, from)
       if (guardResult) {
         console.log('❌ LGU access required, redirecting...')
+        next(guardResult)
+        return
+      }
+    }
+
+    // Check for farmer-only routes
+    if (to.meta.requiresFarmer) {
+      const farmerGuard = createFarmerGuard(userStore)
+      const guardResult = await farmerGuard(to, from)
+      if (guardResult) {
+        console.log('❌ Farmer access required, redirecting...')
         next(guardResult)
         return
       }

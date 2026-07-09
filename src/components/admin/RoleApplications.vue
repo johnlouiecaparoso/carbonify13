@@ -252,6 +252,8 @@ function getRoleLabel(role) {
       return 'Project Developer'
     case ROLE_APPLICATION_ROLES.VERIFIER:
       return 'Verifier'
+    case ROLE_APPLICATION_ROLES.FARMER:
+      return 'Farmer'
     default:
       return role
   }

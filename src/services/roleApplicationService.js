@@ -11,6 +11,7 @@ export const ROLE_APPLICATION_TABLE = 'role_applications'
 export const ROLE_APPLICATION_ROLES = Object.freeze({
   PROJECT_DEVELOPER: 'project_developer',
   VERIFIER: 'verifier',
+  FARMER: 'farmer',
 })
 
 export const ROLE_APPLICATION_STATUS = Object.freeze({
@@ -44,6 +45,10 @@ const ROLE_ALIASES = {
   verifier: ROLE_APPLICATION_ROLES.VERIFIER,
   verification: ROLE_APPLICATION_ROLES.VERIFIER,
   qa: ROLE_APPLICATION_ROLES.VERIFIER,
+  farmer: ROLE_APPLICATION_ROLES.FARMER,
+  farmers: ROLE_APPLICATION_ROLES.FARMER,
+  grower: ROLE_APPLICATION_ROLES.FARMER,
+  smallholder: ROLE_APPLICATION_ROLES.FARMER,
 }
 
 function sanitizeString(value) {
@@ -80,6 +85,12 @@ function canReviewApplicationRole(actorRole, requestedRole) {
 
   if (requestedRole === ROLE_APPLICATION_ROLES.PROJECT_DEVELOPER) {
     return actorRole === ROLES.VERIFIER || actorRole === ROLES.ADMIN
+  }
+
+  // Farmer applications are admin-only: `assign_user_role` restricts verifiers to
+  // assigning project_developer, so a verifier approval here would fail server-side.
+  if (requestedRole === ROLE_APPLICATION_ROLES.FARMER) {
+    return actorRole === ROLES.ADMIN
   }
 
   return false
@@ -327,10 +338,7 @@ export async function getBlockingRoleApplicationForUser({ userId, email }) {
   let query = supabase
     .from(ROLE_APPLICATION_TABLE)
     .select('*')
-    .in('role_requested', [
-      ROLE_APPLICATION_ROLES.PROJECT_DEVELOPER,
-      ROLE_APPLICATION_ROLES.VERIFIER,
-    ])
+    .in('role_requested', Object.values(ROLE_APPLICATION_ROLES))
     .order('created_at', { ascending: false })
 
   if (userId && normalizedEmail) {
@@ -371,10 +379,7 @@ export async function getLatestRoleApplicationForUser({ userId, email, roleReque
   if (normalizedRole) {
     query = query.eq('role_requested', normalizedRole)
   } else {
-    query = query.in('role_requested', [
-      ROLE_APPLICATION_ROLES.PROJECT_DEVELOPER,
-      ROLE_APPLICATION_ROLES.VERIFIER,
-    ])
+    query = query.in('role_requested', Object.values(ROLE_APPLICATION_ROLES))
   }
 
   if (userId && normalizedEmail) {

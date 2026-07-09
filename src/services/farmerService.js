@@ -1,0 +1,393 @@
+import { getSupabase } from '@/services/supabaseClient'
+import { createNotificationsForUsers } from '@/services/notificationService'
+import { uploadProjectDocument } from '@/services/storageService'
+
+/**
+ * Farmer Portal service (expansion feature #6).
+ *
+ * A farmer registers plantation parcels (`farm_parcels`), then logs feedstock
+ * deliveries (`farmer_deliveries`) against an ACCEPTED biomass RFQ. The buyer
+ * confirms receipt and marks the delivery paid.
+ *
+ * Payment status here is bookkeeping only — it never touches `ledger_entries` /
+ * `escrow_holds` / `payout_requests`, so the proven money path is unaffected.
+ *
+ * Every delivery write goes through a SECURITY DEFINER RPC (record_farmer_delivery
+ * / confirm_farmer_delivery / mark_farmer_delivery_paid) which self-guards on
+ * auth.uid(); parcels are plain RLS-scoped table access.
+ *
+ * Pure validation/aggregation helpers are exported for unit testing.
+ */
+
+// ── Pure helpers (unit-tested) ─────────────────────────────────────────────
+
+/** Validate a plantation parcel. Returns an array of error strings ([] = ok). */
+export function validateParcelInput(p = {}) {
+  const errors = []
+  if (!p.name || !String(p.name).trim()) errors.push('A parcel name is required')
+  if (!p.crop_type) errors.push('Crop type is required')
+  if (p.area_hectares != null && p.area_hectares !== '' && Number(p.area_hectares) < 0) {
+    errors.push('Area cannot be negative')
+  }
+  if (
+    p.expected_yield_tonnes != null &&
+    p.expected_yield_tonnes !== '' &&
+    Number(p.expected_yield_tonnes) < 0
+  ) {
+    errors.push('Expected yield cannot be negative')
+  }
+  if (p.latitude != null && p.latitude !== '' && Math.abs(Number(p.latitude)) > 90) {
+    errors.push('Latitude must be between -90 and 90')
+  }
+  if (p.longitude != null && p.longitude !== '' && Math.abs(Number(p.longitude)) > 180) {
+    errors.push('Longitude must be between -180 and 180')
+  }
+  return errors
+}
+
+/** Validate a delivery record. Returns an array of error strings ([] = ok). */
+export function validateDeliveryInput(p = {}) {
+  const errors = []
+  const qty = Number(p.quantity)
+  if (!p.rfq_id) errors.push('An accepted quote is required')
+  if (!p.quantity || isNaN(qty) || qty <= 0) errors.push('Enter a delivered quantity greater than zero')
+  if (p.price_per_unit != null && p.price_per_unit !== '' && Number(p.price_per_unit) < 0) {
+    errors.push('Price cannot be negative')
+  }
+  return errors
+}
+
+/** Delivery value from a per-unit price × quantity (2dp), or null if unpriced. */
+export function estimateDeliveryTotal(pricePerUnit, quantity) {
+  const price = Number(pricePerUnit)
+  const qty = Number(quantity)
+  if (!price || !qty || price < 0 || qty <= 0) return null
+  return Math.round(price * qty * 100) / 100
+}
+
+const num = (v) => {
+  const n = Number(v)
+  return isFinite(n) ? n : 0
+}
+
+/**
+ * Roll a farmer's deliveries up into the portal's headline numbers.
+ *
+ * Rejected deliveries are excluded from every money figure — they were never
+ * accepted, so they are neither earned nor owed. `amountOwed` is the money a
+ * buyer has confirmed receipt for but not yet paid.
+ *
+ * @param {Array} deliveries rows from `farmer_deliveries`
+ * @returns {{deliveryCount:number, pendingCount:number, confirmedCount:number,
+ *   rejectedCount:number, quantityDelivered:number, quantityPending:number,
+ *   totalEarned:number, amountOwed:number, paidCount:number}}
+ */
+export function aggregateFarmerDeliveries(deliveries = []) {
+  const rows = Array.isArray(deliveries) ? deliveries : []
+  const out = {
+    deliveryCount: rows.length,
+    pendingCount: 0,
+    confirmedCount: 0,
+    rejectedCount: 0,
+    quantityDelivered: 0,
+    quantityPending: 0,
+    totalEarned: 0,
+    amountOwed: 0,
+    paidCount: 0,
+  }
+
+  for (const d of rows) {
+    const qty = num(d?.quantity)
+    const amount = num(d?.total_amount)
+
+    if (d?.status === 'rejected') {
+      out.rejectedCount += 1
+      continue
+    }
+    if (d?.status === 'pending') {
+      out.pendingCount += 1
+      out.quantityPending += qty
+      continue
+    }
+    if (d?.status === 'confirmed') {
+      out.confirmedCount += 1
+      out.quantityDelivered += qty
+      if (d?.payment_status === 'paid') {
+        out.totalEarned += amount
+        out.paidCount += 1
+      } else {
+        out.amountOwed += amount
+      }
+    }
+  }
+
+  // Guard against float drift accumulating across many rows.
+  out.quantityDelivered = Math.round(out.quantityDelivered * 100) / 100
+  out.quantityPending = Math.round(out.quantityPending * 100) / 100
+  out.totalEarned = Math.round(out.totalEarned * 100) / 100
+  out.amountOwed = Math.round(out.amountOwed * 100) / 100
+  return out
+}
+
+/**
+ * Roll a farmer's parcels up into plantation totals.
+ * @param {Array} parcels rows from `farm_parcels`
+ * @returns {{parcelCount:number, activeCount:number, totalHectares:number, totalExpectedYield:number}}
+ */
+export function aggregateParcels(parcels = []) {
+  const rows = Array.isArray(parcels) ? parcels : []
+  let totalHectares = 0
+  let totalExpectedYield = 0
+  let activeCount = 0
+
+  for (const p of rows) {
+    if (p?.status === 'active') activeCount += 1
+    if (p?.status !== 'retired') {
+      totalHectares += num(p?.area_hectares)
+      totalExpectedYield += num(p?.expected_yield_tonnes)
+    }
+  }
+
+  return {
+    parcelCount: rows.length,
+    activeCount,
+    totalHectares: Math.round(totalHectares * 100) / 100,
+    totalExpectedYield: Math.round(totalExpectedYield * 100) / 100,
+  }
+}
+
+// ── Data access ────────────────────────────────────────────────────────────
+
+async function currentUser() {
+  const supabase = getSupabase()
+  if (!supabase) return { supabase: null, user: null }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return { supabase, user: user || null }
+}
+
+/** The signed-in farmer's plantation parcels. */
+export async function getMyParcels() {
+  const { supabase, user } = await currentUser()
+  if (!supabase || !user) return []
+  const { data, error } = await supabase
+    .from('farm_parcels')
+    .select('*')
+    .eq('farmer_id', user.id)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('Error loading farm parcels:', error.message)
+    return []
+  }
+  return data || []
+}
+
+const numOrNull = (v) => (v != null && v !== '' ? Number(v) : null)
+const textOrNull = (v) => (v ? String(v).trim() : null)
+
+/** Register a plantation parcel owned by the signed-in farmer. */
+export async function createParcel(payload = {}) {
+  const errors = validateParcelInput(payload)
+  if (errors.length) throw new Error(errors[0])
+  const { supabase, user } = await currentUser()
+  if (!supabase || !user) throw new Error('Not authenticated')
+
+  const row = {
+    farmer_id: user.id,
+    name: String(payload.name).trim(),
+    crop_type: payload.crop_type,
+    area_hectares: numOrNull(payload.area_hectares),
+    expected_yield_tonnes: numOrNull(payload.expected_yield_tonnes),
+    location: textOrNull(payload.location),
+    region: textOrNull(payload.region),
+    latitude: numOrNull(payload.latitude),
+    longitude: numOrNull(payload.longitude),
+    planted_on: payload.planted_on || null,
+    notes: textOrNull(payload.notes),
+    status: payload.status || 'active',
+  }
+  const { data, error } = await supabase.from('farm_parcels').insert(row).select().single()
+  if (error) throw new Error(error.message || 'Failed to register parcel')
+  return data
+}
+
+/** Flip a parcel's status (active / fallow / retired). Owner-scoped by RLS. */
+export async function setParcelStatus(id, status) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  const { data, error } = await supabase
+    .from('farm_parcels')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw new Error(error.message || 'Failed to update parcel')
+  return data
+}
+
+/** Delete a parcel. Owner-scoped by RLS. */
+export async function deleteParcel(id) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  const { error } = await supabase.from('farm_parcels').delete().eq('id', id)
+  if (error) throw new Error(error.message || 'Failed to delete parcel')
+  return true
+}
+
+/**
+ * Accepted RFQs the signed-in farmer is the supplier on — these are the only
+ * requests a delivery can be recorded against.
+ */
+export async function getMyAcceptedRfqs() {
+  const { supabase, user } = await currentUser()
+  if (!supabase || !user) return []
+  const { data, error } = await supabase
+    .from('biomass_rfqs')
+    .select(
+      'id, buyer_id, product_type, product_title, quantity, unit, quoted_price_per_unit, quoted_total, delivery_location, needed_by, status, created_at',
+    )
+    .eq('seller_id', user.id)
+    .eq('status', 'accepted')
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('Error loading accepted RFQs:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/** Deliveries the signed-in farmer has logged. */
+export async function getMyDeliveries() {
+  const { supabase, user } = await currentUser()
+  if (!supabase || !user) return []
+  const { data, error } = await supabase
+    .from('farmer_deliveries')
+    .select('*')
+    .eq('farmer_id', user.id)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('Error loading deliveries:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/** Deliveries awaiting the signed-in buyer's confirmation / payment. */
+export async function getIncomingDeliveries() {
+  const { supabase, user } = await currentUser()
+  if (!supabase || !user) return []
+  const { data, error } = await supabase
+    .from('farmer_deliveries')
+    .select('*')
+    .eq('buyer_id', user.id)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('Error loading incoming deliveries:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Upload a delivery proof photo/receipt to the private `project-documents`
+ * bucket. Returns `{ path, name }` for storing in `proof_docs`.
+ */
+export async function uploadDeliveryProof(file) {
+  const { user } = await currentUser()
+  if (!user) throw new Error('Not authenticated')
+  const path = await uploadProjectDocument(file, user.id, 'delivery_proof')
+  return { path, name: file?.name || 'proof' }
+}
+
+/** Farmer logs a delivery against an accepted RFQ. Notifies the buyer. */
+export async function recordDelivery({
+  rfq,
+  quantity,
+  unit,
+  delivered_on,
+  parcel_id,
+  price_per_unit,
+  proof_docs,
+  note,
+}) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+
+  const errors = validateDeliveryInput({ rfq_id: rfq?.id, quantity, price_per_unit })
+  if (errors.length) throw new Error(errors[0])
+
+  const { data, error } = await supabase.rpc('record_farmer_delivery', {
+    p_rfq_id: rfq.id,
+    p_quantity: Number(quantity),
+    p_unit: unit || null,
+    p_delivered_on: delivered_on || null,
+    p_parcel_id: parcel_id || null,
+    p_price_per_unit: numOrNull(price_per_unit),
+    p_proof_docs: proof_docs || [],
+    p_note: note || null,
+  })
+  if (error) throw new Error(error.message || 'Failed to record delivery')
+
+  try {
+    await createNotificationsForUsers([rfq.buyer_id], {
+      type: 'farmer_delivery_recorded',
+      title: 'Feedstock delivery logged',
+      message: `A supplier logged a delivery of ${Number(quantity)} ${unit || rfq.unit || 'tonnes'} of ${rfq.product_title || 'biomass'}. Confirm receipt to proceed.`,
+      link: '/biomass/rfqs',
+      metadata: { rfq_id: rfq.id, delivery_id: data?.id },
+    })
+  } catch (e) {
+    console.warn('Delivery notify failed (non-fatal):', e?.message)
+  }
+  return data
+}
+
+/** Buyer confirms or rejects receipt of a delivery. Notifies the farmer. */
+export async function confirmDelivery(delivery, accept, note) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  const { data, error } = await supabase.rpc('confirm_farmer_delivery', {
+    p_delivery_id: delivery.id,
+    p_accept: !!accept,
+    p_note: note || null,
+  })
+  if (error) throw new Error(error.message || 'Failed to update delivery')
+
+  try {
+    await createNotificationsForUsers([delivery.farmer_id], {
+      type: 'farmer_delivery_reviewed',
+      title: accept ? 'Delivery confirmed' : 'Delivery rejected',
+      message: `The buyer ${accept ? 'confirmed' : 'rejected'} your delivery of ${delivery.quantity} ${delivery.unit}.`,
+      link: '/farmer',
+      metadata: { delivery_id: delivery.id, accepted: !!accept },
+    })
+  } catch (e) {
+    console.warn('Delivery review notify failed (non-fatal):', e?.message)
+  }
+  return data
+}
+
+/** Buyer marks a confirmed delivery as paid. Notifies the farmer. */
+export async function markDeliveryPaid(delivery, reference) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  const { data, error } = await supabase.rpc('mark_farmer_delivery_paid', {
+    p_delivery_id: delivery.id,
+    p_reference: reference || null,
+  })
+  if (error) throw new Error(error.message || 'Failed to mark delivery paid')
+
+  try {
+    await createNotificationsForUsers([delivery.farmer_id], {
+      type: 'farmer_delivery_paid',
+      title: 'Delivery marked paid',
+      message: `The buyer marked your delivery of ${delivery.quantity} ${delivery.unit} as paid.`,
+      link: '/farmer',
+      metadata: { delivery_id: delivery.id },
+    })
+  } catch (e) {
+    console.warn('Payment notify failed (non-fatal):', e?.message)
+  }
+  return data
+}

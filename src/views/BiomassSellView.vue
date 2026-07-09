@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   getMyBiomassProducts,
   createBiomassProduct,
@@ -7,14 +7,24 @@ import {
   validateProductInput,
 } from '@/services/biomassService'
 import { getMyKyb } from '@/services/kybService'
+import { useUserStore } from '@/store/userStore'
 import { BIOMASS_PRODUCT_TYPES, BIOMASS_UNITS, biomassTypeLabel } from '@/constants/biomass'
 import KybForm from '@/components/wallet/KybForm.vue'
 
+const userStore = useUserStore()
 const loading = ref(true)
 const loadError = ref('')
 const kyb = ref({ verified: false, application: null })
 const products = ref([])
 const showKyb = ref(false)
+
+/**
+ * Businesses list feedstock behind KYB; smallholder farmers list behind their
+ * (admin-reviewed) farmer role instead. KYB gates payouts — real money leaving
+ * the platform — and no platform money moves for feedstock, so requiring a
+ * business registration from a smallholder is friction with no safety payoff.
+ */
+const canList = computed(() => kyb.value.verified || userStore.isFarmer)
 
 const form = ref({
   product_type: '',
@@ -103,7 +113,10 @@ onMounted(load)
   <div class="sell">
     <header class="page-head">
       <h1>Sell Feedstock</h1>
-      <p>List your biomass so buyers can request quotes. Business verification is required before listing.</p>
+      <p>
+        List your biomass so buyers can request quotes. Businesses need verification (KYB) before
+        listing; approved farmers can list right away.
+      </p>
     </header>
 
     <div v-if="loading" class="muted">Loading…</div>
@@ -113,7 +126,7 @@ onMounted(load)
 
     <template v-else>
       <!-- KYB gate -->
-      <div v-if="!kyb.verified" class="notice warn">
+      <div v-if="!canList" class="notice warn">
         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
         <div class="notice-body">
           <strong>Business verification required.</strong>
@@ -132,7 +145,7 @@ onMounted(load)
       </div>
 
       <!-- List a product -->
-      <section v-if="kyb.verified" class="panel">
+      <section v-if="canList" class="panel">
         <h2>List a feedstock product</h2>
         <div class="form-grid">
           <div class="fg">

@@ -356,6 +356,11 @@ const navItems = computed(() => {
     items.push({ path: '/lgu', label: 'LGU Tools' })
   }
 
+  if (userStore.isFarmer) {
+    items.push({ path: '/farmer', label: 'Farmer Portal' })
+    items.push({ path: '/biomass/sell', label: 'Sell Feedstock' })
+  }
+
   if (userStore.isBuyerInvestor) {
     items.push({ path: '/investor', label: 'Investor Portal' })
   }
@@ -403,6 +408,13 @@ const profileSections = computed(() => {
   }
   if (userStore.isLguUser) {
     workspace.push({ path: '/lgu', label: 'LGU Tools', icon: 'apartment' })
+  }
+  if (userStore.isFarmer) {
+    workspace.push(
+      { path: '/farmer', label: 'Farmer Portal', icon: 'agriculture' },
+      { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
+      { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
+    )
   }
   if (workspace.length) sections.push({ title: 'Workspace', items: workspace })
 

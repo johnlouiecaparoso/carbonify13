@@ -1,5 +1,29 @@
 # Carbonify — Handoff (current state)
 
+> 🧭 **2026-07-09 — EXPANSION FEATURE #6 SHIPPED (Farmer Portal).** The last big code lift of the
+> expansion series. Introduces the **`farmer` role** and the smallholder supply side of the biomass
+> chain: [`/farmer`](../src/views/FarmerPortalView.vue) — a plantation **parcel register** (crop,
+> area, GPS, expected yield) and **delivery logging** against an *accepted* biomass RFQ, with proof
+> uploads, buyer confirmation, and **payment tracking**. The buyer half is a new **Deliveries tab**
+> on [`/biomass/rfqs`](../src/views/BiomassRfqsView.vue) (confirm receipt → mark paid). New pure
+> [`farmerService`](../src/services/farmerService.js) (23 unit tests). Migration **#25** adds
+> `farm_parcels` + `farmer_deliveries` + 3 SECURITY DEFINER RPCs, and widens the two role gates.
+> Build ✅ · ESLint 0 ✅ · **207 tests ✅**.
+>
+> **Two deliberate design calls, both worth knowing:**
+> 1. **Farmer payments are record-keeping, not settlement.** `payment_status` is a bookkeeping flag;
+>    it never touches `ledger_entries`/`escrow_holds`/`payout_requests`. The proven money path
+>    (`reconcile_financials()` = 0) is untouched by this feature.
+> 2. **Farmers bypass the KYB gate on `/biomass/sell`.** KYB gates *payouts* (real money leaving the
+>    platform); no platform money moves for feedstock, and farmers are admin-approved via the role
+>    application. Requiring a business registration from a smallholder was friction with no safety
+>    payoff. KYB is unchanged everywhere else.
+>
+> **⬜ To finish:** apply migration **#25**, then: admin approves a `farmer` role application (or sets
+> the role in User Management) → farmer registers a parcel → lists feedstock → a buyer requests +
+> accepts a quote → farmer logs a delivery → buyer confirms + marks paid.
+> **Remaining expansion work: #7 (AI Assistant) only.** Earlier #1–#5 notes follow.
+>
 > 🧭 **2026-07-08 — EXPANSION FEATURE #5 SHIPPED (Investor Portal).** A Pro-gated
 > [`/investor`](../src/views/InvestorPortalView.vue) portal for `buyer_investor` accounts: the
 > cross-developer **pipeline** of validated projects, projected gross value, **funding gap**, a
@@ -262,15 +286,16 @@ to confirm an empty result.
 > [TODAY_2026-07-07.md](TODAY_2026-07-07.md).
 > | # | Migration | Status | Purpose |
 > |---|---|---|---|
-> | 19 | `20260707000000_project_documents_bucket.sql` | ⬜ **pending** | 🔴 Creates the `project-documents` storage bucket + RLS so developer compliance PDFs actually upload and are retrievable (were never stored before — dead links). **Apply before any real project submission.** |
-> | 20 | `20260707000100_project_documents_private.sql` | ⬜ **pending** | Makes that bucket **private** (compliance PDFs = sensitive PII) + authenticated SELECT for signed URLs. App resolves short-lived signed URLs; anon can no longer open raw docs. **Apply right after #19.** |
+> | 19 | `20260707000000_project_documents_bucket.sql` | ✅ **applied (2026-07-09)** | 🔴 Creates the `project-documents` storage bucket + RLS so developer compliance PDFs actually upload and are retrievable (were never stored before — dead links). Also backs farmer delivery-proof uploads (#25). |
+> | 20 | `20260707000100_project_documents_private.sql` | ✅ **applied (2026-07-09)** | Makes that bucket **private** (compliance PDFs = sensitive PII) + authenticated SELECT for signed URLs. App resolves short-lived signed URLs; anon can no longer open raw docs. |
 
 > 🆕 **2026-07-08 migration** (apply via SQL Editor; idempotent, additive, drift-safe).
 > | # | Migration | Status | Purpose |
 > |---|---|---|---|
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
-> | 24 | `20260710000000_project_financials.sql` | ⬜ **pending** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection); until applied the drift-guard skips them and the portal shows financials as “—”. **Apply, then a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV.** |
+> | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
+> | 25 | `20260711000000_farmer_portal.sql` | ⬜ **pending** | Expansion #6. Adds `farm_parcels` (plantation register, owner-private RLS) + `farmer_deliveries` (delivery against an accepted RFQ, with proof docs, buyer confirmation, and a bookkeeping `payment_status`) + 3 SECURITY DEFINER RPCs (`record_farmer_delivery` / `confirm_farmer_delivery` / `mark_farmer_delivery_paid` — no INSERT/UPDATE policy, so a farmer can't mark their own delivery paid). Also **widens the two role gates**: `assign_user_role()` now admits `'farmer'`, `role_applications.role_requested` CHECK now admits `'farmer'`, and `notify_role_application_trigger()` routes farmer applications to admins. **Apply, then run the click-through in the header note.** |
 > | 23 | `20260709000000_admin_set_kyb_verified.sql` | ✅ **applied (2026-07-08)** | Adds `admin_set_kyb_verified(uuid, boolean)` (is_admin-gated) so an admin can manually verify a business from **User Management** — clears the "Business verification required" gate for a developer who never filed a KYB application (previously only `review_kyb_application` could set `kyb_verified`, and only against an existing application). Also revokes client `update(kyb_verified)` so users can't self-verify. **Apply, then: Admin → User Management → edit a user → tick "Business verified (KYB)" → Save → that account's Sell-Feedstock gate disappears.** |
 
 ---
@@ -519,14 +544,13 @@ codebase — roughly ~60% is already built as extensions of existing modules, no
 | 3 | **Biomass Marketplace** (feedstock RFQ) | 🆕 **code-complete (2026-07-08)** — migration #22 pending apply; runtime-unverified | Marketplace was **credits only**; `supplier_orders` is external-registry fulfillment, not feedstock | ✅ shipped: [mig #22](../supabase/migrations/20260708000000_biomass_marketplace.sql) (`biomass_products` + `biomass_rfqs` + 3 RPCs), [`biomassService`](../src/services/biomassService.js), public browse [`/biomass`](../src/views/BiomassMarketplaceView.vue) + RFQ modal, KYB-gated [`/biomass/sell`](../src/views/BiomassSellView.vue), [`/biomass/rfqs`](../src/views/BiomassRfqsView.vue) buyer+supplier tabs. 11 unit tests, notifications wired. **Remaining:** apply #22 + runtime click-through |
 | 4 | **MRV Dashboard** | 🆕 **roll-up shipped (2026-07-08)** — no migration; runtime-unverified. Satellite/IoT still external (deferred) | [MRV module](../supabase/migrations/20260604010000_create_mrv_module.sql) + [MonitoringReportView](../src/views/MonitoringReportView.vue) + [mrv.js](../src/constants/mrv.js) capture biomass, energy, CO₂ avoided/removed, hectares, methodology factors | ✅ shipped: developer **roll-up dashboard** [`/developer/mrv-dashboard`](../src/views/MrvDashboardView.vue) — verified/proposed/pending tCO₂e, monthly proposed-vs-verified trend, per-metric activity sums, per-project reporting-compliance vs cadence — via pure [`aggregateMrvDashboard`](../src/services/mrvDashboardService.js) over `monitoring_reports`/`verified_emission_reductions`/`monitoring_activity_data` (drift-safe), reusing PortfolioChart/CategoryChart. 6 unit tests. **Deferred:** satellite + IoT feeds (external API + cost) |
 | 5 | **Investor Portal** | 🆕 **code-complete (2026-07-08)** — migration #24 pending apply; runtime-unverified | `buyer_investor` role + document/data-room foundation + [FeatureGate](../src/components/ui/FeatureGate.vue) plan gating existed | ✅ shipped: Pro-gated [`/investor`](../src/views/InvestorPortalView.vue) — cross-developer **pipeline** of validated projects, projected value, **funding gap**, and a per-project **financial model (IRR/NPV/payback)** via fresh pure [`investorAnalytics`](../src/services/investorAnalytics.js) (11 tests). New `FEATURES.INVESTOR_PORTAL` (Pro/Business). [mig #24](../supabase/migrations/20260710000000_project_financials.sql) persists `capex`/`opex`/`project_lifetime_years`/`funding_target`/`funding_raised` (the form collected CAPEX/OPEX but dropped them — now wired into a new "Financials" form subsection). Data room = each project's existing documents (deep-link). **Remaining:** apply #24, developers enter financials, runtime-verify |
-| 6 | **Farmer Portal** | ❌ not started | No `farmer` role (see [roles.js](../src/constants/roles.js)); wallet/payout rails reusable | New role + registration + delivery uploads + payment tracking + training + plantation monitoring (couples to #3) |
+| 6 | **Farmer Portal** | 🆕 **code-complete (2026-07-09)** — migration #25 pending apply; runtime-unverified | No `farmer` role existed; `profiles.role` has **no CHECK constraint** — the real gates were `assign_user_role()`'s allow-list and `role_applications.role_requested`'s CHECK | ✅ shipped: `farmer` role end-to-end (constants, `roleService` permissions map, `userStore.isFarmer`, `createFarmerGuard`, `/farmer` landing, applyable at `/apply`, assignable in User Management); [mig #25](../supabase/migrations/20260711000000_farmer_portal.sql) (`farm_parcels` + `farmer_deliveries` + 3 RPCs); [`farmerService`](../src/services/farmerService.js) (23 tests); [`/farmer`](../src/views/FarmerPortalView.vue) parcel register + delivery logging with proof upload; buyer **Deliveries tab** on [`/biomass/rfqs`](../src/views/BiomassRfqsView.vue) (confirm → mark paid). Farmers bypass the KYB listing gate. **Deferred:** training modules (content, not code). **Remaining:** apply #25 + runtime click-through |
 | 7 | **AI Project Assistant** | ❌ not started | No LLM integration (no `anthropic`/`openai` dep) | Supabase edge fn → Claude API with tool access to project/credit/MRV tables (answer queries, draft PDD/proposals). External API cost |
 
-> **Recommended build order** (features feed each other): ~~1~~ → ~~2~~ → ~~3~~ → ~~4~~ → ~~5~~ → **6** → 7.
-> **#1–#5 done (2026-07-08, code-complete)**. Remaining: **#6 (Farmer Portal)** — needs a new
-> `farmer` role (roles migration touching validation/approval/route-guard), the biggest remaining
-> lift; **#7 (AI Project Assistant)** — needs a Claude API edge fn (external cost). #4's satellite/IoT
-> feeds remain deferred (external).
+> **Recommended build order** (features feed each other): ~~1~~ → ~~2~~ → ~~3~~ → ~~4~~ → ~~5~~ → ~~6~~ → **7**.
+> **#1–#6 done (code-complete)**. Remaining: **#7 (AI Project Assistant)** — needs a Claude API edge
+> fn (external cost). #4's satellite/IoT feeds and #6's training modules remain deferred (external /
+> content, not code).
 > Only #4 (satellite/IoT) and #7 (AI) require external services + running cost; the rest are
 > pure code on the current stack. See the same-day chat scoping for detail.
 

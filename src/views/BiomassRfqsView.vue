@@ -7,19 +7,29 @@ import {
   respondToQuote,
   closeRfq,
 } from '@/services/biomassService'
+import {
+  getIncomingDeliveries,
+  confirmDelivery,
+  markDeliveryPaid,
+} from '@/services/farmerService'
 import { biomassTypeLabel } from '@/constants/biomass'
 
 const loading = ref(true)
 const loadError = ref('')
-const tab = ref('buyer') // 'buyer' | 'seller'
+const tab = ref('buyer') // 'buyer' | 'seller' | 'deliveries'
 const buyerRfqs = ref([])
 const sellerRfqs = ref([])
+const deliveries = ref([])
 const busyId = ref(null)
 const actionError = ref('')
 
 // Quote modal (seller)
 const quoteRfq = ref(null)
 const quoteForm = ref({ price_per_unit: '', message: '' })
+
+// Payment modal (buyer)
+const payDelivery = ref(null)
+const payReference = ref('')
 
 function peso(n) {
   return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -35,9 +45,14 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [b, s] = await Promise.all([getMyBuyerRfqs(), getMySellerRfqs()])
+    const [b, s, d] = await Promise.all([
+      getMyBuyerRfqs(),
+      getMySellerRfqs(),
+      getIncomingDeliveries(),
+    ])
     buyerRfqs.value = b
     sellerRfqs.value = s
+    deliveries.value = d
   } catch (err) {
     console.error('Failed to load RFQs:', err)
     loadError.value = err?.message || 'We could not load your requests right now.'
@@ -97,6 +112,42 @@ async function cancel(rfq) {
   }
 }
 
+function replaceDelivery(updated) {
+  const i = deliveries.value.findIndex((d) => d.id === updated.id)
+  if (i !== -1) deliveries.value[i] = updated
+}
+
+async function reviewDelivery(delivery, accept) {
+  busyId.value = delivery.id
+  actionError.value = ''
+  try {
+    replaceDelivery(await confirmDelivery(delivery, accept))
+  } catch (err) {
+    actionError.value = err?.message || 'Could not update the delivery.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+function openPay(delivery) {
+  payDelivery.value = delivery
+  payReference.value = ''
+  actionError.value = ''
+}
+
+async function confirmPayment() {
+  busyId.value = payDelivery.value.id
+  actionError.value = ''
+  try {
+    replaceDelivery(await markDeliveryPaid(payDelivery.value, payReference.value))
+    payDelivery.value = null
+  } catch (err) {
+    actionError.value = err?.message || 'Could not mark the delivery paid.'
+  } finally {
+    busyId.value = null
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -113,6 +164,9 @@ onMounted(load)
       </button>
       <button :class="{ active: tab === 'seller' }" @click="tab = 'seller'">
         Received <span class="count">{{ sellerRfqs.length }}</span>
+      </button>
+      <button :class="{ active: tab === 'deliveries' }" @click="tab = 'deliveries'">
+        Deliveries <span class="count">{{ deliveries.length }}</span>
       </button>
     </div>
 
@@ -165,7 +219,7 @@ onMounted(load)
       </section>
 
       <!-- Seller tab -->
-      <section v-else>
+      <section v-else-if="tab === 'seller'">
         <div v-if="!sellerRfqs.length" class="empty">
           <span class="material-symbols-outlined empty-icon" aria-hidden="true">inbox</span>
           <p class="muted">No incoming quote requests. List feedstock to start receiving them.</p>
@@ -197,7 +251,83 @@ onMounted(load)
           </div>
         </div>
       </section>
+
+      <!-- Deliveries tab (buyer confirms receipt, then records payment) -->
+      <section v-else>
+        <div v-if="!deliveries.length" class="empty">
+          <span class="material-symbols-outlined empty-icon" aria-hidden="true">local_shipping</span>
+          <p class="muted">
+            No deliveries yet. Once you accept a quote, the supplier logs deliveries here for you to
+            confirm.
+          </p>
+        </div>
+        <div v-for="d in deliveries" v-else :key="d.id" class="rfq-card">
+          <div class="rfq-head">
+            <div>
+              <h3>{{ Number(d.quantity).toLocaleString('en-PH') }} {{ d.unit }}</h3>
+              <div class="rfq-meta">Delivered {{ shortDate(d.delivered_on) }}</div>
+            </div>
+            <div class="badges">
+              <span class="badge" :class="d.status">{{ d.status }}</span>
+              <span v-if="d.status === 'confirmed'" class="badge" :class="d.payment_status">
+                {{ d.payment_status }}
+              </span>
+            </div>
+          </div>
+          <div class="rfq-detail">
+            <span v-if="d.total_amount != null">Value {{ peso(d.total_amount) }}</span>
+            <span v-if="d.price_per_unit != null"> · {{ peso(d.price_per_unit) }}/{{ d.unit }}</span>
+            <span v-if="d.proof_docs?.length"> · {{ d.proof_docs.length }} proof file(s)</span>
+          </div>
+          <p v-if="d.note" class="rfq-msg">"{{ d.note }}"</p>
+
+          <div v-if="d.status === 'pending'" class="rfq-actions">
+            <button class="btn-primary sm" :disabled="busyId === d.id" @click="reviewDelivery(d, true)">
+              Confirm receipt
+            </button>
+            <button class="btn-ghost sm" :disabled="busyId === d.id" @click="reviewDelivery(d, false)">
+              Reject
+            </button>
+          </div>
+          <div v-else-if="d.status === 'confirmed' && d.payment_status === 'unpaid'" class="quote-box">
+            Confirmed — <strong>{{ peso(d.total_amount) }}</strong> owed to the supplier.
+            <div class="rfq-actions">
+              <button class="btn-primary sm" :disabled="busyId === d.id" @click="openPay(d)">
+                Mark as paid
+              </button>
+            </div>
+          </div>
+          <div v-else-if="d.payment_status === 'paid'" class="quote-box ok">
+            Paid {{ shortDate(d.paid_at) }}<span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>
+          </div>
+        </div>
+      </section>
     </template>
+
+    <!-- Mark-paid modal -->
+    <div v-if="payDelivery" class="modal-overlay" @click.self="payDelivery = null">
+      <div class="modal">
+        <h2>Mark delivery as paid</h2>
+        <p class="muted small">
+          {{ Number(payDelivery.quantity).toLocaleString('en-PH') }} {{ payDelivery.unit }} ·
+          {{ peso(payDelivery.total_amount) }}
+        </p>
+        <p class="muted small note-box">
+          This records that you settled with the supplier outside Carbonify. It does not move money.
+        </p>
+        <div class="form-row">
+          <label for="pay-ref">Payment reference <span class="opt">(optional)</span></label>
+          <input id="pay-ref" v-model="payReference" type="text" placeholder="Bank transfer ref, GCash no., cheque…" />
+        </div>
+        <p v-if="actionError" class="notice error sm">{{ actionError }}</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" @click="payDelivery = null">Cancel</button>
+          <button class="btn-primary" :disabled="busyId === payDelivery.id" @click="confirmPayment">
+            {{ busyId === payDelivery.id ? 'Saving…' : 'Mark as paid' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Quote modal -->
     <div v-if="quoteRfq" class="modal-overlay" @click.self="quoteRfq = null">
@@ -261,6 +391,11 @@ onMounted(load)
 .badge.quoted { background: #fef3c7; color: #92400e; }
 .badge.accepted { background: #d1fae5; color: #065f46; }
 .badge.declined, .badge.closed { background: #f3f4f6; color: #6b7280; }
+.badge.pending, .badge.unpaid { background: #fef3c7; color: #92400e; }
+.badge.confirmed, .badge.paid { background: #d1fae5; color: #065f46; }
+.badge.rejected { background: #fee2e2; color: #991b1b; }
+.badges { display: flex; gap: 6px; }
+.note-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-top: 10px; }
 .btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary.sm { padding: 7px 12px; font-size: 0.85rem; }
