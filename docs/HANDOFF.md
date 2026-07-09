@@ -1,5 +1,44 @@
 # Carbonify — Handoff (current state)
 
+> ## 📍 Where we are — 2026-07-09
+>
+> **All 31 migrations applied. Build ✅ · ESLint 0 ✅ · 312 tests ✅.**
+>
+> The seven expansion features, scored **bullet-by-bullet against the code** (not against these notes)
+> in **[EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md)**:
+>
+> | # | Feature | First audit | Now |
+> |---|---|---|---|
+> | 1 | Project Registry | 5/8 | **8/8** ✅ |
+> | 2 | Carbon Asset Management | 5/6 | **6/6** ✅ |
+> | 3 | Biomass Marketplace | 6/7 | **7/7** ✅ |
+> | 4 | MRV Dashboard | **0/8** | **6/8** 🟡 |
+> | 5 | Investor Portal | 5/7 | **7/7** ✅ |
+> | 6 | Farmer Portal | 3/6 | **5/6** 🟡 |
+> | 7 | AI Assistant | 0/5 | **0/5** 🔴 interface only |
+>
+> **Nothing codeable remains in #1–#6.** What's open needs training *content* (#6e), an **API key +
+> running cost** (#7), or **external feeds** (#4 satellite/IoT).
+>
+> ### 🔴 Do these next, in order
+> 1. **[RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md)** — nothing here has been
+>    exercised against the live DB. Unit tests prove the pure math; they prove nothing about RLS
+>    policies or RPC grants. **Start with §1, the privilege-escalation check.**
+> 2. **Independent penetration test** — last P0 before live payment keys.
+> 3. **Email confirmation** — OFF by choice (needs a domain, ~₱600–900/yr; Resend's free tier is
+>    3,000 emails/mo). Until then **anyone can sign up with an address they do not control.**
+>
+> ### Two honest caveats about the positioning
+> - **"National biomass registry"** — the public [`/registry`](../src/views/RegistryView.vue) is a
+>   *certificate table*. It never shows methodology, development status, feedstock, or capacity;
+>   that data lives only on each project's own page. And there is no DENR/CCC linkage.
+> - **"ESG reporting platform"** — the ESG export is **credit-owner side only**. Developers,
+>   farmers, and verifiers have no ESG export.
+>
+> ---
+>
+> <details><summary>Session-by-session notes (newest first)</summary>
+>
 > 🧪 **2026-07-09 — ALL 31 MIGRATIONS APPLIED. THE GAP IS NOW RUNTIME, NOT CODE.**
 > All seven expansion features are code-complete to the limit of what code can do (#1 8/8 · #2 6/6 ·
 > #3 7/7 · #4 6/8 · #5 7/7 · #6 5/6 · #7 interface-only). Build ✅ · ESLint 0 ✅ · **312 tests ✅**.
@@ -415,6 +454,10 @@
 > deployment readiness [dev/DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md);
 > go-live roadmap [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md). Also removed a dead
 > `/register/lgu` link + unwired listing methods.
+
+</details>
+
+---
 
 ## TL;DR
 

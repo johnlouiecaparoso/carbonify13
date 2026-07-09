@@ -1,176 +1,140 @@
 # Carbonify — Expansion Feature Audit (bullet-by-bullet)
 
-> **Audited:** 2026-07-09 · **Updated:** 2026-07-09 (first three gaps closed) · **Method:** each
-> sub-item checked against the actual code, columns, and rendered UI — not against the summaries in
-> [HANDOFF.md](HANDOFF.md). Where a doc claimed something was shipped and the code disagreed,
-> **the code wins** and it is marked below.
+> **Audited:** 2026-07-09 · **Re-verified against code:** 2026-07-09 (after the close-out pass)
 >
-> ✅ **Closed since the audit:** **buyer history** (#2e), **farmers participating** + **biomass
-> collected** (#4a/e), **plantation hectares** (#4f), **black pellets** (#3). +18 unit tests.
+> **Method:** every sub-item checked against the actual code, columns, and rendered UI — never against
+> a summary in another doc. Where a doc and the code disagreed, **the code won**.
 >
-> ⚠️ **The audit itself got one thing wrong.** It claimed farmers-participating and plantation-hectares
-> were "a join away, no migration". Farmers-participating and biomass-collected were. **Hectares was
-> not:** migration #25 made `farm_parcels` readable only by the owning farmer, so a developer could not
-> see the area of the parcels supplying them. That needed **migration #26**
-> ([`20260712000000_parcel_supply_visibility.sql`](../supabase/migrations/20260712000000_parcel_supply_visibility.sql)),
-> a narrow policy letting a buyer read a parcel *only* when it supplied them a delivery they confirmed.
->
-> **Why this file exists:** the seven expansion features were tracked at *feature* granularity
-> ("#5 Investor Portal — shipped"), which hid missing *sub-items* inside shipped features. Feature-level
-> status was over-optimistic. This page tracks the original spec bullet-for-bullet.
+> **Why this file exists:** the seven features were originally tracked at *feature* granularity
+> ("#5 Investor Portal — shipped"), which hid missing *sub-items inside shipped features*. The
+> feature-level status was badly over-optimistic. This page tracks the original spec bullet-for-bullet.
 
-**Legend:** ✅ implemented · 🟡 partial (something real exists, but not what the bullet asks for) ·
-❌ missing · ⏳ deferred (needs an external service / running cost)
+**Legend:** ✅ implemented · 🟡 partial · ❌ missing · ⏳ deferred (needs an external service + cost)
 
 ---
 
 ## Scorecard
 
-| # | Feature | Bullets met | Honest status |
-|---|---|---|---|
-| 1 | Project Registry | **8 / 8** | ✅ complete |
-| 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
-| 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
-| 4 | MRV Dashboard | **6 / 8** fully | 🟡 only satellite + IoT remain (both external, deferred) |
-| 5 | Investor Portal | **7 / 7** | ✅ complete — offtake agreements + real data room shipped 2026-07-09 |
-| 6 | Farmer Portal | **5 / 6** | 🟡 only **training** remains — content, not code |
-| 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
+| # | Feature | Was (first audit) | Now | Status |
+|---|---|---|---|---|
+| 1 | Project Registry | 5 / 8 | **8 / 8** | ✅ complete |
+| 2 | Carbon Asset Management | 5 / 6 | **6 / 6** | ✅ complete |
+| 3 | Biomass Marketplace | 6 / 7 | **7 / 7** | ✅ complete |
+| 4 | MRV Dashboard | **0 / 8** | **6 / 8** | 🟡 satellite + IoT remain (external) |
+| 5 | Investor Portal | 5 / 7 | **7 / 7** | ✅ complete |
+| 6 | Farmer Portal | 3 / 6 | **5 / 6** | 🟡 training remains (content) |
+| 7 | AI Project Assistant | 0 / 5 | **0 / 5** | 🔴 interface preview only |
 
-> **Net (2026-07-09, after the close-out pass):** features **#1, #2, #3 and #5 are complete**; **#4 is
-> 6/8, #6 is 5/6**. **Nothing codeable remains.** Everything still open needs something other than
-> code: **training content** (#6e), an **API key + running cost** (#7 AI backend), or **external
-> feeds** (#4 satellite/IoT). The next real step is a **runtime click-through** — none of the farmer
-> or investor flows has been exercised against the live database.
->
-> The original finding still holds as a lesson: feature-level "shipped" labels hid missing sub-items,
-> and the missing ones clustered precisely in the investor- and farmer-facing surfaces that matter
-> most to Japan Energy Capital / Enechange-class diligence.
+**Nothing codeable remains in features #1–#6.** Everything still open needs one of: **training
+content**, an **API key + running cost**, or an **external data feed**.
+
+> The original lesson still stands: the missing sub-items clustered precisely in the investor- and
+> farmer-facing surfaces that matter most to Japan Energy Capital / Enechange-class diligence.
 
 ---
 
-## 1. Project Registry
+## 1. Project Registry — ✅ 8/8
 
 | Bullet | Status | Reality |
 |---|---|---|
-| GPS location | ✅ | `geo_coordinates` + `boundary` drawn on a Leaflet map ([ProjectDetailView.vue:262](../src/views/ProjectDetailView.vue#L262)). Coordinates are plotted, not shown as text. |
-| Project developer | ✅ | Developer card: name, organization, type ([ProjectDetailView.vue:122](../src/views/ProjectDetailView.vue#L122)). |
-| Methodology (Verra, Gold Standard, Puro, ISO…) | ✅ | **Shipped 2026-07-09.** A grouped enum in [`projectRegistry.js`](../src/constants/projectRegistry.js) — Verra (VCS), Gold Standard, Puro.earth, ISO 14064, CDM, ACR, CAR, Plan Vivo, ISCC, PH national, Carbonify Standard, **Other**. The Investor Portal filters by standard. Legacy free text ("Verra VM0044") renders as-is and maps to **Other** on edit rather than being discarded. |
-| Feedstock | ✅ | [ProjectDetailView.vue:75](../src/views/ProjectDetailView.vue#L75) |
-| Capacity | ✅ | `capacity` + `capacity_unit` ([ProjectDetailView.vue:76](../src/views/ProjectDetailView.vue#L76)) |
-| Expected carbon reductions | ✅ | `estimated_credits` + `expected_impact` |
-| Development status | ✅ | **Shipped 2026-07-09** (migration #28). `development_status`: concept → feasibility → financing → construction → operational → decommissioned. Deliberately **orthogonal** to `projects.status` (the validation workflow) — a test asserts the two vocabularies never share a value, since conflating them was the original bug. Nullable, because defaulting existing projects to 'concept' would assert something untrue about them. |
-| Documents (PDD, feasibility, MRV reports) | ✅ | **Shipped 2026-07-09.** PDD and feasibility were already uploadable + viewable; **MRV Report** is now an optional project document type, so a published monitoring report reaches the public project page. |
-
-**Closed.** All eight bullets are met.
+| GPS location | ✅ | `geo_coordinates` + `boundary` on a Leaflet map ([ProjectDetailView.vue:148](../src/views/ProjectDetailView.vue#L148)). Plotted, not shown as text. |
+| Project developer | ✅ | Developer card: name, organization, type (`:126`). |
+| Methodology (Verra, Gold Standard, Puro, ISO…) | ✅ | Grouped enum in [`projectRegistry.js`](../src/constants/projectRegistry.js) — Verra (VCS), Gold Standard, Puro.earth, ISO 14064, CDM, ACR, CAR, Plan Vivo, ISCC, PH national, Carbonify Standard, **Other**. Rendered via `methodologyLabel` (`:74`). Investor Portal filters by it. Legacy free text ("Verra VM0044") renders as-is and maps to **Other** on edit rather than being discarded. |
+| Feedstock | ✅ | `:79` |
+| Capacity | ✅ | `capacity` + `capacity_unit` (`:80`) |
+| Expected carbon reductions | ✅ | `estimated_credits` + `expected_impact` (`:84`) |
+| Development status | ✅ | Migration #28. concept → feasibility → financing → construction → operational → decommissioned, via `developmentStatusLabel` (`:77`). **Orthogonal to `projects.status`** (the validation workflow); a test asserts the two vocabularies never share a value, because conflating them was the original bug. Nullable — defaulting existing projects to 'concept' would assert something untrue about them. |
+| Documents (PDD, feasibility, MRV reports) | ✅ | All three uploadable + viewable. `mrv_report_file` is in `OPTIONAL_DOCS` and the submit handler uploads it (`ProjectForm.vue:684, :792`). |
 
 ---
 
-## 2. Carbon Asset Management
+## 2. Carbon Asset Management — ✅ 6/6
 
 | Bullet | Status | Reality |
 |---|---|---|
-| Issued credits | ✅ | [assetLedgerService.js:88](../src/services/assetLedgerService.js#L88) |
-| Pending credits | ✅ | from VERs with `status='pending'` |
+| Issued credits | ✅ | from the sellable pool, falling back to approved VER volume |
+| Pending credits | ✅ | VERs with `status='pending'` |
 | Sold credits | ✅ | completed `credit_transactions` |
 | Retired credits | ✅ | `credit_retirements` |
-| **Buyer history** | ✅ | **Shipped 2026-07-09.** Sales now select `buyer_id` + `created_at`; a **Buyer history** section lists counterparties per project (credits, value, purchase count, last purchase), largest first. Repeat purchases collapse into one row. Buyer names resolve from `profiles`, degrading to "Unknown buyer" if that read is RLS-blocked. |
+| **Buyer history** | ✅ | Sales select `buyer_id` + `created_at`; a **Buyer history** section lists counterparties per project (credits, value, purchase count, last purchase), largest first ([CarbonAssetLedgerView.vue:151](../src/views/CarbonAssetLedgerView.vue#L151)). Repeat purchases collapse into one row — an ERPA conversation wants a counterparty list, not a transaction log. Names degrade to "Unknown buyer" if the `profiles` read is RLS-blocked. Sales with no `buyer_id` bucket into one "unattributed" row rather than inflating the count. |
 | Carbon inventory | ✅ | issued − sold, or the pool's available column |
-
-**Closed.** Sales with no `buyer_id` bucket into a single "unattributed" row rather than inflating
-the buyer count, and a buyer of two projects counts once portfolio-wide.
 
 ---
 
-## 3. Biomass Marketplace
+## 3. Biomass Marketplace — ✅ 7/7
 
 | Feedstock | Status |
 |---|---|
-| Black pellets | ✅ **shipped 2026-07-09** — `black_pellets` ("Black pellets (torrefied)") is now a first-class dropdown type. |
+| Black pellets | ✅ `black_pellets` — "Black pellets (torrefied)" |
 | Biochar | ✅ |
 | Rice husks | ✅ |
 | Coconut biomass | ✅ (`coconut_husk`, `coconut_shell`) |
 | Bana Grass | ✅ |
 | Sugarcane bagasse | ✅ |
-| Buyers request quotations directly | ✅ | full RFQ → quote → accept/decline flow ([biomassService.js:163](../src/services/biomassService.js#L163)) |
-
-**Closed.** All seven bullets are met.
+| Buyers request quotations directly | ✅ full RFQ → quote → accept/decline ([biomassService.js:163](../src/services/biomassService.js#L163)) |
 
 ---
 
-## 4. MRV Dashboard
+## 4. MRV Dashboard — 🟡 6/8
 
-**Was** the weakest feature against its spec — originally 0/8 bullets fully met, despite being
-positioned as "one of the biggest differentiators." It aggregated whatever `monitoring_activity_data`
-rows happened to exist and computed none of the named metrics. Now **6/8**: only satellite and IoT
-remain, both external and deferred from the start.
+**Was 0/8** — the weakest feature against its spec, despite being positioned as "one of the biggest
+differentiators." It aggregated whatever `monitoring_activity_data` rows happened to exist and
+computed none of the named metrics.
 
 | Bullet | Status | Reality |
 |---|---|---|
-| Biomass collected | ✅ | **Shipped 2026-07-09.** Summed from **confirmed** farmer deliveries (pending/rejected excluded). `kg` converts to tonnes; sacks/bales/m³ are **excluded from the tonnage** and surfaced as a caveat line, because their mass depends on the feedstock's bulk density — summing them would invent a number. |
-| CO₂ avoided | ✅ | **Shipped 2026-07-09** (migration #29). `reduction_type` on each VER, asserted by the **verifier at approval** — pre-selected from the project category, never auto-applied. |
-| CO₂ removed | ✅ | Same. The dashboard shows **removed / avoided / unclassified**; legacy VERs stay unclassified rather than being retro-guessed into a type nobody asserted. |
-| Energy generated | ✅ | **Shipped 2026-07-09.** A dedicated tile summing `energy_kwh`, scaled to MWh/GWh. Deliberately **not** merged with `energy_saved_kwh` — energy saved is avoided consumption, a different claim, and adding them would overstate what the project produced. |
-| Farmers participating | ✅ | **Shipped 2026-07-09.** Distinct `farmer_id` across confirmed deliveries to this developer. |
-| Plantation hectares | ✅ | **Shipped 2026-07-09**, needed **migration #26**. Sums `area_hectares` of parcels that supplied a confirmed delivery, excluding retired land. When #26 isn't applied the metric reads "—" and says so, rather than silently reporting **0** — a wrong number is worse than a missing one. |
-| Satellite monitoring | ⏳ | Out of scope. External API + cost. |
+| Biomass collected | ✅ | Summed from **confirmed** farmer deliveries. `kg` converts to tonnes; **sacks/bales/m³ are excluded** and surfaced as a caveat — their mass depends on bulk density, and inventing one would corrupt the shared denominator. |
+| CO₂ avoided | ✅ | Migration #29. `reduction_type` per VER, **asserted by the verifier at approval** — pre-selected from the project category, never auto-applied. |
+| CO₂ removed | ✅ | Same. Dashboard shows **removed / avoided / unclassified**. Legacy VERs stay unclassified rather than retro-guessed into a type nobody asserted. |
+| Energy generated | ✅ | Dedicated tile summing `energy_kwh`, scaled kWh → MWh → GWh. Deliberately **not** merged with `energy_saved_kwh` — energy saved is avoided consumption, a different claim. |
+| Farmers participating | ✅ | Distinct `farmer_id` across confirmed deliveries to this developer. |
+| Plantation hectares | ✅ | Needed **migration #26** (a buyer may read a parcel only where it supplied them a delivery they confirmed). Excludes retired land. Without #26 it reads "—" and says why, rather than a misleading **0**. |
+| Satellite monitoring | ⏳ | External API + running cost. Deferred from the start. |
 | IoT integration | ⏳ | Same. |
 
-A new **Farmer supply chain** panel renders these, and only appears once a farmer has actually
-delivered — an all-zero panel would read as "we have no farmers" rather than "this isn't set up yet."
-
-**Remaining gap:** satellite monitoring and IoT integration only — both need external APIs with a
-running cost, and both were deferred from the start.
-
 ---
 
-## 5. Investor Portal
+## 5. Investor Portal — ✅ 7/7
 
 | Bullet | Status | Reality |
 |---|---|---|
-| Financial model | ✅ | `computeProjectFinancials` — NPV, annual net, lifetime |
-| IRR | ✅ | bisection solver ([investorAnalytics.js:23](../src/services/investorAnalytics.js#L23)) |
-| Project pipeline | ✅ | cross-developer validated projects |
-| Carbon revenue | ✅ | `estimated_credits × credit_price` |
-| **Offtake agreements** | ✅ | **Shipped 2026-07-09** (migration #27). Developers record ERPAs at [`/developer/offtakes`](../src/views/OfftakeAgreementsView.vue). The portal splits **contracted vs speculative** revenue, blends the negotiated price with the listed price for uncontracted credits, and shows a **downside IRR on contracted revenue alone**. Owner-only RLS; investors see aggregates via `offtake_summary()`, never a counterparty or price. |
+| Financial model | ✅ | NPV, annual net, lifetime, payback |
+| IRR | ✅ | bisection solver, plus a **downside IRR on contracted revenue alone** |
+| Project pipeline | ✅ | cross-developer validated projects, filterable by category, **standard**, and **stage** |
+| Carbon revenue | ✅ | blended: contracted volume at its negotiated price, the remainder at the listed price |
+| **Offtake agreements** | ✅ | Migration #27. Developers record ERPAs at [`/developer/offtakes`](../src/views/OfftakeAgreementsView.vue). Only `signed`/`active` count as contracted — a draft or terminated agreement contributes nothing, or speculative revenue would be restated as contracted. Over-commitment (contracted volume > estimated issuance) is flagged. **Owner-only RLS**; investors see aggregates via `offtake_summary()`, never a counterparty or price. |
 | Funding requirements | ✅ | `funding_target` / `funding_raised` → funding gap |
-| Due-diligence documents | ✅ | **Shipped 2026-07-09** (migration #30). Documents open **inside** the portal via short-lived signed URLs, every open is logged, and developers see who is reading what at `/developer/data-room`. Viewers are **counted, not named** — an investor doing diligence isn't published as a lead list. Per-investor *permissioning* remains out of scope: today every validated project's documents are readable by any authenticated user, as they already were on the project page. |
+| Due-diligence documents | ✅ | Migration #30. Documents open **inside** the portal via signed URLs; every open is logged; developers see who is reading what at `/developer/data-room`. **Viewers are counted, never named.** |
 
-**Closed.** Only `signed`/`active` count as contracted — a draft, negotiation, completed or
-terminated agreement contributes nothing, or speculative revenue would be restated as contracted.
-Over-commitment (contracted volume > estimated issuance) is flagged rather than allowed to drive
-speculative volume negative. `irrContracted` distinguishes "nothing contracted" from "contracted
-revenue ≤ OPEX" — the latter is a solvency warning, not a missing number.
-
-**Closed.** All seven bullets are met. Note the one thing NOT built: **per-investor permissioning**.
-Documents on a validated project are readable by any authenticated user — that was already true of the
-public project page, and the data room did not change it. If a developer needs to gate a specific
-document to a specific investor, that is a new feature, not a bug in this one.
+**Not built, deliberately:** per-investor document permissioning. Documents on a validated project are
+readable by any authenticated user — already true of the public project page. Gating a specific
+document to a specific investor is a new feature, not a bug in this one.
 
 ---
 
-## 6. Farmer Portal
+## 6. Farmer Portal — 🟡 5/6
 
 | Bullet | Status | Reality |
 |---|---|---|
-| Register | ✅ | `farmer` role, applyable at `/apply`, admin-assignable |
-| Upload deliveries | ✅ | `record_farmer_delivery` RPC + proof upload to the private bucket |
-| Track payments | 🟡✅ | Works, but **bookkeeping only** by design — a buyer-set flag, deliberately not wired to ledger/escrow/payouts. Farmers see pesos owed and paid, but no money moves through Carbonify. |
-| **View carbon participation** | ✅ | **Shipped 2026-07-09** (migration #31). A **Carbon** tab attributes verified tCO₂e pro-rata by delivered mass per project. Rule written down first: [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md). Presented as an **estimate**, never as credit ownership. |
-| Receive training | ❌ | **Missing.** No training module, content, route, or table anywhere. |
-| Monitor plantation performance | ✅ | **Shipped 2026-07-09** (no migration). Each parcel shows **actual vs expected**, colour-coded. Actuals are summed over the **trailing 12 months** because `expected_yield_tonnes` is an annual figure — comparing a 3-year-old parcel's lifetime output to one year's expectation would report 300% and mean nothing. No expected yield → `performance: null`, not zero and not 100%. |
-
-**Gap to close:** carbon participation is the emotional core of the farmer proposition and the
-reason a smallholder would care. Deliveries already carry `parcel_id` — reconciling delivered
-quantity against `expected_yield_tonnes` gives plantation performance almost for free.
+| Register | ✅ | `farmer` role (migration #25). Self-serve at **`/register/farmer`**, linked from both Login and Register. Reviewed by an **admin** (verifiers explicitly cannot approve farmer applications). Admins can also set the role directly in User Management. |
+| Upload deliveries | ✅ | `record_farmer_delivery` RPC + proof upload to the private bucket. Only against an **accepted** RFQ, so `buyer_id` is derived server-side, never trusted from the client. |
+| Track payments | 🟡✅ | Works, but **bookkeeping only, by design** — a buyer-set flag. Deliberately not wired to ledger/escrow/payouts, so the proven money path (reconcile = 0) stays untouched. No money moves through Carbonify. |
+| View carbon participation | ✅ | Migration #31. A **Carbon** tab attributes verified tCO₂e pro-rata by delivered mass per project. Rule written down *before* the code: [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md). Presented as an **estimate**, never as credit ownership — the farmer cannot sell or retire it, and the UI leads with that. |
+| **Receive training** | ❌ | **Missing.** No training module, content, route, or table anywhere in `src`. This is a **content problem**, not a code one. |
+| Monitor plantation performance | ✅ | Each parcel shows **actual vs expected**, colour-coded. Actuals sum the **trailing 12 months**, because `expected_yield_tonnes` is an annual figure — a 3-year-old parcel against one year's expectation would report 300% and mean nothing. No expected yield → `performance: null`, not zero and not 100%. |
 
 ---
 
-## 7. AI Project Assistant
+## 7. AI Project Assistant — 🔴 0/5
 
-Interface preview only ([AiAssistantView.vue](../src/views/AiAssistantView.vue)). The composer is
-disabled, nothing is sent anywhere, and no answers are generated. Every spec bullet — credits
-generated, feedstock available, investment-ready projects, draft PDD, financing proposal — is ❌
-pending the Claude API edge function.
+Interface preview only ([AiAssistantView.vue](../src/views/AiAssistantView.vue)) at `/assistant`,
+linked under **Insights**. The composer is **disabled**, nothing is sent anywhere, no answers are
+generated, and there is **no `anthropic`/`openai` dependency**. Every spec bullet — credits generated,
+feedstock available this month, investment-ready projects, draft PDD, financing proposal — is ❌
+pending a Supabase edge function calling the Claude API (external key + running cost).
+
+The preview exists so the assistant is discoverable and its scope is legible. It does **not** pretend
+to work.
 
 ---
 
@@ -178,38 +142,32 @@ pending the Claude API edge function.
 
 | Claim | Reality |
 |---|---|
-| National biomass registry | 🟡 the marketplace + farmer parcels exist; nothing makes it *national* (no DENR/CCC registry linkage, no public biomass registry page) |
 | Carbon project marketplace | ✅ |
-| Carbon MRV platform | 🟡 capture ✅, roll-up ✅, but the headline metrics above are missing |
-| Project development portal | ✅ |
-| Investor data room | 🟡 doc count + link-out, not a real data room |
 | Feedstock marketplace | ✅ |
-| ESG reporting platform | 🟡 **buyer-side only** — [esgReportService.js](../src/services/esgReportService.js) exports PDF/CSV from the *credit portfolio*. Developers, farmers, and verifiers have no ESG export. LGU reports are a separate, unrelated thing. |
+| Project development portal | ✅ |
+| Investor data room | ✅ in-portal viewer + access log (per-investor permissioning not built) |
+| Carbon MRV platform | 🟡 capture ✅, roll-up ✅, removed/avoided split ✅ — satellite/IoT ⏳ |
+| **National biomass registry** | 🟡 The marketplace and farmer parcels exist, but nothing makes it *national*: **no DENR/CCC registry linkage**, and the public [`/registry`](../src/views/RegistryView.vue) page is a **certificate table** — it never displays methodology, development status, feedstock, or capacity. The rich registry data lives only on each project's own page. |
+| **ESG reporting platform** | 🟡 **Credit-owner side only.** [`esgReportService.js`](../src/services/esgReportService.js) exports PDF/CSV from the *credit portfolio* (any authenticated user, scoped to credits they own). LGUs have a separate, unrelated jurisdiction report. **Developers, farmers, and verifiers have no ESG export.** |
 
 ---
 
-## Recommended order to close the gaps
+## What's left, ranked
 
-Ranked by *investor-visible value per unit of work*.
+Nothing below is blocked on code we can write today.
 
-- ~~**1. MRV: farmers participating + plantation hectares**~~ ✅ done (needed migration #26 for hectares)
-- ~~**2. Asset ledger: buyer history**~~ ✅ done
-- ~~**3. Black pellets**~~ ✅ done
-- ~~**6. Offtake agreements / ERPAs**~~ ✅ done (migration #27)
-- ~~**7b. Real in-portal data room**~~ ✅ done (migration #30)
+1. **🔴 Runtime verification** — see [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md).
+   All 31 migrations are applied and 312 unit tests pass, but **none of this has run against the live
+   database**. Unit tests prove the pure math; they prove nothing about RLS policies or RPC grants.
+2. **🔴 Independent penetration test** — the last P0 before live payment keys.
+3. **Email confirmation** — OFF by choice. Needs a domain (~₱600–900/yr), not a subscription:
+   Resend's free tier is 3,000 emails/month. Until then **anyone can sign up with an address they do
+   not control.**
+4. **Farmer training content** (#6e) — writing, not programming.
+5. **AI assistant backend** (#7) — Claude API edge fn, RLS-scoped to the caller. External cost.
+6. **Satellite / IoT feeds** (#4) — external APIs, running cost.
 
-**Next up:**
-
-- ~~**4. Farmer carbon participation**~~ ✅ done (migration #31; rule in
-  [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md))
-
-**Next up:**
-- ~~**5. Methodology enum + development-status lifecycle**~~ ✅ done (migration #28)
-
-- ~~**7. CO₂ avoided vs removed split**~~ ✅ done (migration #29)
-
-- ~~**7c. MRV reports as a registry document type**~~ ✅ done
-- ~~**Energy-generated tile**~~ ✅ done
-8. **AI assistant backend** — Claude API edge fn, RLS-scoped to the caller. *(external cost)*
-9. **Satellite / IoT feeds** — external APIs + running cost. *(deferred)*
-10. **Training module** — content problem more than a code problem.
+**Nice-to-haves surfaced by this audit** (small, codeable, not spec bullets):
+- Surface methodology / development status / feedstock on the **public registry**, so the
+  "national biomass registry" claim is true rather than aspirational.
+- An ESG export for **developers** (they can prove issuance but not disclose it).

@@ -1,5 +1,13 @@
 # Carbonify — Go-Live Roadmap (Real Users)
 
+> 🧭 **2026-07-09 — this page predates the seven expansion features.** For their honest,
+> bullet-by-bullet status read **[EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md)**; for the
+> current one-screen summary read the top of **[HANDOFF.md](HANDOFF.md)**. Net change since this page
+> was written: features #1, #2, #3 and #5 are complete; #4 is 6/8 and #6 is 5/6; #7 is an interface
+> preview with no backend. All 31 migrations are applied. The **P0 blockers below are unchanged** —
+> an independent penetration test, and email confirmation is currently **off by choice**.
+
+
 > **Updated:** 2026-07-04 · **Branch:** `feature-user-onboarding-ux` (PR #2 → `main`)
 > The single source of truth for **what is ready, what is not, and what to do next** to put Carbonify in front of **real users with real money.** Companion to [DEPLOYMENT_READINESS.md](dev/DEPLOYMENT_READINESS.md) (security detail), [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) (status + test runbook) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 >
