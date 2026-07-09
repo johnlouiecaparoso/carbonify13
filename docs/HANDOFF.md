@@ -1,5 +1,19 @@
 # Carbonify — Handoff (current state)
 
+> 📈 **2026-07-09 — PLANTATION PERFORMANCE MONITORING (#6f). No migration.** The parcel register was
+> static: it stored `expected_yield_tonnes` and never compared it to anything. Deliveries now carry
+> `parcel_id` (migration #31), so each parcel card shows **actual vs expected**, colour-coded.
+> Build ✅ · ESLint 0 ✅ · **312 tests ✅** (+9).
+>
+> **The subtlety that shapes it:** `expected_yield_tonnes` is an **annual** figure, so actuals are
+> summed over the **trailing 12 months**, not lifetime. A three-year-old parcel compared against one
+> year's expectation would report **300% performance** and mean nothing. Lifetime tonnage is shown
+> separately, as context rather than as the ratio.
+>
+> A parcel with no expected yield reports `performance: null` — **not zero, and not 100%**. An absent
+> target is not a met one. Over-performance is reported honestly (130%), never capped at 100%.
+> Non-mass units (sacks/bales/m³) are excluded, as everywhere else in the farmer math.
+>
 > 🌾 **2026-07-09 — FARMER CARBON PARTICIPATION (#6 now 5/6).** A farmer could see sacks and pesos,
 > never how their feedstock became carbon. Migration **#31** adds `farmer_deliveries.project_id` — the
 > missing link that made attribution impossible — plus `farmer_carbon_participation()`, and the Farmer

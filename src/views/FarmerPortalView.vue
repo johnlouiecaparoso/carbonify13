@@ -14,6 +14,7 @@ import {
   aggregateParcels,
   getMyCarbonParticipation,
   unattributableDeliveries,
+  aggregateParcelPerformance,
 } from '@/services/farmerService'
 import { FARM_CROP_TYPES, PARCEL_STATUSES, cropTypeLabel } from '@/constants/farmer'
 import { biomassTypeLabel } from '@/constants/biomass'
@@ -73,6 +74,20 @@ const totalAttributed = computed(() =>
   Math.round(carbon.value.reduce((s, c) => s + (Number(c.attributedTco2e) || 0), 0) * 1000) / 1000,
 )
 const excluded = computed(() => unattributableDeliveries(deliveries.value))
+
+/** parcelId → { performance, deliveredTrailingYear, … } for the parcel cards. */
+const performanceByParcel = computed(() => {
+  const rows = aggregateParcelPerformance(parcels.value, deliveries.value)
+  return Object.fromEntries(rows.map((r) => [r.parcelId, r]))
+})
+
+/** Under 80% of expectation is worth flagging; over 100% is worth celebrating. */
+function performanceTone(perf) {
+  if (perf == null) return ''
+  if (perf >= 1) return 'good'
+  if (perf < 0.8) return 'low'
+  return 'ok'
+}
 
 function peso(n) {
   return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -364,6 +379,35 @@ onMounted(load)
             </span>
             <span v-if="parcel.planted_on"> · planted {{ shortDate(parcel.planted_on) }}</span>
           </div>
+
+          <!-- Actual vs expected, over the trailing 12 months -->
+          <div v-if="performanceByParcel[parcel.id]?.deliveryCount" class="perf">
+            <div class="perf-head">
+              <span class="perf-label">Last 12 months</span>
+              <span class="perf-value" :class="performanceTone(performanceByParcel[parcel.id].performance)">
+                {{ qty(performanceByParcel[parcel.id].deliveredTrailingYear) }} t
+                <template v-if="performanceByParcel[parcel.id].performance != null">
+                  · {{ (performanceByParcel[parcel.id].performance * 100).toFixed(0) }}% of expected
+                </template>
+              </span>
+            </div>
+            <div v-if="performanceByParcel[parcel.id].expectedAnnual" class="bar">
+              <div
+                class="bar-fill"
+                :class="performanceTone(performanceByParcel[parcel.id].performance)"
+                :style="{ width: Math.min(100, performanceByParcel[parcel.id].performance * 100) + '%' }"
+              ></div>
+            </div>
+            <div class="muted small">
+              {{ qty(performanceByParcel[parcel.id].deliveredLifetime) }} t delivered in total
+              across {{ performanceByParcel[parcel.id].deliveryCount }} delivery(ies)<span
+                v-if="performanceByParcel[parcel.id].lastDeliveredOn"
+              >
+                · last {{ shortDate(performanceByParcel[parcel.id].lastDeliveredOn) }}</span
+              >
+            </div>
+          </div>
+
           <p v-if="parcel.notes" class="note">"{{ parcel.notes }}"</p>
           <div class="actions">
             <button
@@ -610,6 +654,16 @@ onMounted(load)
 .carbon-badge { background: #d1fae5; color: #065f46; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 0.85rem; white-space: nowrap; height: fit-content; }
 .bar { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin: 12px 0 8px; }
 .bar-fill { height: 100%; background: #069e2d; border-radius: 999px; }
+.bar-fill.low { background: #d97706; }
+.bar-fill.ok { background: #069e2d; }
+.bar-fill.good { background: #047857; }
+.perf { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
+.perf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.perf-label { font-size: 0.78rem; font-weight: 600; color: #6b7280; }
+.perf-value { font-size: 0.85rem; font-weight: 600; color: #374151; }
+.perf-value.low { color: #92400e; }
+.perf-value.ok { color: #065f46; }
+.perf-value.good { color: #047857; }
 .notice.ok { background: #ecfdf5; color: #065f46; }
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; }
 .notice.inline { margin: 10px 0 0; }

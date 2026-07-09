@@ -8,6 +8,7 @@ import {
   deliveryTonnes,
   attributeCarbon,
   unattributableDeliveries,
+  aggregateParcelPerformance,
 } from '@/services/farmerService'
 import { cropTypeLabel } from '@/constants/farmer'
 
@@ -276,5 +277,112 @@ describe('unattributableDeliveries', () => {
 
   it('handles empty input', () => {
     expect(unattributableDeliveries([])).toEqual({ unattributedProject: 0, nonMassUnits: 0 })
+  })
+})
+
+describe('aggregateParcelPerformance', () => {
+  const NOW = new Date('2026-07-09T00:00:00Z').getTime()
+  const parcels = [{ id: 'a', name: 'Lot 3', crop_type: 'rice', expected_yield_tonnes: 100 }]
+
+  const delivery = (over) => ({
+    status: 'confirmed',
+    parcel_id: 'a',
+    unit: 'tonnes',
+    ...over,
+  })
+
+  it('compares the trailing 12 months against the ANNUAL expectation', () => {
+    const [row] = aggregateParcelPerformance(
+      parcels,
+      [delivery({ quantity: 80, delivered_on: '2026-05-01' })],
+      NOW,
+    )
+    expect(row.deliveredTrailingYear).toBe(80)
+    expect(row.performance).toBe(0.8)
+  })
+
+  it('excludes deliveries older than 12 months from performance but not from lifetime', () => {
+    // The whole point: a 3-year-old parcel must not report 300% performance.
+    const [row] = aggregateParcelPerformance(
+      parcels,
+      [
+        delivery({ quantity: 100, delivered_on: '2024-01-01' }),
+        delivery({ quantity: 100, delivered_on: '2025-01-01' }),
+        delivery({ quantity: 50, delivered_on: '2026-06-01' }),
+      ],
+      NOW,
+    )
+    expect(row.deliveredLifetime).toBe(250)
+    expect(row.deliveredTrailingYear).toBe(50)
+    expect(row.performance).toBe(0.5)
+  })
+
+  it('reports over-performance honestly rather than capping at 100%', () => {
+    const [row] = aggregateParcelPerformance(
+      parcels,
+      [delivery({ quantity: 130, delivered_on: '2026-06-01' })],
+      NOW,
+    )
+    expect(row.performance).toBe(1.3)
+  })
+
+  it('returns a null performance when nothing was expected — not zero, not 100%', () => {
+    const [row] = aggregateParcelPerformance(
+      [{ id: 'a', name: 'Lot 3' }],
+      [delivery({ quantity: 10, delivered_on: '2026-06-01' })],
+      NOW,
+    )
+    expect(row.performance).toBeNull()
+    expect(row.expectedAnnual).toBeNull()
+    expect(row.deliveredTrailingYear).toBe(10)
+  })
+
+  it('converts kg and ignores non-mass units', () => {
+    const [row] = aggregateParcelPerformance(
+      parcels,
+      [
+        delivery({ quantity: 5000, unit: 'kg', delivered_on: '2026-06-01' }),
+        delivery({ quantity: 999, unit: 'sacks', delivered_on: '2026-06-01' }),
+      ],
+      NOW,
+    )
+    expect(row.deliveredTrailingYear).toBe(5)
+    expect(row.deliveryCount).toBe(1)
+  })
+
+  it('ignores unconfirmed deliveries and those with no parcel', () => {
+    const [row] = aggregateParcelPerformance(
+      parcels,
+      [
+        delivery({ quantity: 50, delivered_on: '2026-06-01', status: 'pending' }),
+        delivery({ quantity: 50, delivered_on: '2026-06-01', parcel_id: null }),
+      ],
+      NOW,
+    )
+    expect(row.deliveredLifetime).toBe(0)
+    expect(row.performance).toBe(0)
+  })
+
+  it('keeps the most recent delivery date', () => {
+    const [row] = aggregateParcelPerformance(
+      parcels,
+      [
+        delivery({ quantity: 1, delivered_on: '2026-02-01' }),
+        delivery({ quantity: 1, delivered_on: '2026-06-01' }),
+      ],
+      NOW,
+    )
+    expect(row.lastDeliveredOn).toBe('2026-06-01')
+  })
+
+  it('lists a parcel with no deliveries at zero, not missing', () => {
+    const [row] = aggregateParcelPerformance(parcels, [], NOW)
+    expect(row.deliveredLifetime).toBe(0)
+    expect(row.performance).toBe(0)
+    expect(row.deliveryCount).toBe(0)
+  })
+
+  it('handles empty input', () => {
+    expect(aggregateParcelPerformance([], [], NOW)).toEqual([])
   })
 })

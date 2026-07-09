@@ -33,13 +33,14 @@
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
 | 4 | MRV Dashboard | **6 / 8** fully | 🟡 only satellite + IoT remain (both external, deferred) |
 | 5 | Investor Portal | **7 / 7** | ✅ complete — offtake agreements + real data room shipped 2026-07-09 |
-| 6 | Farmer Portal | **5 / 6** | 🟡 only training remains (content, not code) |
+| 6 | Farmer Portal | **5 / 6** | 🟡 only **training** remains — content, not code |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
 
 > **Net (2026-07-09, after the close-out pass):** features **#1, #2, #3 and #5 are complete**; **#4 is
-> 6/8 and #6 is 5/6**. Everything still open needs something other than code: **training content**
-> (#6e), an **API key + running cost** (#7 AI backend), **external feeds** (#4 satellite/IoT), or an
-> **actual-vs-expected yield** design (#6f, the last codeable item).
+> 6/8, #6 is 5/6**. **Nothing codeable remains.** Everything still open needs something other than
+> code: **training content** (#6e), an **API key + running cost** (#7 AI backend), or **external
+> feeds** (#4 satellite/IoT). The next real step is a **runtime click-through** — none of the farmer
+> or investor flows has been exercised against the live database.
 >
 > The original finding still holds as a lesson: feature-level "shipped" labels hid missing sub-items,
 > and the missing ones clustered precisely in the investor- and farmer-facing surfaces that matter
@@ -156,7 +157,7 @@ document to a specific investor, that is a new feature, not a bug in this one.
 | Track payments | 🟡✅ | Works, but **bookkeeping only** by design — a buyer-set flag, deliberately not wired to ledger/escrow/payouts. Farmers see pesos owed and paid, but no money moves through Carbonify. |
 | **View carbon participation** | ✅ | **Shipped 2026-07-09** (migration #31). A **Carbon** tab attributes verified tCO₂e pro-rata by delivered mass per project. Rule written down first: [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md). Presented as an **estimate**, never as credit ownership. |
 | Receive training | ❌ | **Missing.** No training module, content, route, or table anywhere. |
-| Monitor plantation performance | 🟡 | Still a **static register** plus expected-yield totals. Deliveries carry `parcel_id` but are not reconciled against a parcel's expected yield, so there is no actual-vs-expected or trend. |
+| Monitor plantation performance | ✅ | **Shipped 2026-07-09** (no migration). Each parcel shows **actual vs expected**, colour-coded. Actuals are summed over the **trailing 12 months** because `expected_yield_tonnes` is an annual figure — comparing a 3-year-old parcel's lifetime output to one year's expectation would report 300% and mean nothing. No expected yield → `performance: null`, not zero and not 100%. |
 
 **Gap to close:** carbon participation is the emotional core of the farmer proposition and the
 reason a smallholder would care. Deliveries already carry `parcel_id` — reconciling delivered

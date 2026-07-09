@@ -109,6 +109,77 @@ export function attributeCarbon(farmerTonnes, projectTonnes, verifiedTco2e) {
   }
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Plantation performance: what each parcel actually delivered, against what it
+ * was expected to yield.
+ *
+ * `expected_yield_tonnes` is an ANNUAL figure, so it is compared against the
+ * TRAILING 12 MONTHS of deliveries — not lifetime. Comparing a three-year-old
+ * parcel's lifetime output against one year's expectation would show 300%
+ * performance and mean nothing.
+ *
+ * Only confirmed, mass-denominated deliveries count (see `deliveryTonnes`).
+ * A parcel with no expected yield reports its actuals with `performance: null`
+ * rather than a fabricated ratio.
+ *
+ * @param {Array} parcels rows from `farm_parcels`
+ * @param {Array} deliveries rows from `farmer_deliveries` (must carry `parcel_id`)
+ * @param {number} [now] injectable clock for tests
+ * @returns {Array<{parcelId:string, name:string, cropType:string, expectedAnnual:number|null,
+ *   deliveredTrailingYear:number, deliveredLifetime:number, performance:number|null,
+ *   deliveryCount:number, lastDeliveredOn:string|null, status:string}>}
+ */
+export function aggregateParcelPerformance(parcels = [], deliveries = [], now = Date.now()) {
+  const parcelRows = Array.isArray(parcels) ? parcels : []
+  const deliveryRows = Array.isArray(deliveries) ? deliveries : []
+  const cutoff = now - 365 * DAY_MS
+
+  const byParcel = new Map()
+  for (const d of deliveryRows) {
+    if (d?.status !== 'confirmed' || !d.parcel_id) continue
+    const tonnes = deliveryTonnes(d)
+    if (tonnes == null) continue // non-mass unit: no defensible tonnage
+
+    const cur = byParcel.get(d.parcel_id) || {
+      trailing: 0,
+      lifetime: 0,
+      count: 0,
+      lastDeliveredOn: null,
+    }
+    cur.lifetime += tonnes
+    cur.count += 1
+    const at = d.delivered_on ? new Date(d.delivered_on).getTime() : null
+    if (at != null && !isNaN(at) && at >= cutoff) cur.trailing += tonnes
+    if (d.delivered_on && (!cur.lastDeliveredOn || d.delivered_on > cur.lastDeliveredOn)) {
+      cur.lastDeliveredOn = d.delivered_on
+    }
+    byParcel.set(d.parcel_id, cur)
+  }
+
+  const round2 = (n) => Math.round(n * 100) / 100
+
+  return parcelRows.map((p) => {
+    const agg = byParcel.get(p.id) || { trailing: 0, lifetime: 0, count: 0, lastDeliveredOn: null }
+    const expected = num(p?.expected_yield_tonnes)
+    return {
+      parcelId: p.id,
+      name: p.name || 'Parcel',
+      cropType: p.crop_type || '',
+      status: p.status || 'active',
+      expectedAnnual: expected > 0 ? round2(expected) : null,
+      deliveredTrailingYear: round2(agg.trailing),
+      deliveredLifetime: round2(agg.lifetime),
+      // Ratio of a year's actual to a year's expectation. Null — not zero, and
+      // not 100% — when nothing was expected: an absent target isn't a met one.
+      performance: expected > 0 ? Math.round((agg.trailing / expected) * 1e4) / 1e4 : null,
+      deliveryCount: agg.count,
+      lastDeliveredOn: agg.lastDeliveredOn,
+    }
+  })
+}
+
 /**
  * Deliveries that cannot be attributed, and why. The farmer is told this rather
  * than left to wonder why their tonnage doesn't match their carbon.
