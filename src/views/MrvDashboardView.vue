@@ -15,6 +15,13 @@ function num(n) {
 function tco2e(n) {
   return `${num(n)} tCO₂e`
 }
+/** kWh is unreadable past a few thousand; step up to MWh / GWh. */
+function energy(kwh) {
+  const v = Number(kwh) || 0
+  if (v >= 1e6) return `${num(Math.round((v / 1e6) * 100) / 100)} GWh`
+  if (v >= 1e3) return `${num(Math.round((v / 1e3) * 100) / 100)} MWh`
+  return `${num(v)} kWh`
+}
 function shortDate(d) {
   return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 }
@@ -137,6 +144,11 @@ onMounted(load)
           <div class="card-label">Proposed (in reports)</div>
           <div class="card-value">{{ tco2e(data.totals.proposedVers) }}</div>
           <div class="muted small">{{ num(data.totals.reportsTotal) }} report(s) filed</div>
+        </div>
+        <div v-if="data.totals.energyGeneratedKwh > 0" class="card">
+          <div class="card-label">Energy generated</div>
+          <div class="card-value">{{ energy(data.totals.energyGeneratedKwh) }}</div>
+          <div class="muted small">from measured activity data</div>
         </div>
         <div class="card">
           <div class="card-label">Projects reporting</div>

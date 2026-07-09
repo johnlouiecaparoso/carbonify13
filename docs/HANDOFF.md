@@ -1,5 +1,16 @@
 # Carbonify — Handoff (current state)
 
+> 📑 **2026-07-09 — #1 COMPLETE (8/8) · #4 now 6/8.** Two small closers, **no migration**:
+> **MRV Report** is now an optional project document type (a published monitoring report reaches the
+> public project page — #1's last bullet), and the MRV dashboard gained a dedicated **Energy
+> generated** tile (kWh → MWh → GWh). The tile sums `energy_kwh` only and **deliberately excludes
+> `energy_saved_kwh`** — energy *saved* is avoided consumption, a different claim, and adding them
+> would overstate what the project produced. Build ✅ · ESLint 0 ✅ · **272 tests ✅**.
+>
+> **Scorecard:** #1 **8/8** · #2 **6/6** · #3 **7/7** · #4 **6/8** (only satellite + IoT, both
+> external) · #5 **6/7** (data room is a link-out) · #6 3/6 · #7 0/5.
+> Full detail: [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md).
+>
 > 🌱 **2026-07-09 — CO₂ REMOVED vs AVOIDED SPLIT (closes #4b + #4c).** The MRV dashboard summed every
 > verified reduction into one tCO₂e figure. Registries and buyers price removals and avoidances very
 > differently — a durable removal (biochar, afforestation) is not interchangeable with an avoided
@@ -20,7 +31,8 @@
 > column is missing**, so `approveReport` retries the VER insert without `reduction_type` and mints
 > the credits unclassified. The dashboard read falls back the same way.
 >
-> **⬜ To finish:** apply migration **#29**.
+> **Migration #29 APPLIED (2026-07-09).** **⬜ To finish:** approve an MRV report → pick
+> Removal/Avoidance → the dashboard splits it.
 >
 > 🏷️ **2026-07-09 — REGISTRY CREDIBILITY PASS (closes #1c + #1g).** **Methodology is now an enum**
 > ([`projectRegistry.js`](../src/constants/projectRegistry.js)): Verra (VCS), Gold Standard,
@@ -42,7 +54,7 @@
 > Investor Portal's query **falls back** if the column is absent, rather than 400-ing the whole
 > pipeline over one optional field.
 >
-> **⬜ To finish:** apply migration **#28**.
+> **Migration #28 APPLIED (2026-07-09).**
 >
 > 🤝 **2026-07-09 — OFFTAKE AGREEMENTS / ERPAs SHIPPED (closes #5's biggest gap).** Until now every
 > IRR in the Investor Portal rested on an **assumed** credit price for every credit the project might
@@ -421,8 +433,8 @@ to confirm an empty result.
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
 > | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
-> | 29 | `20260715000000_ver_reduction_type.sql` | ⬜ **pending** | Adds `verified_emission_reductions.reduction_type` (`removal` / `avoidance`, **nullable**, CHECK-constrained + partial index on approved rows). Closes #4's CO₂-avoided-vs-removed bullet. **Deliberately not backfilled** — a legacy VER was approved without anyone asserting a type, and guessing from the project category would fake a verifier's assertion on an issued credit. The MRV dashboard shows an explicit **Unclassified** bucket instead. **Apply, then approve an MRV report → pick Removal/Avoidance → the dashboard splits it.** |
-> | 28 | `20260714000000_project_development_status.sql` | ⬜ **pending** | Adds `projects.development_status` (concept / feasibility / financing / construction / operational / decommissioned, nullable, CHECK-constrained + partial index) — the **real-world lifecycle**, distinct from `projects.status` (the Carbonify validation workflow). Closes #1's "development status" bullet. `methodology` intentionally stays free TEXT (the UI drives it from a canonical list; a CHECK would reject legacy rows like "Verra VM0044" on any later UPDATE). **Apply, then Submit/Edit Project offers a Development Status dropdown and the Investor Portal gains a stage filter.** |
+> | 29 | `20260715000000_ver_reduction_type.sql` | ✅ **applied (2026-07-09)** | Adds `verified_emission_reductions.reduction_type` (`removal` / `avoidance`, **nullable**, CHECK-constrained + partial index on approved rows). Closes #4's CO₂-avoided-vs-removed bullet. **Deliberately not backfilled** — a legacy VER was approved without anyone asserting a type, and guessing from the project category would fake a verifier's assertion on an issued credit. The MRV dashboard shows an explicit **Unclassified** bucket instead. **Apply, then approve an MRV report → pick Removal/Avoidance → the dashboard splits it.** |
+> | 28 | `20260714000000_project_development_status.sql` | ✅ **applied (2026-07-09)** | Adds `projects.development_status` (concept / feasibility / financing / construction / operational / decommissioned, nullable, CHECK-constrained + partial index) — the **real-world lifecycle**, distinct from `projects.status` (the Carbonify validation workflow). Closes #1's "development status" bullet. `methodology` intentionally stays free TEXT (the UI drives it from a canonical list; a CHECK would reject legacy rows like "Verra VM0044" on any later UPDATE). **Apply, then Submit/Edit Project offers a Development Status dropdown and the Investor Portal gains a stage filter.** |
 > | 27 | `20260713000000_offtake_agreements.sql` | ✅ **applied (2026-07-09)** | Expansion #5's missing bullet. Creates `offtake_agreements` (project, counterparty, volume, price, term, status) — **owner-only RLS**, since counterparty + price are commercially sensitive — plus `offtake_summary(uuid[])`, a SECURITY DEFINER RPC returning only contracted volume/value/count per validated project (never a counterparty or price) so investors can see contracted share without seeing terms. Insert is doubly guarded: `developer_id = auth.uid()` **and** the caller owns the project. **Apply, then a developer records a signed agreement → the Investor Portal shows contracted % + downside IRR.** |
 > | 26 | `20260712000000_parcel_supply_visibility.sql` | ✅ **applied (2026-07-09)** | Unblocks **plantation hectares** on the MRV dashboard. #25 made `farm_parcels` owner-private, so a developer couldn't read the area of parcels supplying them. Adds a narrow SELECT policy: a buyer may read a parcel **only** where it supplied them a delivery with `status='confirmed'` (a pending/rejected delivery grants nothing, so a farmer can't be exposed by merely logging one). Owner INSERT/UPDATE/DELETE from #25 untouched. Plus a `(parcel_id, buyer_id, status)` index. **Apply, then the MRV dashboard's “Plantation hectares” stops showing “—”.** |
 > | 25 | `20260711000000_farmer_portal.sql` | ✅ **applied (2026-07-09)** | Expansion #6. Adds `farm_parcels` (plantation register, owner-private RLS) + `farmer_deliveries` (delivery against an accepted RFQ, with proof docs, buyer confirmation, and a bookkeeping `payment_status`) + 3 SECURITY DEFINER RPCs (`record_farmer_delivery` / `confirm_farmer_delivery` / `mark_farmer_delivery_paid` — no INSERT/UPDATE policy, so a farmer can't mark their own delivery paid). Also **widens the two role gates**: `assign_user_role()` now admits `'farmer'`, `role_applications.role_requested` CHECK now admits `'farmer'`, and `notify_role_application_trigger()` routes farmer applications to admins. **Apply, then run the click-through in the header note.** |

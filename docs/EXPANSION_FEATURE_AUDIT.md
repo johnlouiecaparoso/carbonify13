@@ -28,17 +28,22 @@
 
 | # | Feature | Bullets met | Honest status |
 |---|---|---|---|
-| 1 | Project Registry | **7 / 8** | 🟡 methodology enum + development status shipped 2026-07-09; MRV reports still not a registry doc type |
+| 1 | Project Registry | **8 / 8** | ✅ complete |
 | 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
-| 4 | MRV Dashboard | **5 / 8** fully | 🟡 farmers + biomass + hectares + CO₂ removed/avoided split shipped; only energy-generated tile and satellite/IoT remain |
+| 4 | MRV Dashboard | **6 / 8** fully | 🟡 only satellite + IoT remain (both external, deferred) |
 | 5 | Investor Portal | **6 / 7** | 🟡 offtake agreements shipped 2026-07-09; data room is still a link-out |
 | 6 | Farmer Portal | 3 / 6 | 🟡 **carbon participation + training missing** |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
 
-> **Net:** the *plumbing* for all seven exists. The investor-facing and farmer-facing **storytelling
-> layers** (buyer history, carbon participation, offtake, satellite/IoT) are the consistent gap —
-> and those are exactly the parts that matter to Japan Energy Capital / Enechange-class diligence.
+> **Net (2026-07-09, after the close-out pass):** features **#1, #2 and #3 are complete**. What
+> remains is: the **farmer-facing storytelling layer** (carbon participation, training), a **real
+> in-portal data room**, the **AI backend**, and **satellite/IoT** — the last two needing external
+> services with a running cost.
+>
+> The original finding still holds as a lesson: feature-level "shipped" labels hid missing sub-items,
+> and the missing ones clustered precisely in the investor- and farmer-facing surfaces that matter
+> most to Japan Energy Capital / Enechange-class diligence.
 
 ---
 
@@ -53,10 +58,9 @@
 | Capacity | ✅ | `capacity` + `capacity_unit` ([ProjectDetailView.vue:76](../src/views/ProjectDetailView.vue#L76)) |
 | Expected carbon reductions | ✅ | `estimated_credits` + `expected_impact` |
 | Development status | ✅ | **Shipped 2026-07-09** (migration #28). `development_status`: concept → feasibility → financing → construction → operational → decommissioned. Deliberately **orthogonal** to `projects.status` (the validation workflow) — a test asserts the two vocabularies never share a value, since conflating them was the original bug. Nullable, because defaulting existing projects to 'concept' would assert something untrue about them. |
-| Documents (PDD, feasibility, MRV reports) | 🟡 | **PDD ✅** and **feasibility ✅** are uploadable + viewable. **MRV reports ❌ are not a project document type** — MRV lives in a separate monitoring module and is not surfaced in the registry's document list. |
+| Documents (PDD, feasibility, MRV reports) | ✅ | **Shipped 2026-07-09.** PDD and feasibility were already uploadable + viewable; **MRV Report** is now an optional project document type, so a published monitoring report reaches the public project page. |
 
-**Remaining gap:** surfacing MRV reports as registry documents (they live in the separate monitoring
-module and are not offered as a project document type).
+**Closed.** All eight bullets are met.
 
 ---
 
@@ -88,23 +92,23 @@ the buyer count, and a buyer of two projects counts once portfolio-wide.
 | Sugarcane bagasse | ✅ |
 | Buyers request quotations directly | ✅ | full RFQ → quote → accept/decline flow ([biomassService.js:163](../src/services/biomassService.js#L163)) |
 
-**Gap to close:** one line in [biomass.js](../src/constants/biomass.js) — `black_pellets`. Trivial,
-and it's a named RRCC product.
+**Closed.** All seven bullets are met.
 
 ---
 
-## 4. MRV Dashboard — the weakest feature against its spec
+## 4. MRV Dashboard
 
-Positioned as "one of the biggest differentiators," this is the feature furthest from its bullets.
-The dashboard aggregates **whatever `monitoring_activity_data` rows happen to exist**, keyed by
-`metric_key`; it does not compute the named metrics.
+**Was** the weakest feature against its spec — originally 0/8 bullets fully met, despite being
+positioned as "one of the biggest differentiators." It aggregated whatever `monitoring_activity_data`
+rows happened to exist and computed none of the named metrics. Now **6/8**: only satellite and IoT
+remain, both external and deferred from the start.
 
 | Bullet | Status | Reality |
 |---|---|---|
 | Biomass collected | ✅ | **Shipped 2026-07-09.** Summed from **confirmed** farmer deliveries (pending/rejected excluded). `kg` converts to tonnes; sacks/bales/m³ are **excluded from the tonnage** and surfaced as a caveat line, because their mass depends on the feedstock's bulk density — summing them would invent a number. |
 | CO₂ avoided | ✅ | **Shipped 2026-07-09** (migration #29). `reduction_type` on each VER, asserted by the **verifier at approval** — pre-selected from the project category, never auto-applied. |
 | CO₂ removed | ✅ | Same. The dashboard shows **removed / avoided / unclassified**; legacy VERs stay unclassified rather than being retro-guessed into a type nobody asserted. |
-| Energy generated | 🟡 | `energy_kwh` exists as an optional activity metric and appears in a generic grid **only if a report happens to contain it**. No dedicated tile. |
+| Energy generated | ✅ | **Shipped 2026-07-09.** A dedicated tile summing `energy_kwh`, scaled to MWh/GWh. Deliberately **not** merged with `energy_saved_kwh` — energy saved is avoided consumption, a different claim, and adding them would overstate what the project produced. |
 | Farmers participating | ✅ | **Shipped 2026-07-09.** Distinct `farmer_id` across confirmed deliveries to this developer. |
 | Plantation hectares | ✅ | **Shipped 2026-07-09**, needed **migration #26**. Sums `area_hectares` of parcels that supplied a confirmed delivery, excluding retired land. When #26 isn't applied the metric reads "—" and says so, rather than silently reporting **0** — a wrong number is worse than a missing one. |
 | Satellite monitoring | ⏳ | Out of scope. External API + cost. |
@@ -113,8 +117,8 @@ The dashboard aggregates **whatever `monitoring_activity_data` rows happen to ex
 A new **Farmer supply chain** panel renders these, and only appears once a farmer has actually
 delivered — an all-zero panel would read as "we have no farmers" rather than "this isn't set up yet."
 
-**Remaining gap:** a dedicated **energy-generated** tile (today `energy_kwh` only appears if a report
-happens to carry it). Satellite/IoT stay deferred (external API + cost).
+**Remaining gap:** satellite monitoring and IoT integration only — both need external APIs with a
+running cost, and both were deferred from the start.
 
 ---
 
@@ -199,7 +203,8 @@ Ranked by *investor-visible value per unit of work*.
 
 - ~~**7. CO₂ avoided vs removed split**~~ ✅ done (migration #29)
 
-7c. **MRV reports as a registry document type** — #1's last bullet. *(no migration)*
+- ~~**7c. MRV reports as a registry document type**~~ ✅ done
+- ~~**Energy-generated tile**~~ ✅ done
 7b. **Real in-portal data room** — document viewer, access log, per-investor permissioning. *(migration)*
 8. **AI assistant backend** — Claude API edge fn, RLS-scoped to the caller. *(external cost)*
 9. **Satellite / IoT feeds** — external APIs + running cost. *(deferred)*

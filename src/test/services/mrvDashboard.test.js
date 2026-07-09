@@ -265,3 +265,40 @@ describe('aggregateMrvDashboard — removed vs avoided split', () => {
     expect(removal + avoidance + unclassified).toBeCloseTo(d.totals.verifiedVers, 2)
   })
 })
+
+describe('aggregateMrvDashboard — energy generated', () => {
+  const base = { projects: [{ id: 'p1', title: 'X', created_at: '2026-01-01' }] }
+
+  it('sums energy_kwh across reports', () => {
+    const d = aggregateMrvDashboard({
+      ...base,
+      reports: [{ id: 'r1', project_id: 'p1', status: 'approved' }],
+      activity: [
+        { report_id: 'r1', metric_key: 'energy_kwh', value: 1200, unit: 'kWh' },
+        { report_id: 'r1', metric_key: 'energy_kwh', value: 800, unit: 'kWh' },
+      ],
+      now: NOW,
+    })
+    expect(d.totals.energyGeneratedKwh).toBe(2000)
+  })
+
+  it('never merges energy_saved_kwh into energy generated', () => {
+    // Energy saved is avoided consumption, not production. Adding them would
+    // overstate what the project generated.
+    const d = aggregateMrvDashboard({
+      ...base,
+      reports: [{ id: 'r1', project_id: 'p1', status: 'approved' }],
+      activity: [
+        { report_id: 'r1', metric_key: 'energy_kwh', value: 500, unit: 'kWh' },
+        { report_id: 'r1', metric_key: 'energy_saved_kwh', value: 9999, unit: 'kWh' },
+      ],
+      now: NOW,
+    })
+    expect(d.totals.energyGeneratedKwh).toBe(500)
+  })
+
+  it('is zero when no report carries energy data', () => {
+    const d = aggregateMrvDashboard({ ...base, now: NOW })
+    expect(d.totals.energyGeneratedKwh).toBe(0)
+  })
+})

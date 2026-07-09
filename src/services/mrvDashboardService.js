@@ -178,6 +178,11 @@ export function aggregateMrvDashboard({
     .map((m) => ({ ...m, value: round2(m.value), label: metricLabel(m.metric_key) }))
     .sort((a, b) => b.value - a.value)
 
+  // Energy GENERATED is a headline metric in its own right. Deliberately not
+  // merged with `energy_saved_kwh` — energy saved is avoided consumption, a
+  // different claim, and adding them would overstate what the project produced.
+  const energyGeneratedKwh = round2(metricMap.get('energy_kwh')?.value || 0)
+
   // Monthly trend: proposed (from reports) vs verified (from approved VERs).
   const proposedByMonth = new Map()
   for (const r of reports || []) {
@@ -243,6 +248,7 @@ export function aggregateMrvDashboard({
       verifiedVers: round2(verifiedVers),
       pendingVers: round2(pendingVers),
       projectsReporting,
+      energyGeneratedKwh,
     },
     verifiedByType,
     metricTotals,

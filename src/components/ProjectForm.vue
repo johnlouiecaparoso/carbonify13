@@ -82,6 +82,7 @@ const formData = ref({
   leakage_file: null,
   safeguards_file: null,
   feasibility_file: null,
+  mrv_report_file: null,
 
   lgu_endorsement_file: null,
   land_ownership_file: null,
@@ -145,6 +146,7 @@ const additionalityInput = ref(null)
 const leakageInput = ref(null)
 const safeguardsInput = ref(null)
 const feasibilityInput = ref(null)
+const mrvReportInput = ref(null)
 
 const lguEndorsementInput = ref(null)
 const landOwnershipInput = ref(null)
@@ -674,7 +676,13 @@ const REQUIRED_DOCS = [
   { field: 'moa_file', label: 'MOA / Agreements', key: 'moa' },
 ]
 
-const OPTIONAL_DOCS = [{ field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' }]
+// MRV reports are produced periodically in the monitoring module; attaching one
+// here is how a *published* report reaches the public registry page, which the
+// registry spec asks for. Optional: a new project has no monitoring history yet.
+const OPTIONAL_DOCS = [
+  { field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' },
+  { field: 'mrv_report_file', label: 'MRV Report', key: 'mrv_report' },
+]
 
 // How many required docs are still missing (drives the submit-button hint).
 const missingRequiredDocs = computed(() =>
@@ -1496,6 +1504,18 @@ onMounted(() => {
                 <span class="doc-card-file">{{ formData.feasibility_file ? formData.feasibility_file.name : 'Click to upload PDF' }}</span>
               </span>
               <input ref="feasibilityInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'feasibility_file')" />
+            </label>
+
+            <label class="doc-card" :class="{ filled: !!formData.mrv_report_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.mrv_report_file ? 'check_circle' : 'monitoring' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">MRV Report <span class="opt">Optional</span></span>
+                <span class="doc-card-desc">A published monitoring, reporting &amp; verification report. Attach one so buyers and investors can read your measured results on the project page. New projects won't have one yet.</span>
+                <span class="doc-card-file">{{ formData.mrv_report_file ? formData.mrv_report_file.name : 'Click to upload PDF' }}</span>
+              </span>
+              <input ref="mrvReportInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'mrv_report_file')" />
             </label>
 
             <label class="doc-card" :class="{ filled: !!formData.lgu_endorsement_file }">
