@@ -28,6 +28,9 @@ function complianceLabel(state, daysUntil) {
 }
 
 const hasTrend = computed(() => (data.value?.trend?.labels?.length || 0) > 0)
+// Only show the supply panel once a farmer has actually delivered — an all-zero
+// panel would read as "we have no farmers" rather than "this isn't set up yet".
+const hasSupply = computed(() => (data.value?.supply?.confirmedDeliveries || 0) > 0)
 const hasStatusBreakdown = computed(() =>
   data.value ? Object.values(data.value.totals.byStatus).some((n) => n > 0) : false,
 )
@@ -128,6 +131,46 @@ onMounted(load)
           <div class="card-value">{{ num(data.compliance.overdue) }} overdue</div>
           <div class="muted small">{{ num(data.compliance.due_soon) }} due soon · {{ num(data.compliance.on_track) }} on track</div>
         </div>
+      </section>
+
+      <!-- Farmer supply chain (expansion #6 feeding #4) -->
+      <section v-if="hasSupply" class="panel">
+        <h2>Farmer supply chain</h2>
+        <p class="muted small sub">
+          Confirmed feedstock deliveries from farmers. Pending and rejected deliveries are excluded.
+        </p>
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="metric-value">{{ num(data.supply.farmersParticipating) }}</div>
+            <div class="metric-label">Farmers participating</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">
+              {{ num(data.supply.biomassCollectedTonnes) }} <span class="metric-unit">t</span>
+            </div>
+            <div class="metric-label">Biomass collected</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" v-if="data.supply.hectaresAvailable">
+              {{ num(data.supply.plantationHectares) }} <span class="metric-unit">ha</span>
+            </div>
+            <div class="metric-value muted" v-else>—</div>
+            <div class="metric-label">Plantation hectares</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">{{ num(data.supply.confirmedDeliveries) }}</div>
+            <div class="metric-label">Confirmed deliveries</div>
+          </div>
+        </div>
+        <p v-if="data.supply.unconvertedDeliveries" class="muted small note">
+          {{ num(data.supply.unconvertedDeliveries) }} delivery(ies) are measured in sacks, bales, or
+          m³ and are excluded from the biomass tonnage — their mass depends on the feedstock's bulk
+          density.
+        </p>
+        <p v-if="!data.supply.hectaresAvailable" class="muted small note">
+          Plantation hectares are unavailable: the parcels supplying you aren't readable yet. Apply
+          migration #26 (<code>20260712000000_parcel_supply_visibility.sql</code>) to enable it.
+        </p>
       </section>
 
       <!-- Charts -->

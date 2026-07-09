@@ -11,12 +11,80 @@ import { metricLabel, metricUnit } from '@/constants/mrv'
  * (against the admin reporting cadence). Pure aggregation over existing tables —
  * no new schema. Satellite/IoT feeds are intentionally out of scope.
  *
+ * It also rolls up the SUPPLY side from the Farmer Portal (#6): farmers
+ * participating, biomass collected, and plantation hectares — the developer here
+ * is the RFQ *buyer*, so these are supply-chain figures rather than per-project
+ * ones. Plantation hectares needs migration #26 (a buyer can read the parcels
+ * that supplied them); until it's applied, `parcels` arrives empty and the metric
+ * reports as unavailable rather than as zero.
+ *
  * Mirrors assetLedgerService: fetch owned projects → parallel drift-safe reads →
  * a pure, unit-tested aggregate function.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
+
+/**
+ * Mass units we can express in tonnes. Deliveries also allow sacks/bales/m³,
+ * whose mass depends on the feedstock's bulk density — converting those would be
+ * inventing a number, so they are counted separately and excluded from the total.
+ */
+const TONNE_FACTORS = { tonnes: 1, kg: 0.001 }
+
+/**
+ * Roll the farmer supply chain up for a developer (the RFQ buyer).
+ *
+ * Only CONFIRMED deliveries count: a pending one hasn't been verified as received,
+ * and a rejected one never arrived. Counting either would overstate the biomass a
+ * developer can claim to have collected.
+ *
+ * @param {Array<{farmer_id?:string, parcel_id?:string, quantity?:number, unit?:string, status?:string}>} [deliveries]
+ * @param {Array<{id?:string, area_hectares?:number, status?:string}>} [parcels]
+ *   parcels supplying this developer; empty when RLS hides them (see migration #26)
+ * @returns {{farmersParticipating:number, biomassCollectedTonnes:number,
+ *   confirmedDeliveries:number, unconvertedDeliveries:number,
+ *   plantationHectares:number, hectaresAvailable:boolean}}
+ */
+export function aggregateFarmerSupply(deliveries = [], parcels = []) {
+  const rows = Array.isArray(deliveries) ? deliveries : []
+  const farmers = new Set()
+  const parcelIds = new Set()
+  let biomassCollectedTonnes = 0
+  let confirmedDeliveries = 0
+  let unconvertedDeliveries = 0
+
+  for (const d of rows) {
+    if (d?.status !== 'confirmed') continue
+    confirmedDeliveries += 1
+    if (d.farmer_id) farmers.add(d.farmer_id)
+    if (d.parcel_id) parcelIds.add(d.parcel_id)
+
+    const factor = TONNE_FACTORS[d.unit]
+    if (factor == null) {
+      unconvertedDeliveries += 1
+      continue
+    }
+    biomassCollectedTonnes += (Number(d.quantity) || 0) * factor
+  }
+
+  // Hectares only from parcels that actually supplied a confirmed delivery, and
+  // never from retired land.
+  const supplying = (Array.isArray(parcels) ? parcels : []).filter(
+    (p) => p?.id && parcelIds.has(p.id) && p.status !== 'retired',
+  )
+  const plantationHectares = supplying.reduce((s, p) => s + (Number(p.area_hectares) || 0), 0)
+
+  return {
+    farmersParticipating: farmers.size,
+    biomassCollectedTonnes: round2(biomassCollectedTonnes),
+    confirmedDeliveries,
+    unconvertedDeliveries,
+    plantationHectares: round2(plantationHectares),
+    // Distinguishes "no parcels supplied us" from "we cannot see the parcels".
+    hectaresAvailable: supplying.length > 0 || parcelIds.size === 0,
+  }
+}
 
 function monthKey(dateLike) {
   if (!dateLike) return null
@@ -38,6 +106,8 @@ function monthLabel(key) {
  * @param {Array<{project_id:string,status?:string,proposed_vers?:number,period_end?:string,created_at?:string,id?:string}>} [input.reports]
  * @param {Array<{project_id:string,approved_quantity?:number,status?:string,approved_at?:string,created_at?:string}>} [input.vers]
  * @param {Array<{report_id:string,metric_key:string,value?:number,unit?:string}>} [input.activity]
+ * @param {Array<Object>} [input.deliveries] confirmed farmer deliveries to this developer
+ * @param {Array<Object>} [input.parcels] parcels that supplied those deliveries
  * @param {number} [input.cadenceDays=365]
  * @param {number} [input.now=Date.now()]
  * @returns {Object}
@@ -47,6 +117,8 @@ export function aggregateMrvDashboard({
   reports = [],
   vers = [],
   activity = [],
+  deliveries = [],
+  parcels = [],
   cadenceDays = 365,
   now = Date.now(),
 } = {}) {
@@ -163,6 +235,7 @@ export function aggregateMrvDashboard({
     trend,
     perProject,
     compliance: complianceCounts,
+    supply: aggregateFarmerSupply(deliveries, parcels),
   }
 }
 
@@ -188,13 +261,17 @@ async function safeIn(supabase, table, columns, col, ids) {
  */
 export async function getMyMrvDashboard() {
   const supabase = getSupabase()
-  const empty = aggregateMrvDashboard({})
-  if (!supabase) return empty
+  if (!supabase) return aggregateMrvDashboard({})
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return empty
+  if (!user) return aggregateMrvDashboard({})
+
+  // Supply side is independent of the project list — a developer can be buying
+  // feedstock before any of their projects is validated — so fetch it up front
+  // and include it even in the otherwise-empty dashboard.
+  const { deliveries, parcels } = await getFarmerSupply(supabase, user.id)
 
   // Validated projects are the ones expected to report.
   const { data: projects, error: projErr } = await supabase
@@ -208,7 +285,7 @@ export async function getMyMrvDashboard() {
     throw new Error(projErr.message || 'Failed to load your projects')
   }
   const projectIds = (projects || []).map((p) => p.id)
-  if (!projectIds.length) return empty
+  if (!projectIds.length) return aggregateMrvDashboard({ deliveries, parcels })
 
   const [reports, vers, cadenceDays] = await Promise.all([
     safeIn(
@@ -237,5 +314,43 @@ export async function getMyMrvDashboard() {
     reportIds,
   )
 
-  return aggregateMrvDashboard({ projects, reports, vers, activity, cadenceDays: Number(cadenceDays) || 365 })
+  return aggregateMrvDashboard({
+    projects,
+    reports,
+    vers,
+    activity,
+    deliveries,
+    parcels,
+    cadenceDays: Number(cadenceDays) || 365,
+  })
+}
+
+/**
+ * Confirmed farmer deliveries where this developer is the buyer, plus the parcels
+ * that supplied them. Both reads are drift-safe: on a DB without migration #25 the
+ * tables are absent, and without #26 the parcels are hidden by RLS — either way we
+ * degrade to [] rather than failing the dashboard.
+ */
+async function getFarmerSupply(supabase, userId) {
+  let deliveries = []
+  try {
+    const { data, error } = await supabase
+      .from('farmer_deliveries')
+      .select('farmer_id, parcel_id, quantity, unit, status')
+      .eq('buyer_id', userId)
+      .eq('status', 'confirmed')
+    if (error) {
+      console.warn('[mrvDashboard] farmer_deliveries unavailable, skipping:', error.message)
+    } else {
+      deliveries = data || []
+    }
+  } catch (err) {
+    console.warn('[mrvDashboard] farmer_deliveries threw, skipping:', err?.message)
+  }
+
+  const parcelIds = [...new Set(deliveries.map((d) => d.parcel_id).filter(Boolean))]
+  if (!parcelIds.length) return { deliveries, parcels: [] }
+
+  const parcels = await safeIn(supabase, 'farm_parcels', 'id, area_hectares, status', 'id', parcelIds)
+  return { deliveries, parcels }
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getMyAssetLedger } from '@/services/assetLedgerService'
 
 const loading = ref(true)
@@ -16,6 +16,14 @@ function num(n) {
 function statusLabel(s) {
   return String(s || '').replace(/_/g, ' ')
 }
+function shortDate(d) {
+  return d
+    ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+    : '—'
+}
+
+/** Only projects that actually have buyers appear in the buyer-history section. */
+const projectsWithBuyers = computed(() => rows.value.filter((r) => r.buyers?.length))
 
 async function load() {
   loading.value = true
@@ -70,7 +78,9 @@ onMounted(load)
         <div class="card">
           <div class="card-label">Credits sold</div>
           <div class="card-value">{{ num(totals.sold) }}</div>
-          <div class="muted small">{{ peso(totals.soldValue) }} gross</div>
+          <div class="muted small">
+            {{ peso(totals.soldValue) }} gross · {{ num(totals.buyers) }} buyer(s)
+          </div>
         </div>
         <div class="card">
           <div class="card-label">Credits retired</div>
@@ -137,6 +147,54 @@ onMounted(load)
           <strong>Available</strong> = unsold inventory remaining.
         </p>
       </section>
+
+      <!-- Buyer history — who bought, how much, and when (per project) -->
+      <section class="panel">
+        <h2>Buyer history</h2>
+        <p class="muted small sub">
+          Your counterparties per project, largest first. Repeat purchases by the same buyer are
+          grouped into one row.
+        </p>
+
+        <div v-if="!projectsWithBuyers.length" class="empty-inline">
+          <span class="material-symbols-outlined" aria-hidden="true">group</span>
+          <p class="muted">No credits sold yet — buyers will appear here after your first sale.</p>
+        </div>
+
+        <div v-for="row in projectsWithBuyers" :key="row.projectId" class="buyer-block">
+          <div class="buyer-head">
+            <router-link :to="`/projects/${row.projectId}`" class="proj-link">
+              {{ row.projectTitle }}
+            </router-link>
+            <span class="muted small">{{ num(row.buyerCount) }} buyer(s) · {{ num(row.sold) }} credits</span>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Buyer</th>
+                  <th class="num">Credits</th>
+                  <th class="num">Value</th>
+                  <th class="num">Purchases</th>
+                  <th class="num">Last purchase</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="buyer in row.buyers" :key="buyer.buyerId || 'unknown'">
+                  <td>
+                    {{ buyer.name }}
+                    <span v-if="!buyer.buyerId" class="muted small">(unattributed)</span>
+                  </td>
+                  <td class="num">{{ num(buyer.quantity) }}</td>
+                  <td class="num">{{ peso(buyer.value) }}</td>
+                  <td class="num">{{ num(buyer.purchases) }}</td>
+                  <td class="num">{{ shortDate(buyer.lastPurchaseAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </template>
 
     <!-- Empty state: developer has no projects yet -->
@@ -162,6 +220,20 @@ onMounted(load)
   margin: 0;
   font-size: 1.6rem;
 }
+.sub { margin: -6px 0 14px; }
+.buyer-block { margin-bottom: 22px; }
+.buyer-block:last-child { margin-bottom: 0; }
+.buyer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.empty-inline { text-align: center; padding: 28px 16px; color: #6b7280; }
+.empty-inline .material-symbols-outlined { font-size: 34px; color: #069e2d; }
+.empty-inline p { margin: 8px 0 0; }
 .page-head p {
   color: #6b7280;
   margin: 4px 0 20px;

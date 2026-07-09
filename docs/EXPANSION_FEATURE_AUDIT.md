@@ -1,8 +1,19 @@
 # Carbonify — Expansion Feature Audit (bullet-by-bullet)
 
-> **Audited:** 2026-07-09 · **Method:** each sub-item checked against the actual code, columns, and
-> rendered UI — not against the summaries in [HANDOFF.md](HANDOFF.md). Where a doc claimed something
-> was shipped and the code disagreed, **the code wins** and it is marked below.
+> **Audited:** 2026-07-09 · **Updated:** 2026-07-09 (first three gaps closed) · **Method:** each
+> sub-item checked against the actual code, columns, and rendered UI — not against the summaries in
+> [HANDOFF.md](HANDOFF.md). Where a doc claimed something was shipped and the code disagreed,
+> **the code wins** and it is marked below.
+>
+> ✅ **Closed since the audit:** **buyer history** (#2e), **farmers participating** + **biomass
+> collected** (#4a/e), **plantation hectares** (#4f), **black pellets** (#3). +18 unit tests.
+>
+> ⚠️ **The audit itself got one thing wrong.** It claimed farmers-participating and plantation-hectares
+> were "a join away, no migration". Farmers-participating and biomass-collected were. **Hectares was
+> not:** migration #25 made `farm_parcels` readable only by the owning farmer, so a developer could not
+> see the area of the parcels supplying them. That needed **migration #26**
+> ([`20260712000000_parcel_supply_visibility.sql`](../supabase/migrations/20260712000000_parcel_supply_visibility.sql)),
+> a narrow policy letting a buyer read a parcel *only* when it supplied them a delivery they confirmed.
 >
 > **Why this file exists:** the seven expansion features were tracked at *feature* granularity
 > ("#5 Investor Portal — shipped"), which hid missing *sub-items* inside shipped features. Feature-level
@@ -18,9 +29,9 @@
 | # | Feature | Bullets met | Honest status |
 |---|---|---|---|
 | 1 | Project Registry | 5 / 8 | 🟡 mostly there; methodology + dev-status + MRV docs are weaker than claimed |
-| 2 | Carbon Asset Management | 5 / 6 | 🟡 **buyer history missing** |
-| 3 | Biomass Marketplace | 6 / 7 | 🟡 black pellets not a first-class type |
-| 4 | MRV Dashboard | 0 / 8 fully | 🔴 **weakest feature vs spec** — the "biggest differentiator" is the least complete |
+| 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
+| 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
+| 4 | MRV Dashboard | **3 / 8** fully | 🟡 farmers + biomass collected + hectares shipped; CO₂ avoided/removed split and satellite/IoT remain |
 | 5 | Investor Portal | 5 / 7 | 🟡 **offtake agreements missing**; data room is a link-out |
 | 6 | Farmer Portal | 3 / 6 | 🟡 **carbon participation + training missing** |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
@@ -57,12 +68,11 @@
 | Pending credits | ✅ | from VERs with `status='pending'` |
 | Sold credits | ✅ | completed `credit_transactions` |
 | Retired credits | ✅ | `credit_retirements` |
-| **Buyer history** | ❌ | **Missing.** The sales query never selects `buyer_id` ([assetLedgerService.js:207](../src/services/assetLedgerService.js#L207)); the ledger shows only aggregate sold quantity and value. A developer cannot see **who** bought their credits. |
+| **Buyer history** | ✅ | **Shipped 2026-07-09.** Sales now select `buyer_id` + `created_at`; a **Buyer history** section lists counterparties per project (credits, value, purchase count, last purchase), largest first. Repeat purchases collapse into one row. Buyer names resolve from `profiles`, degrading to "Unknown buyer" if that read is RLS-blocked. |
 | Carbon inventory | ✅ | issued − sold, or the pool's available column |
 
-**Gap to close:** buyer history. This is the bullet that matters for **ERPAs and institutional
-buyers** — the stated reason for the feature. Needs `buyer_id` joined to `profiles` in the sales
-query plus a per-project buyer table in the ledger view.
+**Closed.** Sales with no `buyer_id` bucket into a single "unattributed" row rather than inflating
+the buyer count, and a buyer of two projects counts once portfolio-wide.
 
 ---
 
@@ -70,7 +80,7 @@ query plus a per-project buyer table in the ledger view.
 
 | Feedstock | Status |
 |---|---|
-| Black pellets | ❌ **not in the dropdown** — only `wood_pellets`. Enterable via "Other biomass" free text, so it can't be filtered or browsed as a category. |
+| Black pellets | ✅ **shipped 2026-07-09** — `black_pellets` ("Black pellets (torrefied)") is now a first-class dropdown type. |
 | Biochar | ✅ |
 | Rice husks | ✅ |
 | Coconut biomass | ✅ (`coconut_husk`, `coconut_shell`) |
@@ -91,19 +101,20 @@ The dashboard aggregates **whatever `monitoring_activity_data` rows happen to ex
 
 | Bullet | Status | Reality |
 |---|---|---|
-| Biomass collected | ❌ | No such metric key exists in [mrv.js](../src/constants/mrv.js). Nearest are `waste_tonnes` / `biochar_tonnes`. |
+| Biomass collected | ✅ | **Shipped 2026-07-09.** Summed from **confirmed** farmer deliveries (pending/rejected excluded). `kg` converts to tonnes; sacks/bales/m³ are **excluded from the tonnage** and surfaced as a caveat line, because their mass depends on the feedstock's bulk density — summing them would invent a number. |
 | CO₂ avoided | 🟡 | Only a **combined** proposed/verified tCO₂e total. Avoided is never separated from removed. |
 | CO₂ removed | 🟡 | Same — no avoided-vs-removed split, which is the distinction buyers and registries care about. |
 | Energy generated | 🟡 | `energy_kwh` exists as an optional activity metric and appears in a generic grid **only if a report happens to contain it**. No dedicated tile. |
-| Farmers participating | ❌ | Not computed. The dashboard **never reads `farm_parcels` / `farmer_deliveries`** — even though those tables now exist (migration #25). |
-| Plantation hectares | ❌ | Same: `farm_parcels.area_hectares` exists and is **not** read by the MRV dashboard. |
-| Satellite monitoring | ⏳ | Explicitly out of scope ([mrvDashboardService.js:12](../src/services/mrvDashboardService.js#L12)). External API + cost. |
+| Farmers participating | ✅ | **Shipped 2026-07-09.** Distinct `farmer_id` across confirmed deliveries to this developer. |
+| Plantation hectares | ✅ | **Shipped 2026-07-09**, needed **migration #26**. Sums `area_hectares` of parcels that supplied a confirmed delivery, excluding retired land. When #26 isn't applied the metric reads "—" and says so, rather than silently reporting **0** — a wrong number is worse than a missing one. |
+| Satellite monitoring | ⏳ | Out of scope. External API + cost. |
 | IoT integration | ⏳ | Same. |
 
-**Gap to close (highest leverage in the whole audit):** the farmer tables shipped yesterday make
-**farmers participating** and **plantation hectares** cheap to compute — a join away, no migration
-needed. Splitting **CO₂ avoided vs removed** needs a flag on the VER/methodology. Those three turn
-the dashboard from "a report roll-up" into the differentiator it's described as.
+A new **Farmer supply chain** panel renders these, and only appears once a farmer has actually
+delivered — an all-zero panel would read as "we have no farmers" rather than "this isn't set up yet."
+
+**Remaining gap:** splitting **CO₂ avoided vs removed** needs a flag on the VER/methodology
+(migration). Satellite/IoT stay deferred.
 
 ---
 
@@ -167,12 +178,18 @@ pending the Claude API edge function.
 
 ## Recommended order to close the gaps
 
-Ranked by *investor-visible value per unit of work*. The first three need **no migration**.
+Ranked by *investor-visible value per unit of work*.
 
-1. **MRV: farmers participating + plantation hectares** — join the farmer tables the MRV dashboard already could read. Turns the "biggest differentiator" into one. *(no migration)*
-2. **Asset ledger: buyer history** — add `buyer_id` to the sales query, join `profiles`. Directly serves the stated ERPA / institutional-buyer use case. *(no migration)*
-3. **Black pellets** in the feedstock dropdown — one line, and it's a named RRCC product. *(no migration)*
-4. **Farmer carbon participation** — surface tCO₂e attributable to a farmer's deliveries. Needs a delivery→credit linkage decision.
+- ~~**1. MRV: farmers participating + plantation hectares**~~ ✅ done (needed migration #26 for hectares)
+- ~~**2. Asset ledger: buyer history**~~ ✅ done
+- ~~**3. Black pellets**~~ ✅ done
+
+**Next up:**
+
+4. **Farmer carbon participation** — surface tCO₂e attributable to a farmer's deliveries. Needs a
+   delivery→credit linkage decision: a delivery feeds a project, whose VERs mint credits, so the
+   attribution rule (pro-rata by delivered mass over the reporting period?) is a **methodology
+   choice, not just code**. Worth deciding deliberately.
 5. **Methodology enum** + **development-status lifecycle field** — makes the registry filterable and credible. *(migration)*
 6. **Offtake agreements / ERPAs** — the largest genuinely-new build; converts projected revenue into contracted revenue in the investor model. *(migration)*
 7. **CO₂ avoided vs removed split** — needs a methodology/VER flag. *(migration)*

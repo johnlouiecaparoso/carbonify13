@@ -113,3 +113,102 @@ describe('aggregateAssetLedger', () => {
     expect(totals.inventoryValue).toBe(800) // (30+50) * 10
   })
 })
+
+describe('aggregateAssetLedger — buyer history', () => {
+  const base = {
+    projects: [{ id: 'p1', title: 'Rice husk', estimated_credits: 100, credit_price: 500 }],
+    buyerProfiles: {
+      b1: { full_name: 'Ana Cruz', organization_name: 'Acme Offsets' },
+      b2: { full_name: 'Ben Reyes' },
+    },
+  }
+
+  it('groups repeat purchases by the same buyer into one row', () => {
+    const { rows } = aggregateAssetLedger({
+      ...base,
+      sales: [
+        { project_id: 'p1', buyer_id: 'b1', quantity: 10, total_amount: 5000, status: 'completed', created_at: '2026-01-05' },
+        { project_id: 'p1', buyer_id: 'b1', quantity: 5, total_amount: 2500, status: 'completed', created_at: '2026-03-09' },
+      ],
+    })
+    expect(rows[0].buyers).toHaveLength(1)
+    expect(rows[0].buyers[0]).toMatchObject({ quantity: 15, value: 7500, purchases: 2 })
+    expect(rows[0].buyerCount).toBe(1)
+  })
+
+  it('keeps the most recent purchase date', () => {
+    const { rows } = aggregateAssetLedger({
+      ...base,
+      sales: [
+        { project_id: 'p1', buyer_id: 'b1', quantity: 5, total_amount: 1, status: 'completed', created_at: '2026-03-09' },
+        { project_id: 'p1', buyer_id: 'b1', quantity: 5, total_amount: 1, status: 'completed', created_at: '2026-01-05' },
+      ],
+    })
+    expect(rows[0].buyers[0].lastPurchaseAt).toBe('2026-03-09')
+  })
+
+  it('prefers organization name, falls back to full name', () => {
+    const { rows } = aggregateAssetLedger({
+      ...base,
+      sales: [
+        { project_id: 'p1', buyer_id: 'b1', quantity: 9, total_amount: 1, status: 'completed' },
+        { project_id: 'p1', buyer_id: 'b2', quantity: 1, total_amount: 1, status: 'completed' },
+      ],
+    })
+    expect(rows[0].buyers[0].name).toBe('Acme Offsets')
+    expect(rows[0].buyers[1].name).toBe('Ben Reyes')
+  })
+
+  it('degrades to "Unknown buyer" when the profile is unreadable', () => {
+    const { rows } = aggregateAssetLedger({
+      projects: base.projects,
+      sales: [{ project_id: 'p1', buyer_id: 'ghost', quantity: 1, total_amount: 1, status: 'completed' }],
+    })
+    expect(rows[0].buyers[0].name).toBe('Unknown buyer')
+  })
+
+  it('sorts buyers by quantity, largest counterparty first', () => {
+    const { rows } = aggregateAssetLedger({
+      ...base,
+      sales: [
+        { project_id: 'p1', buyer_id: 'b2', quantity: 3, total_amount: 1, status: 'completed' },
+        { project_id: 'p1', buyer_id: 'b1', quantity: 30, total_amount: 1, status: 'completed' },
+      ],
+    })
+    expect(rows[0].buyers.map((b) => b.buyerId)).toEqual(['b1', 'b2'])
+  })
+
+  it('excludes non-completed sales from buyer history', () => {
+    const { rows } = aggregateAssetLedger({
+      ...base,
+      sales: [{ project_id: 'p1', buyer_id: 'b1', quantity: 10, total_amount: 1, status: 'pending' }],
+    })
+    expect(rows[0].buyers).toEqual([])
+    expect(rows[0].buyerCount).toBe(0)
+  })
+
+  it('counts a buyer of two projects once in the portfolio total', () => {
+    const { totals } = aggregateAssetLedger({
+      projects: [{ id: 'p1' }, { id: 'p2' }],
+      sales: [
+        { project_id: 'p1', buyer_id: 'b1', quantity: 1, total_amount: 1, status: 'completed' },
+        { project_id: 'p2', buyer_id: 'b1', quantity: 1, total_amount: 1, status: 'completed' },
+      ],
+    })
+    expect(totals.buyers).toBe(1)
+  })
+
+  it('buckets sales with no buyer_id as a single unattributed row', () => {
+    const { rows, totals } = aggregateAssetLedger({
+      projects: base.projects,
+      sales: [
+        { project_id: 'p1', quantity: 2, total_amount: 1, status: 'completed' },
+        { project_id: 'p1', quantity: 3, total_amount: 1, status: 'completed' },
+      ],
+    })
+    expect(rows[0].buyers).toHaveLength(1)
+    expect(rows[0].buyers[0].buyerId).toBeNull()
+    expect(rows[0].buyers[0].quantity).toBe(5)
+    expect(totals.buyers).toBe(1)
+  })
+})

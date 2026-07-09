@@ -30,9 +30,12 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
  * @param {Object} input
  * @param {Array<{id:string, title?:string, status?:string, estimated_credits?:number, credit_price?:number}>} input.projects
  * @param {Array<{project_id:string, total_credits?:number, credits_available?:number, available_credits?:number, price_per_credit?:number, currency?:string}>} [input.pools]
- * @param {Array<{project_id:string, quantity?:number, total_amount?:number, status?:string}>} [input.sales]
+ * @param {Array<{project_id:string, quantity?:number, total_amount?:number, status?:string, buyer_id?:string, created_at?:string}>} [input.sales]
  * @param {Array<{project_id:string, approved_quantity?:number, status?:string}>} [input.vers]
  * @param {Array<{project_id:string, quantity?:number}>} [input.retirements]
+ * @param {Object<string,{full_name?:string, organization_name?:string, email?:string}>} [input.buyerProfiles]
+ *   buyer_id → profile. Absent entries fall back to "Unknown buyer" so the ledger
+ *   still renders when profile reads are blocked by RLS.
  * @returns {{rows:Array<Object>, totals:Object}}
  */
 export function aggregateAssetLedger({
@@ -41,6 +44,7 @@ export function aggregateAssetLedger({
   sales = [],
   vers = [],
   retirements = [],
+  buyerProfiles = {},
 } = {}) {
   // Index the per-project sources by project_id for O(1) lookup.
   const poolBy = new Map()
@@ -54,12 +58,44 @@ export function aggregateAssetLedger({
   }
 
   const soldBy = new Map()
+  // Buyer history: per project, who bought, how much, for how much, and when.
+  // Keyed project_id → buyer_id so repeat purchases by the same buyer collapse
+  // into one row with a purchase count (that's the shape an ERPA conversation
+  // wants — a counterparty list, not a transaction log).
+  const buyersBy = new Map()
   for (const s of sales || []) {
     if (s?.status !== 'completed' || !s?.project_id) continue
     const cur = soldBy.get(s.project_id) || { qty: 0, value: 0 }
-    cur.qty += Number(s.quantity) || 0
-    cur.value += Number(s.total_amount) || 0
+    const qty = Number(s.quantity) || 0
+    const value = Number(s.total_amount) || 0
+    cur.qty += qty
+    cur.value += value
     soldBy.set(s.project_id, cur)
+
+    const buyerId = s.buyer_id || null
+    const byBuyer = buyersBy.get(s.project_id) || new Map()
+    const key = buyerId || '__unknown__'
+    const entry = byBuyer.get(key) || {
+      buyerId,
+      quantity: 0,
+      value: 0,
+      purchases: 0,
+      lastPurchaseAt: null,
+    }
+    entry.quantity += qty
+    entry.value += value
+    entry.purchases += 1
+    if (s.created_at && (!entry.lastPurchaseAt || new Date(s.created_at) > new Date(entry.lastPurchaseAt))) {
+      entry.lastPurchaseAt = s.created_at
+    }
+    byBuyer.set(key, entry)
+    buyersBy.set(s.project_id, byBuyer)
+  }
+
+  /** Resolve a buyer entry to a display name, degrading when the profile is unreadable. */
+  const nameBuyer = (buyerId) => {
+    const p = buyerId ? buyerProfiles[buyerId] : null
+    return p?.organization_name || p?.full_name || p?.email || 'Unknown buyer'
   }
 
   const verBy = new Map()
@@ -98,6 +134,11 @@ export function aggregateAssetLedger({
     const retired = retiredBy.get(proj.id) || 0
     const pricePerCredit = Number(pool.price_per_credit) || Number(proj.credit_price) || 0
 
+    // Largest counterparty first — that's the one an ERPA hangs on.
+    const buyers = Array.from((buyersBy.get(proj.id) || new Map()).values())
+      .map((b) => ({ ...b, name: nameBuyer(b.buyerId), value: round2(b.value) }))
+      .sort((a, b) => b.quantity - a.quantity || b.value - a.value)
+
     return {
       projectId: proj.id,
       projectTitle: proj.title || 'Untitled Project',
@@ -112,6 +153,8 @@ export function aggregateAssetLedger({
       soldValue: round2(sold.value),
       inventoryValue: round2(inventory * pricePerCredit),
       currency: pool.currency || 'PHP',
+      buyers,
+      buyerCount: buyers.length,
     }
   })
 
@@ -145,6 +188,15 @@ export function aggregateAssetLedger({
   )
   totals.soldValue = round2(totals.soldValue)
   totals.inventoryValue = round2(totals.inventoryValue)
+
+  // Distinct buyers across the whole portfolio — a buyer of two projects counts once.
+  // Unattributed sales collapse into a single '__unknown__' bucket, so they don't
+  // inflate the count per project.
+  const distinct = new Set()
+  for (const byBuyer of buyersBy.values()) {
+    for (const key of byBuyer.keys()) distinct.add(key)
+  }
+  totals.buyers = distinct.size
 
   return { rows, totals }
 }
@@ -204,9 +256,10 @@ export async function getMyAssetLedger() {
     ),
     (async () => {
       // Completed sales where this developer is the seller, mapped to project_id.
+      // `buyer_id` + `created_at` drive the per-project buyer history.
       const { data, error } = await supabase
         .from('credit_transactions')
-        .select('quantity, total_amount, status, project_credits!inner(projects!inner(id))')
+        .select('quantity, total_amount, status, buyer_id, created_at, project_credits!inner(projects!inner(id))')
         .eq('seller_id', user.id)
         .eq('status', 'completed')
       if (error) {
@@ -218,11 +271,38 @@ export async function getMyAssetLedger() {
         quantity: t.quantity,
         total_amount: t.total_amount,
         status: t.status,
+        buyer_id: t.buyer_id,
+        created_at: t.created_at,
       }))
     })(),
     safeSelect(supabase, 'verified_emission_reductions', 'project_id, approved_quantity, status', projectIds),
     safeSelect(supabase, 'credit_retirements', 'project_id, quantity', projectIds),
   ])
 
-  return aggregateAssetLedger({ projects, pools, sales: salesRows, vers, retirements })
+  // 3) Resolve buyer identities for the buyer-history column. `profiles` may be
+  //    RLS-restricted; if the read fails the ledger still renders and buyers show
+  //    as "Unknown buyer" rather than the whole page erroring.
+  const buyerIds = [...new Set(salesRows.map((s) => s.buyer_id).filter(Boolean))]
+  const buyerProfiles = await getBuyerProfiles(supabase, buyerIds)
+
+  return aggregateAssetLedger({ projects, pools, sales: salesRows, vers, retirements, buyerProfiles })
+}
+
+/** buyer_id → profile map, degrading to {} when profile reads are not permitted. */
+async function getBuyerProfiles(supabase, buyerIds) {
+  if (!buyerIds.length) return {}
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, organization_name, email')
+      .in('id', buyerIds)
+    if (error) {
+      console.warn('[assetLedger] buyer profiles unavailable:', error.message)
+      return {}
+    }
+    return Object.fromEntries((data || []).map((p) => [p.id, p]))
+  } catch (err) {
+    console.warn('[assetLedger] buyer profile query threw:', err?.message)
+    return {}
+  }
 }

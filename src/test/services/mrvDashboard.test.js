@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateMrvDashboard } from '@/services/mrvDashboardService'
+import { aggregateMrvDashboard, aggregateFarmerSupply } from '@/services/mrvDashboardService'
 
 // Fixed "now" for deterministic compliance math: 2026-07-08.
 const NOW = new Date('2026-07-08T00:00:00Z').getTime()
@@ -103,5 +103,100 @@ describe('aggregateMrvDashboard', () => {
     expect(row.compliance.hasEverReported).toBe(false)
     expect(row.compliance.state).toBe('overdue') // created 2024, cadence 365d → overdue by 2026
     expect(d.totals.projectsReporting).toBe(0)
+  })
+})
+
+describe('aggregateFarmerSupply', () => {
+  it('returns zeros for no deliveries', () => {
+    const s = aggregateFarmerSupply()
+    expect(s.farmersParticipating).toBe(0)
+    expect(s.biomassCollectedTonnes).toBe(0)
+    expect(s.confirmedDeliveries).toBe(0)
+  })
+
+  it('counts only confirmed deliveries', () => {
+    const s = aggregateFarmerSupply([
+      { farmer_id: 'f1', quantity: 10, unit: 'tonnes', status: 'confirmed' },
+      { farmer_id: 'f2', quantity: 99, unit: 'tonnes', status: 'pending' },
+      { farmer_id: 'f3', quantity: 99, unit: 'tonnes', status: 'rejected' },
+    ])
+    expect(s.confirmedDeliveries).toBe(1)
+    expect(s.farmersParticipating).toBe(1)
+    expect(s.biomassCollectedTonnes).toBe(10)
+  })
+
+  it('counts distinct farmers once across many deliveries', () => {
+    const s = aggregateFarmerSupply([
+      { farmer_id: 'f1', quantity: 1, unit: 'tonnes', status: 'confirmed' },
+      { farmer_id: 'f1', quantity: 1, unit: 'tonnes', status: 'confirmed' },
+      { farmer_id: 'f2', quantity: 1, unit: 'tonnes', status: 'confirmed' },
+    ])
+    expect(s.farmersParticipating).toBe(2)
+    expect(s.confirmedDeliveries).toBe(3)
+  })
+
+  it('converts kg to tonnes', () => {
+    const s = aggregateFarmerSupply([
+      { farmer_id: 'f1', quantity: 2500, unit: 'kg', status: 'confirmed' },
+      { farmer_id: 'f1', quantity: 1.5, unit: 'tonnes', status: 'confirmed' },
+    ])
+    expect(s.biomassCollectedTonnes).toBe(4)
+  })
+
+  it('excludes non-mass units from tonnage but still counts the delivery', () => {
+    const s = aggregateFarmerSupply([
+      { farmer_id: 'f1', quantity: 100, unit: 'sacks', status: 'confirmed' },
+      { farmer_id: 'f1', quantity: 2, unit: 'tonnes', status: 'confirmed' },
+    ])
+    expect(s.biomassCollectedTonnes).toBe(2)
+    expect(s.unconvertedDeliveries).toBe(1)
+    expect(s.confirmedDeliveries).toBe(2)
+  })
+
+  it('sums hectares only for parcels that supplied a confirmed delivery', () => {
+    const s = aggregateFarmerSupply(
+      [{ farmer_id: 'f1', parcel_id: 'a', quantity: 1, unit: 'tonnes', status: 'confirmed' }],
+      [
+        { id: 'a', area_hectares: 2.5, status: 'active' },
+        { id: 'b', area_hectares: 100, status: 'active' },
+      ],
+    )
+    expect(s.plantationHectares).toBe(2.5)
+    expect(s.hectaresAvailable).toBe(true)
+  })
+
+  it('excludes retired parcels from hectares', () => {
+    const s = aggregateFarmerSupply(
+      [{ farmer_id: 'f1', parcel_id: 'a', quantity: 1, unit: 'tonnes', status: 'confirmed' }],
+      [{ id: 'a', area_hectares: 2.5, status: 'retired' }],
+    )
+    expect(s.plantationHectares).toBe(0)
+  })
+
+  it('flags hectares unavailable when parcels are hidden by RLS', () => {
+    const s = aggregateFarmerSupply(
+      [{ farmer_id: 'f1', parcel_id: 'a', quantity: 1, unit: 'tonnes', status: 'confirmed' }],
+      [], // migration #26 not applied — parcel rows invisible
+    )
+    expect(s.hectaresAvailable).toBe(false)
+    expect(s.plantationHectares).toBe(0)
+  })
+
+  it('reports hectares available when no delivery named a parcel', () => {
+    const s = aggregateFarmerSupply([
+      { farmer_id: 'f1', quantity: 1, unit: 'tonnes', status: 'confirmed' },
+    ])
+    expect(s.hectaresAvailable).toBe(true)
+  })
+})
+
+describe('aggregateMrvDashboard — supply block', () => {
+  it('includes a supply roll-up even with no projects', () => {
+    const d = aggregateMrvDashboard({
+      deliveries: [{ farmer_id: 'f1', quantity: 3, unit: 'tonnes', status: 'confirmed' }],
+    })
+    expect(d.totals.projects).toBe(0)
+    expect(d.supply.farmersParticipating).toBe(1)
+    expect(d.supply.biomassCollectedTonnes).toBe(3)
   })
 })

@@ -11,6 +11,7 @@ export const BIOMASS_PRODUCT_TYPES = [
   { value: 'corn_cob', label: 'Corn cob / stover' },
   { value: 'wood_chips', label: 'Wood chips' },
   { value: 'wood_pellets', label: 'Wood pellets' },
+  { value: 'black_pellets', label: 'Black pellets (torrefied)' },
   { value: 'biochar', label: 'Biochar' },
   { value: 'bana_grass', label: 'Bana grass' },
   { value: 'napier_grass', label: 'Napier grass' },

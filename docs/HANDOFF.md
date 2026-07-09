@@ -1,5 +1,23 @@
 # Carbonify — Handoff (current state)
 
+> ✅ **2026-07-09 — TOP 3 AUDIT GAPS CLOSED.** **#2 buyer history** (a Buyer history section on
+> [`/developer/ledger`](../src/views/CarbonAssetLedgerView.vue): counterparties per project with
+> credits, value, purchase count, last purchase — the ERPA use case), **#4 farmers participating +
+> biomass collected + plantation hectares** (a new *Farmer supply chain* panel on the MRV dashboard,
+> wiring expansion #6 into #4), and **#3 black pellets** as a first-class feedstock type. Build ✅ ·
+> ESLint 0 ✅ · **225 tests ✅** (+18).
+>
+> **⚠️ New migration #26 — `20260712000000_parcel_supply_visibility.sql` — MUST be applied for
+> plantation hectares.** The audit wrongly called hectares "no migration": migration #25 made
+> `farm_parcels` readable only by the owning farmer, so a developer couldn't see the area of parcels
+> supplying them. #26 adds a narrow policy — a buyer may read a parcel **only** if it supplied them a
+> delivery **they confirmed**. Until applied, the dashboard shows hectares as “—” and explains why,
+> rather than reporting a misleading **0**.
+>
+> Two correctness notes worth keeping: **biomass tonnage excludes sacks/bales/m³** (their mass depends
+> on bulk density — summing them would invent a number) and counts **confirmed deliveries only**;
+> **buyer names degrade to "Unknown buyer"** if `profiles` reads are RLS-blocked, rather than erroring.
+>
 > 🔍 **2026-07-09 — BULLET-BY-BULLET AUDIT OF THE 7 EXPANSION FEATURES → [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md).**
 > The features were tracked at *feature* granularity ("#5 Investor Portal — shipped"), which hid
 > missing **sub-items inside shipped features**. Audited against the code, the feature-level status
@@ -330,6 +348,7 @@ to confirm an empty result.
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
 > | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
+> | 26 | `20260712000000_parcel_supply_visibility.sql` | ⬜ **pending** | Unblocks **plantation hectares** on the MRV dashboard. #25 made `farm_parcels` owner-private, so a developer couldn't read the area of parcels supplying them. Adds a narrow SELECT policy: a buyer may read a parcel **only** where it supplied them a delivery with `status='confirmed'` (a pending/rejected delivery grants nothing, so a farmer can't be exposed by merely logging one). Owner INSERT/UPDATE/DELETE from #25 untouched. Plus a `(parcel_id, buyer_id, status)` index. **Apply, then the MRV dashboard's “Plantation hectares” stops showing “—”.** |
 > | 25 | `20260711000000_farmer_portal.sql` | ✅ **applied (2026-07-09)** | Expansion #6. Adds `farm_parcels` (plantation register, owner-private RLS) + `farmer_deliveries` (delivery against an accepted RFQ, with proof docs, buyer confirmation, and a bookkeeping `payment_status`) + 3 SECURITY DEFINER RPCs (`record_farmer_delivery` / `confirm_farmer_delivery` / `mark_farmer_delivery_paid` — no INSERT/UPDATE policy, so a farmer can't mark their own delivery paid). Also **widens the two role gates**: `assign_user_role()` now admits `'farmer'`, `role_applications.role_requested` CHECK now admits `'farmer'`, and `notify_role_application_trigger()` routes farmer applications to admins. **Apply, then run the click-through in the header note.** |
 > | 23 | `20260709000000_admin_set_kyb_verified.sql` | ✅ **applied (2026-07-08)** | Adds `admin_set_kyb_verified(uuid, boolean)` (is_admin-gated) so an admin can manually verify a business from **User Management** — clears the "Business verification required" gate for a developer who never filed a KYB application (previously only `review_kyb_application` could set `kyb_verified`, and only against an existing application). Also revokes client `update(kyb_verified)` so users can't self-verify. **Apply, then: Admin → User Management → edit a user → tick "Business verified (KYB)" → Save → that account's Sell-Feedstock gate disappears.** |
 
