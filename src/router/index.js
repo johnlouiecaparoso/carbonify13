@@ -205,6 +205,12 @@ const router = createRouter({
       },
     },
     {
+      path: '/assistant',
+      name: 'ai-assistant',
+      component: () => import('@/views/AiAssistantView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/farmer',
       name: 'farmer-portal',
       component: () => import('@/views/FarmerPortalView.vue'),

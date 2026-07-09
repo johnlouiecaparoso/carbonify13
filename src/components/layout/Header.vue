@@ -419,10 +419,14 @@ const profileSections = computed(() => {
   if (workspace.length) sections.push({ title: 'Workspace', items: workspace })
 
   // Analytics is available to EVERY authenticated role. Free users get a summary;
-  // Pro unlocks the full dashboard (gated inside the view).
+  // Pro unlocks the full dashboard (gated inside the view). The AI Assistant sits
+  // here too — currently an interface preview, ungated until the backend lands.
   sections.push({
     title: 'Insights',
-    items: [{ path: '/analytics', label: 'Analytics', icon: 'monitoring' }],
+    items: [
+      { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
+      { path: '/assistant', label: 'AI Assistant', icon: 'smart_toy' },
+    ],
   })
 
   // 2) Project developers: map + monitoring tucked under the profile menu.
