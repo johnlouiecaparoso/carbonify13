@@ -269,14 +269,23 @@ export async function startReview(reportId) {
 /**
  * Approve a report → records a VER (which mints credits via DB trigger).
  * @param {string} reportId
- * @param {{approvedQuantity:number, vintageYear?:number, projectId:string, notes?:string}} opts
+ * @param {{approvedQuantity:number, vintageYear?:number, projectId:string, notes?:string,
+ *   reductionType?:'removal'|'avoidance'|''}} opts
+ *   `reductionType` classifies the credits as removals or avoidances. Optional:
+ *   omitting it leaves the VER unclassified rather than guessing.
  */
-export async function approveReport(reportId, { approvedQuantity, vintageYear = null, projectId, notes = '' }) {
+export async function approveReport(
+  reportId,
+  { approvedQuantity, vintageYear = null, projectId, notes = '', reductionType = '' },
+) {
   const supabase = client()
   const uid = await getCurrentUserId()
   const qty = Number(approvedQuantity)
   if (isNaN(qty) || qty <= 0) {
     throw new Error('Approved quantity must be a positive number')
+  }
+  if (reductionType && !['removal', 'avoidance'].includes(reductionType)) {
+    throw new Error('Reduction type must be either removal or avoidance')
   }
 
   const nowIso = new Date().toISOString()
@@ -295,21 +304,35 @@ export async function approveReport(reportId, { approvedQuantity, vintageYear = 
   if (reportError) throw new Error(reportError.message || 'Failed to approve report')
 
   // 2) Record the VER — the trigger mints credits + ensures a listing
-  const { data: ver, error: verError } = await supabase
+  const verRow = {
+    report_id: reportId,
+    project_id: projectId,
+    approved_quantity: qty,
+    vintage_year: vintageYear || new Date().getFullYear(),
+    status: 'approved',
+    approved_by: uid,
+    approved_at: nowIso,
+    ...(reductionType && { reduction_type: reductionType }),
+  }
+
+  let { data: ver, error: verError } = await supabase
     .from('verified_emission_reductions')
-    .insert([
-      {
-        report_id: reportId,
-        project_id: projectId,
-        approved_quantity: qty,
-        vintage_year: vintageYear || new Date().getFullYear(),
-        status: 'approved',
-        approved_by: uid,
-        approved_at: nowIso,
-      },
-    ])
+    .insert([verRow])
     .select()
     .single()
+
+  // Schema-drift safety: `reduction_type` arrives with migration #29. Issuance is
+  // the load-bearing step here — never fail a mint because a classification column
+  // is missing. Retry without it; the VER lands unclassified.
+  if (verError && /reduction_type/.test(verError.message || '')) {
+    console.warn('[mrv] reduction_type absent, recording VER unclassified')
+    delete verRow.reduction_type
+    ;({ data: ver, error: verError } = await supabase
+      .from('verified_emission_reductions')
+      .insert([verRow])
+      .select()
+      .single())
+  }
   if (verError) throw new Error(verError.message || 'Failed to record verified emission reduction')
 
   try {

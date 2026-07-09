@@ -31,7 +31,7 @@
 | 1 | Project Registry | **7 / 8** | 🟡 methodology enum + development status shipped 2026-07-09; MRV reports still not a registry doc type |
 | 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
-| 4 | MRV Dashboard | **3 / 8** fully | 🟡 farmers + biomass collected + hectares shipped; CO₂ avoided/removed split and satellite/IoT remain |
+| 4 | MRV Dashboard | **5 / 8** fully | 🟡 farmers + biomass + hectares + CO₂ removed/avoided split shipped; only energy-generated tile and satellite/IoT remain |
 | 5 | Investor Portal | **6 / 7** | 🟡 offtake agreements shipped 2026-07-09; data room is still a link-out |
 | 6 | Farmer Portal | 3 / 6 | 🟡 **carbon participation + training missing** |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
@@ -102,8 +102,8 @@ The dashboard aggregates **whatever `monitoring_activity_data` rows happen to ex
 | Bullet | Status | Reality |
 |---|---|---|
 | Biomass collected | ✅ | **Shipped 2026-07-09.** Summed from **confirmed** farmer deliveries (pending/rejected excluded). `kg` converts to tonnes; sacks/bales/m³ are **excluded from the tonnage** and surfaced as a caveat line, because their mass depends on the feedstock's bulk density — summing them would invent a number. |
-| CO₂ avoided | 🟡 | Only a **combined** proposed/verified tCO₂e total. Avoided is never separated from removed. |
-| CO₂ removed | 🟡 | Same — no avoided-vs-removed split, which is the distinction buyers and registries care about. |
+| CO₂ avoided | ✅ | **Shipped 2026-07-09** (migration #29). `reduction_type` on each VER, asserted by the **verifier at approval** — pre-selected from the project category, never auto-applied. |
+| CO₂ removed | ✅ | Same. The dashboard shows **removed / avoided / unclassified**; legacy VERs stay unclassified rather than being retro-guessed into a type nobody asserted. |
 | Energy generated | 🟡 | `energy_kwh` exists as an optional activity metric and appears in a generic grid **only if a report happens to contain it**. No dedicated tile. |
 | Farmers participating | ✅ | **Shipped 2026-07-09.** Distinct `farmer_id` across confirmed deliveries to this developer. |
 | Plantation hectares | ✅ | **Shipped 2026-07-09**, needed **migration #26**. Sums `area_hectares` of parcels that supplied a confirmed delivery, excluding retired land. When #26 isn't applied the metric reads "—" and says so, rather than silently reporting **0** — a wrong number is worse than a missing one. |
@@ -113,8 +113,8 @@ The dashboard aggregates **whatever `monitoring_activity_data` rows happen to ex
 A new **Farmer supply chain** panel renders these, and only appears once a farmer has actually
 delivered — an all-zero panel would read as "we have no farmers" rather than "this isn't set up yet."
 
-**Remaining gap:** splitting **CO₂ avoided vs removed** needs a flag on the VER/methodology
-(migration). Satellite/IoT stay deferred.
+**Remaining gap:** a dedicated **energy-generated** tile (today `energy_kwh` only appears if a report
+happens to carry it). Satellite/IoT stay deferred (external API + cost).
 
 ---
 
@@ -197,7 +197,8 @@ Ranked by *investor-visible value per unit of work*.
    choice, not just code**. Worth deciding deliberately.
 - ~~**5. Methodology enum + development-status lifecycle**~~ ✅ done (migration #28)
 
-7. **CO₂ avoided vs removed split** — needs a methodology/VER flag. *(migration)*
+- ~~**7. CO₂ avoided vs removed split**~~ ✅ done (migration #29)
+
 7c. **MRV reports as a registry document type** — #1's last bullet. *(no migration)*
 7b. **Real in-portal data room** — document viewer, access log, per-investor permissioning. *(migration)*
 8. **AI assistant backend** — Claude API edge fn, RLS-scoped to the caller. *(external cost)*

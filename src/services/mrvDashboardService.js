@@ -138,20 +138,33 @@ export function aggregateMrvDashboard({
     if (r.id) reportProjectById.set(r.id, r.project_id)
   }
 
-  // Verified/pending VERs per project.
+  // Verified/pending VERs per project, split by removal vs avoidance.
+  //
+  // A VER approved before migration #29 has no `reduction_type`. It lands in an
+  // explicit `unclassified` bucket rather than being guessed into one of the two
+  // — a removal and an avoidance are not interchangeable, and inventing the
+  // distinction after issuance would misrepresent what a verifier actually
+  // asserted.
   const verByProject = new Map()
   let verifiedVers = 0
   let pendingVers = 0
+  const verifiedByType = { removal: 0, avoidance: 0, unclassified: 0 }
   for (const v of vers || []) {
     const qty = Number(v?.approved_quantity) || 0
-    if (v?.status === 'approved') verifiedVers += qty
-    else if (v?.status === 'pending') pendingVers += qty
+    if (v?.status === 'approved') {
+      verifiedVers += qty
+      const type = v?.reduction_type === 'removal' || v?.reduction_type === 'avoidance'
+        ? v.reduction_type
+        : 'unclassified'
+      verifiedByType[type] += qty
+    } else if (v?.status === 'pending') pendingVers += qty
     if (!v?.project_id) continue
     const cur = verByProject.get(v.project_id) || { verified: 0, pending: 0 }
     if (v.status === 'approved') cur.verified += qty
     else if (v.status === 'pending') cur.pending += qty
     verByProject.set(v.project_id, cur)
   }
+  for (const k of Object.keys(verifiedByType)) verifiedByType[k] = round2(verifiedByType[k])
 
   // Per-metric activity sums (keys span project types).
   const metricMap = new Map()
@@ -231,6 +244,7 @@ export function aggregateMrvDashboard({
       pendingVers: round2(pendingVers),
       projectsReporting,
     },
+    verifiedByType,
     metricTotals,
     trend,
     perProject,
@@ -295,13 +309,26 @@ export async function getMyMrvDashboard() {
       'project_id',
       projectIds,
     ),
-    safeIn(
-      supabase,
-      'verified_emission_reductions',
-      'project_id, approved_quantity, status, approved_at, created_at',
-      'project_id',
-      projectIds,
-    ),
+    // `reduction_type` arrives with migration #29; safeIn degrades the whole read
+    // to [] on a missing column, which would blank the dashboard. Try with it,
+    // then without — an unclassified split beats no MRV data at all.
+    (async () => {
+      const withType = await safeIn(
+        supabase,
+        'verified_emission_reductions',
+        'project_id, approved_quantity, status, approved_at, created_at, reduction_type',
+        'project_id',
+        projectIds,
+      )
+      if (withType.length) return withType
+      return safeIn(
+        supabase,
+        'verified_emission_reductions',
+        'project_id, approved_quantity, status, approved_at, created_at',
+        'project_id',
+        projectIds,
+      )
+    })(),
     getReportingCadenceDays().catch(() => 365),
   ])
 

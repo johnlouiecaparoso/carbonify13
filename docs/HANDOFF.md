@@ -1,5 +1,27 @@
 # Carbonify — Handoff (current state)
 
+> 🌱 **2026-07-09 — CO₂ REMOVED vs AVOIDED SPLIT (closes #4b + #4c).** The MRV dashboard summed every
+> verified reduction into one tCO₂e figure. Registries and buyers price removals and avoidances very
+> differently — a durable removal (biochar, afforestation) is not interchangeable with an avoided
+> emission (methane capture, clean energy displacing coal) — so collapsing them hid the distinction a
+> carbon buyer looks for first. Migration **#29** adds `reduction_type` to
+> `verified_emission_reductions`; the **verifier now asserts it at approval** (pre-selected from the
+> project category, never auto-applied); the dashboard shows **removed / avoided / unclassified**.
+> Build ✅ · ESLint 0 ✅ · **269 tests ✅** (+11).
+>
+> **Nothing is backfilled, and that is the point.** Legacy VERs were approved without anyone being
+> asked. Guessing from the project category would stamp an assertion onto an already-issued credit
+> that no verifier made — a registry-grade error. They stay NULL and surface in an explicit
+> **Unclassified** bucket. The category only *pre-selects* the verifier's dropdown
+> ([`suggestedReductionType`](../src/constants/mrv.js)) because a category isn't decisive either: a
+> biochar project removes carbon *and* the bio-briquettes burnt alongside it avoid emissions.
+>
+> Drift-safety matters more than usual here: **issuance must never fail because a classification
+> column is missing**, so `approveReport` retries the VER insert without `reduction_type` and mints
+> the credits unclassified. The dashboard read falls back the same way.
+>
+> **⬜ To finish:** apply migration **#29**.
+>
 > 🏷️ **2026-07-09 — REGISTRY CREDIBILITY PASS (closes #1c + #1g).** **Methodology is now an enum**
 > ([`projectRegistry.js`](../src/constants/projectRegistry.js)): Verra (VCS), Gold Standard,
 > Puro.earth, ISO 14064, CDM, ACR, CAR, Plan Vivo, ISCC, a PH national methodology, and the interim
@@ -399,6 +421,7 @@ to confirm an empty result.
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
 > | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
+> | 29 | `20260715000000_ver_reduction_type.sql` | ⬜ **pending** | Adds `verified_emission_reductions.reduction_type` (`removal` / `avoidance`, **nullable**, CHECK-constrained + partial index on approved rows). Closes #4's CO₂-avoided-vs-removed bullet. **Deliberately not backfilled** — a legacy VER was approved without anyone asserting a type, and guessing from the project category would fake a verifier's assertion on an issued credit. The MRV dashboard shows an explicit **Unclassified** bucket instead. **Apply, then approve an MRV report → pick Removal/Avoidance → the dashboard splits it.** |
 > | 28 | `20260714000000_project_development_status.sql` | ⬜ **pending** | Adds `projects.development_status` (concept / feasibility / financing / construction / operational / decommissioned, nullable, CHECK-constrained + partial index) — the **real-world lifecycle**, distinct from `projects.status` (the Carbonify validation workflow). Closes #1's "development status" bullet. `methodology` intentionally stays free TEXT (the UI drives it from a canonical list; a CHECK would reject legacy rows like "Verra VM0044" on any later UPDATE). **Apply, then Submit/Edit Project offers a Development Status dropdown and the Investor Portal gains a stage filter.** |
 > | 27 | `20260713000000_offtake_agreements.sql` | ✅ **applied (2026-07-09)** | Expansion #5's missing bullet. Creates `offtake_agreements` (project, counterparty, volume, price, term, status) — **owner-only RLS**, since counterparty + price are commercially sensitive — plus `offtake_summary(uuid[])`, a SECURITY DEFINER RPC returning only contracted volume/value/count per validated project (never a counterparty or price) so investors can see contracted share without seeing terms. Insert is doubly guarded: `developer_id = auth.uid()` **and** the caller owns the project. **Apply, then a developer records a signed agreement → the Investor Portal shows contracted % + downside IRR.** |
 > | 26 | `20260712000000_parcel_supply_visibility.sql` | ✅ **applied (2026-07-09)** | Unblocks **plantation hectares** on the MRV dashboard. #25 made `farm_parcels` owner-private, so a developer couldn't read the area of parcels supplying them. Adds a narrow SELECT policy: a buyer may read a parcel **only** where it supplied them a delivery with `status='confirmed'` (a pending/rejected delivery grants nothing, so a farmer can't be exposed by merely logging one). Owner INSERT/UPDATE/DELETE from #25 untouched. Plus a `(parcel_id, buyer_id, status)` index. **Apply, then the MRV dashboard's “Plantation hectares” stops showing “—”.** |

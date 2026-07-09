@@ -29,6 +29,58 @@ export const PERIOD_TYPES = [
 ]
 
 /**
+ * Whether a tonne of CO₂e was REMOVED from the atmosphere or its emission was
+ * AVOIDED. Registries and buyers price these very differently — a durable
+ * removal (biochar, afforestation) is not interchangeable with an avoided
+ * emission (a cookstove, diverted methane) — so summing them into one tCO₂e
+ * figure, as the dashboard did, hides the distinction that matters most.
+ */
+export const REDUCTION_TYPES = [
+  {
+    value: 'removal',
+    label: 'Removal',
+    description: 'CO₂ taken out of the atmosphere and durably stored (biochar, trees, soil).',
+  },
+  {
+    value: 'avoidance',
+    label: 'Avoidance',
+    description: 'Emissions that would have occurred but did not (methane capture, clean energy).',
+  },
+]
+
+const REDUCTION_LABELS = Object.fromEntries(REDUCTION_TYPES.map((r) => [r.value, r.label]))
+
+/** Human label for a reduction_type; unclassified when unset. */
+export function reductionTypeLabel(value) {
+  return REDUCTION_LABELS[value] || 'Unclassified'
+}
+
+/**
+ * The likely reduction type for a project category, used ONLY to pre-select the
+ * verifier's dropdown. It is a suggestion, never an automatic classification:
+ * a category can produce both (biochar removes carbon; the bio-briquettes burnt
+ * alongside it avoid emissions), and mislabelling a credit is a registry-grade
+ * error. The verifier confirms every one.
+ *
+ * @returns {'removal'|'avoidance'|''} '' when the category gives no clear steer.
+ */
+export function suggestedReductionType(category) {
+  switch (category) {
+    case 'Biochar & Bio-briquettes':
+    case 'Reforestation & Agroforestry':
+    case 'Coastal & Watershed Protection':
+      return 'removal'
+    case 'Biomass-to-Energy (WTE)':
+    case 'Renewable Energy':
+    case 'Methane Avoidance':
+    case 'Industrial Decarbonization':
+      return 'avoidance'
+    default:
+      return ''
+  }
+}
+
+/**
  * Activity-data metrics per project type. metric_key/unit must match
  * methodology_factors. `label` is shown on the form.
  */

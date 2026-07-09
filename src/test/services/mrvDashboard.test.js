@@ -200,3 +200,68 @@ describe('aggregateMrvDashboard — supply block', () => {
     expect(d.supply.biomassCollectedTonnes).toBe(3)
   })
 })
+
+describe('aggregateMrvDashboard — removed vs avoided split', () => {
+  const base = { projects: [{ id: 'p1', title: 'X', created_at: '2026-01-01' }] }
+
+  it('splits approved VERs by reduction_type', () => {
+    const d = aggregateMrvDashboard({
+      ...base,
+      vers: [
+        { project_id: 'p1', approved_quantity: 100, status: 'approved', reduction_type: 'removal' },
+        { project_id: 'p1', approved_quantity: 40, status: 'approved', reduction_type: 'avoidance' },
+      ],
+      now: NOW,
+    })
+    expect(d.verifiedByType.removal).toBe(100)
+    expect(d.verifiedByType.avoidance).toBe(40)
+    expect(d.totals.verifiedVers).toBe(140)
+  })
+
+  it('buckets legacy unclassified VERs rather than guessing a type', () => {
+    const d = aggregateMrvDashboard({
+      ...base,
+      vers: [{ project_id: 'p1', approved_quantity: 75, status: 'approved' }],
+      now: NOW,
+    })
+    expect(d.verifiedByType.unclassified).toBe(75)
+    expect(d.verifiedByType.removal).toBe(0)
+    expect(d.verifiedByType.avoidance).toBe(0)
+    // The headline total still includes them — they are real credits.
+    expect(d.totals.verifiedVers).toBe(75)
+  })
+
+  it('treats an unrecognised reduction_type as unclassified, not as a new bucket', () => {
+    const d = aggregateMrvDashboard({
+      ...base,
+      vers: [{ project_id: 'p1', approved_quantity: 10, status: 'approved', reduction_type: 'bogus' }],
+      now: NOW,
+    })
+    expect(d.verifiedByType.unclassified).toBe(10)
+    expect(Object.keys(d.verifiedByType).sort()).toEqual(['avoidance', 'removal', 'unclassified'])
+  })
+
+  it('never counts pending VERs in the split', () => {
+    const d = aggregateMrvDashboard({
+      ...base,
+      vers: [{ project_id: 'p1', approved_quantity: 50, status: 'pending', reduction_type: 'removal' }],
+      now: NOW,
+    })
+    expect(d.verifiedByType.removal).toBe(0)
+    expect(d.totals.pendingVers).toBe(50)
+  })
+
+  it('the split always sums to the verified total', () => {
+    const d = aggregateMrvDashboard({
+      ...base,
+      vers: [
+        { project_id: 'p1', approved_quantity: 12.5, status: 'approved', reduction_type: 'removal' },
+        { project_id: 'p1', approved_quantity: 7.25, status: 'approved', reduction_type: 'avoidance' },
+        { project_id: 'p1', approved_quantity: 3, status: 'approved' },
+      ],
+      now: NOW,
+    })
+    const { removal, avoidance, unclassified } = d.verifiedByType
+    expect(removal + avoidance + unclassified).toBeCloseTo(d.totals.verifiedVers, 2)
+  })
+})

@@ -31,6 +31,12 @@ const hasTrend = computed(() => (data.value?.trend?.labels?.length || 0) > 0)
 // Only show the supply panel once a farmer has actually delivered — an all-zero
 // panel would read as "we have no farmers" rather than "this isn't set up yet".
 const hasSupply = computed(() => (data.value?.supply?.confirmedDeliveries || 0) > 0)
+// Show the removed/avoided split only once something is classified — an all-zero
+// split on a legacy dataset would read as "we removed nothing".
+const hasTypeSplit = computed(() => {
+  const t = data.value?.verifiedByType
+  return !!t && (t.removal > 0 || t.avoidance > 0)
+})
 const hasStatusBreakdown = computed(() =>
   data.value ? Object.values(data.value.totals.byStatus).some((n) => n > 0) : false,
 )
@@ -114,6 +120,17 @@ onMounted(load)
         <div class="card">
           <div class="card-label">Verified reductions</div>
           <div class="card-value">{{ tco2e(data.totals.verifiedVers) }}</div>
+          <div v-if="hasTypeSplit" class="split">
+            <span class="split-item removal">
+              <span class="dot"></span>{{ num(data.verifiedByType.removal) }} removed
+            </span>
+            <span class="split-item avoidance">
+              <span class="dot"></span>{{ num(data.verifiedByType.avoidance) }} avoided
+            </span>
+            <span v-if="data.verifiedByType.unclassified" class="split-item unclassified">
+              <span class="dot"></span>{{ num(data.verifiedByType.unclassified) }} unclassified
+            </span>
+          </div>
           <div class="muted small">{{ num(data.totals.pendingVers) }} tCO₂e pending issuance</div>
         </div>
         <div class="card">
@@ -266,6 +283,13 @@ onMounted(load)
 .card.alert { border-color: #fca5a5; background: #fef2f2; }
 .card-label { color: #6b7280; font-size: 0.85rem; }
 .card-value { font-size: 1.5rem; font-weight: 700; margin: 6px 0; }
+.split { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; }
+.split-item { display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 600; color: #4b5563; }
+.split-item .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.split-item.removal .dot { background: #069e2d; }
+.split-item.avoidance .dot { background: #2563eb; }
+.split-item.unclassified .dot { background: #d1d5db; }
+.split-item.unclassified { color: #9ca3af; }
 .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
 .chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; }
 .panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; margin-bottom: 20px; }

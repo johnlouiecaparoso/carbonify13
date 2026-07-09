@@ -7,6 +7,7 @@ import {
   developmentStatusLabel,
   isKnownMethodology,
 } from '@/constants/projectRegistry'
+import { REDUCTION_TYPES, reductionTypeLabel, suggestedReductionType } from '@/constants/mrv'
 
 describe('methodologyLabel', () => {
   it('maps the canonical standards the spec names', () => {
@@ -75,5 +76,48 @@ describe('methodologyGroups', () => {
 
   it('offers an escape hatch so no developer is forced into a wrong standard', () => {
     expect(METHODOLOGY_STANDARDS.some((m) => m.value === 'other')).toBe(true)
+  })
+})
+
+describe('suggestedReductionType', () => {
+  it('suggests removal for durable-storage categories', () => {
+    expect(suggestedReductionType('Biochar & Bio-briquettes')).toBe('removal')
+    expect(suggestedReductionType('Reforestation & Agroforestry')).toBe('removal')
+    expect(suggestedReductionType('Coastal & Watershed Protection')).toBe('removal')
+  })
+
+  it('suggests avoidance for displaced-emission categories', () => {
+    expect(suggestedReductionType('Methane Avoidance')).toBe('avoidance')
+    expect(suggestedReductionType('Renewable Energy')).toBe('avoidance')
+    expect(suggestedReductionType('Biomass-to-Energy (WTE)')).toBe('avoidance')
+    expect(suggestedReductionType('Industrial Decarbonization')).toBe('avoidance')
+  })
+
+  it('suggests nothing for an unknown category rather than defaulting', () => {
+    expect(suggestedReductionType('Something Else')).toBe('')
+    expect(suggestedReductionType('')).toBe('')
+  })
+
+  it('every suggestion is a valid reduction type', () => {
+    for (const c of [
+      'Biochar & Bio-briquettes',
+      'Renewable Energy',
+      'Methane Avoidance',
+      'Coastal & Watershed Protection',
+    ]) {
+      expect(REDUCTION_TYPES.map((r) => r.value)).toContain(suggestedReductionType(c))
+    }
+  })
+})
+
+describe('reductionTypeLabel', () => {
+  it('labels the two types', () => {
+    expect(reductionTypeLabel('removal')).toBe('Removal')
+    expect(reductionTypeLabel('avoidance')).toBe('Avoidance')
+  })
+
+  it('calls an unset or unknown type Unclassified, never a guess', () => {
+    expect(reductionTypeLabel(null)).toBe('Unclassified')
+    expect(reductionTypeLabel('bogus')).toBe('Unclassified')
   })
 })
