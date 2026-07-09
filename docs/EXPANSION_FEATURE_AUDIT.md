@@ -28,7 +28,7 @@
 
 | # | Feature | Bullets met | Honest status |
 |---|---|---|---|
-| 1 | Project Registry | 5 / 8 | 🟡 mostly there; methodology + dev-status + MRV docs are weaker than claimed |
+| 1 | Project Registry | **7 / 8** | 🟡 methodology enum + development status shipped 2026-07-09; MRV reports still not a registry doc type |
 | 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
 | 4 | MRV Dashboard | **3 / 8** fully | 🟡 farmers + biomass collected + hectares shipped; CO₂ avoided/removed split and satellite/IoT remain |
@@ -48,15 +48,15 @@
 |---|---|---|
 | GPS location | ✅ | `geo_coordinates` + `boundary` drawn on a Leaflet map ([ProjectDetailView.vue:262](../src/views/ProjectDetailView.vue#L262)). Coordinates are plotted, not shown as text. |
 | Project developer | ✅ | Developer card: name, organization, type ([ProjectDetailView.vue:122](../src/views/ProjectDetailView.vue#L122)). |
-| Methodology (Verra, Gold Standard, Puro, ISO…) | 🟡 | Captured and displayed, but it is a **free-text input**, not a dropdown. Verra/Gold Standard/Puro/ISO appear only as *placeholder hint text* ([ProjectForm.vue:1273](../src/components/ProjectForm.vue#L1273)). No enum exists, so two projects can spell "Gold Standard" differently and nothing can filter or group by methodology. |
+| Methodology (Verra, Gold Standard, Puro, ISO…) | ✅ | **Shipped 2026-07-09.** A grouped enum in [`projectRegistry.js`](../src/constants/projectRegistry.js) — Verra (VCS), Gold Standard, Puro.earth, ISO 14064, CDM, ACR, CAR, Plan Vivo, ISCC, PH national, Carbonify Standard, **Other**. The Investor Portal filters by standard. Legacy free text ("Verra VM0044") renders as-is and maps to **Other** on edit rather than being discarded. |
 | Feedstock | ✅ | [ProjectDetailView.vue:75](../src/views/ProjectDetailView.vue#L75) |
 | Capacity | ✅ | `capacity` + `capacity_unit` ([ProjectDetailView.vue:76](../src/views/ProjectDetailView.vue#L76)) |
 | Expected carbon reductions | ✅ | `estimated_credits` + `expected_impact` |
-| Development status | 🟡 | What's displayed is the **validation-workflow status** (draft → submitted → validated → rejected). There is **no project development-lifecycle stage** (feasibility / financing / construction / operational). No `development_status` column exists. |
+| Development status | ✅ | **Shipped 2026-07-09** (migration #28). `development_status`: concept → feasibility → financing → construction → operational → decommissioned. Deliberately **orthogonal** to `projects.status` (the validation workflow) — a test asserts the two vocabularies never share a value, since conflating them was the original bug. Nullable, because defaulting existing projects to 'concept' would assert something untrue about them. |
 | Documents (PDD, feasibility, MRV reports) | 🟡 | **PDD ✅** and **feasibility ✅** are uploadable + viewable. **MRV reports ❌ are not a project document type** — MRV lives in a separate monitoring module and is not surfaced in the registry's document list. |
 
-**Gap to close:** a methodology **enum** (unlocks filtering + registry credibility), a real
-`development_status` lifecycle field, and surfacing MRV reports as registry documents.
+**Remaining gap:** surfacing MRV reports as registry documents (they live in the separate monitoring
+module and are not offered as a project document type).
 
 ---
 
@@ -195,8 +195,10 @@ Ranked by *investor-visible value per unit of work*.
    delivery→credit linkage decision: a delivery feeds a project, whose VERs mint credits, so the
    attribution rule (pro-rata by delivered mass over the reporting period?) is a **methodology
    choice, not just code**. Worth deciding deliberately.
-5. **Methodology enum** + **development-status lifecycle field** — makes the registry filterable and credible. *(migration)*
+- ~~**5. Methodology enum + development-status lifecycle**~~ ✅ done (migration #28)
+
 7. **CO₂ avoided vs removed split** — needs a methodology/VER flag. *(migration)*
+7c. **MRV reports as a registry document type** — #1's last bullet. *(no migration)*
 7b. **Real in-portal data room** — document viewer, access log, per-investor permissioning. *(migration)*
 8. **AI assistant backend** — Claude API edge fn, RLS-scoped to the caller. *(external cost)*
 9. **Satellite / IoT feeds** — external APIs + running cost. *(deferred)*

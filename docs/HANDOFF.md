@@ -1,5 +1,27 @@
 # Carbonify — Handoff (current state)
 
+> 🏷️ **2026-07-09 — REGISTRY CREDIBILITY PASS (closes #1c + #1g).** **Methodology is now an enum**
+> ([`projectRegistry.js`](../src/constants/projectRegistry.js)): Verra (VCS), Gold Standard,
+> Puro.earth, ISO 14064, CDM, ACR, CAR, Plan Vivo, ISCC, a PH national methodology, and the interim
+> Carbonify Standard — plus **Other**, so no developer is forced into a wrong standard. It was a
+> free-text box, so "Gold Standard", "gold standard" and "GS" were three different projects to any
+> filter. **`development_status` is a new column** (migration **#28**): concept → feasibility →
+> financing → construction → operational → decommissioned. It is **orthogonal to `projects.status`**,
+> which is the Carbonify *validation* workflow — a project can be fully `validated` on the platform
+> and still be nothing but a feasibility study in the real world, and conflating the two was the bug.
+> The Investor Portal now **filters by standard and by stage**. Build ✅ · ESLint 0 ✅ ·
+> **258 tests ✅** (+11).
+>
+> Care taken: `methodology` stays **TEXT with no CHECK** — legacy rows hold free text like
+> "Verra VM0044", and a constraint would reject them on any later UPDATE, including ones unrelated to
+> methodology. Editing an old project maps its free text into **Other** with the text preserved rather
+> than silently discarding it. `development_status` is **nullable** — defaulting existing projects to
+> 'concept' would assert something untrue about every project already in the registry. And the
+> Investor Portal's query **falls back** if the column is absent, rather than 400-ing the whole
+> pipeline over one optional field.
+>
+> **⬜ To finish:** apply migration **#28**.
+>
 > 🤝 **2026-07-09 — OFFTAKE AGREEMENTS / ERPAs SHIPPED (closes #5's biggest gap).** Until now every
 > IRR in the Investor Portal rested on an **assumed** credit price for every credit the project might
 > ever issue. An ERPA is what turns a slice of that into **contracted** revenue. New
@@ -27,8 +49,8 @@
 > issuance) is flagged in both the developer view and the portal rather than letting speculative
 > volume go negative.
 >
-> **⬜ To finish:** apply migration **#27**, then a developer records a signed agreement → the
-> Investor Portal shows contracted % and the downside IRR.
+> **Migration #27 APPLIED (2026-07-09).** **⬜ To finish:** a developer records a signed agreement →
+> the Investor Portal shows contracted % and the downside IRR.
 >
 > ✅ **2026-07-09 — TOP 3 AUDIT GAPS CLOSED.** **#2 buyer history** (a Buyer history section on
 > [`/developer/ledger`](../src/views/CarbonAssetLedgerView.vue): counterparties per project with
@@ -377,7 +399,8 @@ to confirm an empty result.
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
 > | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
-> | 27 | `20260713000000_offtake_agreements.sql` | ⬜ **pending** | Expansion #5's missing bullet. Creates `offtake_agreements` (project, counterparty, volume, price, term, status) — **owner-only RLS**, since counterparty + price are commercially sensitive — plus `offtake_summary(uuid[])`, a SECURITY DEFINER RPC returning only contracted volume/value/count per validated project (never a counterparty or price) so investors can see contracted share without seeing terms. Insert is doubly guarded: `developer_id = auth.uid()` **and** the caller owns the project. **Apply, then a developer records a signed agreement → the Investor Portal shows contracted % + downside IRR.** |
+> | 28 | `20260714000000_project_development_status.sql` | ⬜ **pending** | Adds `projects.development_status` (concept / feasibility / financing / construction / operational / decommissioned, nullable, CHECK-constrained + partial index) — the **real-world lifecycle**, distinct from `projects.status` (the Carbonify validation workflow). Closes #1's "development status" bullet. `methodology` intentionally stays free TEXT (the UI drives it from a canonical list; a CHECK would reject legacy rows like "Verra VM0044" on any later UPDATE). **Apply, then Submit/Edit Project offers a Development Status dropdown and the Investor Portal gains a stage filter.** |
+> | 27 | `20260713000000_offtake_agreements.sql` | ✅ **applied (2026-07-09)** | Expansion #5's missing bullet. Creates `offtake_agreements` (project, counterparty, volume, price, term, status) — **owner-only RLS**, since counterparty + price are commercially sensitive — plus `offtake_summary(uuid[])`, a SECURITY DEFINER RPC returning only contracted volume/value/count per validated project (never a counterparty or price) so investors can see contracted share without seeing terms. Insert is doubly guarded: `developer_id = auth.uid()` **and** the caller owns the project. **Apply, then a developer records a signed agreement → the Investor Portal shows contracted % + downside IRR.** |
 > | 26 | `20260712000000_parcel_supply_visibility.sql` | ✅ **applied (2026-07-09)** | Unblocks **plantation hectares** on the MRV dashboard. #25 made `farm_parcels` owner-private, so a developer couldn't read the area of parcels supplying them. Adds a narrow SELECT policy: a buyer may read a parcel **only** where it supplied them a delivery with `status='confirmed'` (a pending/rejected delivery grants nothing, so a farmer can't be exposed by merely logging one). Owner INSERT/UPDATE/DELETE from #25 untouched. Plus a `(parcel_id, buyer_id, status)` index. **Apply, then the MRV dashboard's “Plantation hectares” stops showing “—”.** |
 > | 25 | `20260711000000_farmer_portal.sql` | ✅ **applied (2026-07-09)** | Expansion #6. Adds `farm_parcels` (plantation register, owner-private RLS) + `farmer_deliveries` (delivery against an accepted RFQ, with proof docs, buyer confirmation, and a bookkeeping `payment_status`) + 3 SECURITY DEFINER RPCs (`record_farmer_delivery` / `confirm_farmer_delivery` / `mark_farmer_delivery_paid` — no INSERT/UPDATE policy, so a farmer can't mark their own delivery paid). Also **widens the two role gates**: `assign_user_role()` now admits `'farmer'`, `role_applications.role_requested` CHECK now admits `'farmer'`, and `notify_role_application_trigger()` routes farmer applications to admins. **Apply, then run the click-through in the header note.** |
 > | 23 | `20260709000000_admin_set_kyb_verified.sql` | ✅ **applied (2026-07-08)** | Adds `admin_set_kyb_verified(uuid, boolean)` (is_admin-gated) so an admin can manually verify a business from **User Management** — clears the "Business verification required" gate for a developer who never filed a KYB application (previously only `review_kyb_application` could set `kyb_verified`, and only against an existing application). Also revokes client `update(kyb_verified)` so users can't self-verify. **Apply, then: Admin → User Management → edit a user → tick "Business verified (KYB)" → Save → that account's Sell-Feedstock gate disappears.** |

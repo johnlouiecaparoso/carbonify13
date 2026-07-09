@@ -76,6 +76,9 @@ export class ProjectWorkflowService {
           projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
         ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
         ...(projectData.methodology && { methodology: String(projectData.methodology).trim() }),
+        ...(projectData.development_status && {
+          development_status: String(projectData.development_status).trim(),
+        }),
         ...(projectData.feedstock && { feedstock: String(projectData.feedstock).trim() }),
         ...(projectData.capacity != null &&
           projectData.capacity !== '' &&
@@ -123,6 +126,7 @@ export class ProjectWorkflowService {
         'permanence_years',
         'reversal_risk',
         'methodology',
+        'development_status',
         'feedstock',
         'capacity',
         'capacity_unit',

@@ -7,6 +7,11 @@ import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
+import {
+  DEVELOPMENT_STATUSES,
+  methodologyGroups,
+  isKnownMethodology,
+} from '@/constants/projectRegistry'
 import { uploadProjectDocument } from '@/services/storageService'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
@@ -63,7 +68,9 @@ const formData = ref({
   host_entity: '',
 
   // Registry metadata (optional) — investor-facing project registry fields.
-  methodology: '', // e.g. 'Verra VM0044', 'Gold Standard', 'Puro.earth', 'ISO 14064'
+  methodology: '', // canonical key from METHODOLOGY_STANDARDS, or 'other'
+  methodology_custom: '', // free text when methodology === 'other'; stored into `methodology`
+  development_status: '', // real-world lifecycle, NOT the Carbonify review status
   feedstock: '', // e.g. 'Rice husk', 'Coconut biomass', 'Sugarcane bagasse', 'Bana grass'
   capacity: '', // nameplate/throughput figure (numeric)
   capacity_unit: '', // unit for capacity, e.g. 'MW', 'tonnes/year'
@@ -97,6 +104,19 @@ const formData = ref({
 
 const additionalityTypes = ADDITIONALITY_TYPES
 const reversalRiskLevels = REVERSAL_RISK_LEVELS
+
+/**
+ * What actually gets stored in `projects.methodology`.
+ *
+ * 'other' is a UI affordance for "not in our list" — storing the literal string
+ * 'other' would be worse than the free text it replaced. Persist what the
+ * developer typed instead; it renders as-is and simply won't match the filter.
+ */
+function resolvedMethodology() {
+  const selected = formData.value.methodology
+  if (selected !== 'other') return selected
+  return String(formData.value.methodology_custom || '').trim()
+}
 
 // File upload state
 const uploadedFiles = ref([])
@@ -696,7 +716,9 @@ async function handleSubmit() {
       end_date: formData.value.end_date,
       host_entity: formData.value.host_entity,
       estimated_credits: formData.value.estimated_credits,
-      methodology: formData.value.methodology,
+      // 'other' is a UI affordance, not a stored value — persist what they typed.
+      methodology: resolvedMethodology(),
+      development_status: formData.value.development_status,
       feedstock: formData.value.feedstock,
       capacity: formData.value.capacity,
       capacity_unit: formData.value.capacity_unit,
@@ -993,7 +1015,18 @@ onMounted(() => {
       geo_coordinates: props.project.geo_coordinates || '',
       boundary: props.project.boundary || null,
       expected_impact: props.project.expected_impact || '',
-      methodology: props.project.methodology || '',
+      // Legacy rows hold arbitrary free text ('Verra VM0044'). Map a canonical key
+      // onto the dropdown; anything else lands in "Other" with the text preserved,
+      // so editing an old project never silently discards its methodology.
+      methodology: isKnownMethodology(props.project.methodology)
+        ? props.project.methodology
+        : props.project.methodology
+          ? 'other'
+          : '',
+      methodology_custom: isKnownMethodology(props.project.methodology)
+        ? ''
+        : props.project.methodology || '',
+      development_status: props.project.development_status || '',
       feedstock: props.project.feedstock || '',
       capacity: props.project.capacity ?? '',
       capacity_unit: props.project.capacity_unit || '',
@@ -1267,12 +1300,42 @@ onMounted(() => {
 
           <div class="form-group">
             <label for="methodology" class="form-label"> Methodology / Standard </label>
+            <select id="methodology" v-model="formData.methodology" class="form-select">
+              <option value="">Select a standard…</option>
+              <optgroup v-for="g in methodologyGroups()" :key="g.group" :label="g.group">
+                <option v-for="m in g.items" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </optgroup>
+            </select>
+            <div class="field-help">
+              The carbon standard the project follows. Choosing from this list lets buyers and
+              investors filter by standard.
+            </div>
+          </div>
+
+          <div v-if="formData.methodology === 'other'" class="form-group">
+            <label for="methodology_custom" class="form-label"> Which standard? </label>
             <UiInput
-              id="methodology"
-              v-model="formData.methodology"
-              placeholder="e.g., Verra VM0044, Gold Standard, Puro.earth, ISO 14064"
+              id="methodology_custom"
+              v-model="formData.methodology_custom"
+              placeholder="e.g., Verra VM0044, ISCC PLUS"
             />
-            <div class="field-help">The carbon standard / methodology the project follows.</div>
+            <div class="field-help">
+              Recorded as free text, so it won't appear in the standard filter.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="development_status" class="form-label"> Development Status </label>
+            <select id="development_status" v-model="formData.development_status" class="form-select">
+              <option value="">Not specified</option>
+              <option v-for="d in DEVELOPMENT_STATUSES" :key="d.value" :value="d.value">
+                {{ d.label }} — {{ d.description }}
+              </option>
+            </select>
+            <div class="field-help">
+              Where the project is in the real world. This is separate from its Carbonify review
+              status (draft / submitted / validated).
+            </div>
           </div>
 
           <div class="form-group">

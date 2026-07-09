@@ -95,20 +95,30 @@ export async function getInvestmentPipeline({ category = '', discountRate = 0.1 
   const supabase = getSupabase()
   if (!supabase) return empty
 
-  let query = supabase
-    .from('projects')
-    .select(
-      'id, title, category, location, status, estimated_credits, credit_price, capacity, capacity_unit, ' +
-        'feedstock, methodology, capex, opex, project_lifetime_years, funding_target, funding_raised, ' +
-        'feasibility_score, social_impact_score, climate_risk_rating, supporting_documents, user_id, created_at',
-    )
-    .eq('status', 'validated')
-    .order('created_at', { ascending: false })
-    .limit(200)
+  const BASE_COLUMNS =
+    'id, title, category, location, status, estimated_credits, credit_price, capacity, capacity_unit, ' +
+    'feedstock, methodology, capex, opex, project_lifetime_years, funding_target, funding_raised, ' +
+    'feasibility_score, social_impact_score, climate_risk_rating, supporting_documents, user_id, created_at'
 
-  if (category) query = query.eq('category', category)
+  const runQuery = async (columns) => {
+    let q = supabase
+      .from('projects')
+      .select(columns)
+      .eq('status', 'validated')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (category) q = q.eq('category', category)
+    return q
+  }
 
-  const { data, error } = await query
+  // `development_status` arrives with migration #28. Selecting a column that
+  // doesn't exist 400s the whole query, so fall back rather than blanking the
+  // entire pipeline over one optional field.
+  let { data, error } = await runQuery(`${BASE_COLUMNS}, development_status`)
+  if (error && /development_status/.test(error.message || '')) {
+    console.warn('[investor] development_status absent, retrying without it')
+    ;({ data, error } = await runQuery(BASE_COLUMNS))
+  }
   if (error) {
     console.error('Error loading investment pipeline:', error.message)
     throw new Error(error.message || 'Failed to load the investment pipeline')

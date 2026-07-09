@@ -4,12 +4,19 @@ import { getInvestmentPipeline, documentCount } from '@/services/investorService
 import { FEATURES } from '@/constants/plans'
 import FeatureGate from '@/components/ui/FeatureGate.vue'
 import CategoryChart from '@/components/charts/CategoryChart.vue'
+import {
+  methodologyLabel,
+  developmentStatusLabel,
+  DEVELOPMENT_STATUSES,
+} from '@/constants/projectRegistry'
 
 const loading = ref(true)
 const loadError = ref('')
 const projects = ref([])
 const summary = ref(null)
 const categoryFilter = ref('')
+const methodologyFilter = ref('')
+const stageFilter = ref('')
 const detail = ref(null) // selected project for the financial modal
 
 function peso(n) {
@@ -23,8 +30,32 @@ function pct(v) {
 }
 
 const categories = computed(() => summary.value?.byCategory.map((c) => c.category) || [])
+
+// Only offer standards actually present in the pipeline — an empty filter option
+// is a dead end. Legacy free-text values appear under their raw label.
+const methodologies = computed(() => {
+  const seen = new Map()
+  for (const p of projects.value) {
+    if (!p.methodology) continue
+    if (!seen.has(p.methodology)) seen.set(p.methodology, methodologyLabel(p.methodology))
+  }
+  return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) =>
+    a.label.localeCompare(b.label),
+  )
+})
+
+const stages = computed(() => {
+  const present = new Set(projects.value.map((p) => p.development_status).filter(Boolean))
+  return DEVELOPMENT_STATUSES.filter((d) => present.has(d.value))
+})
+
 const filtered = computed(() =>
-  categoryFilter.value ? projects.value.filter((p) => p.category === categoryFilter.value) : projects.value,
+  projects.value.filter(
+    (p) =>
+      (!categoryFilter.value || p.category === categoryFilter.value) &&
+      (!methodologyFilter.value || p.methodology === methodologyFilter.value) &&
+      (!stageFilter.value || p.development_status === stageFilter.value),
+  ),
 )
 
 const chartData = computed(() => {
@@ -119,10 +150,25 @@ onMounted(load)
         <section class="panel">
           <div class="panel-head">
             <h2>Project pipeline</h2>
-            <select v-model="categoryFilter" class="filter">
-              <option value="">All categories</option>
-              <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-            </select>
+            <div class="filters">
+              <select v-model="categoryFilter" class="filter" aria-label="Filter by category">
+                <option value="">All categories</option>
+                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+              </select>
+              <select
+                v-if="methodologies.length"
+                v-model="methodologyFilter"
+                class="filter"
+                aria-label="Filter by standard"
+              >
+                <option value="">All standards</option>
+                <option v-for="m in methodologies" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </select>
+              <select v-if="stages.length" v-model="stageFilter" class="filter" aria-label="Filter by stage">
+                <option value="">All stages</option>
+                <option v-for="s in stages" :key="s.value" :value="s.value">{{ s.label }}</option>
+              </select>
+            </div>
           </div>
           <div class="table-scroll">
             <table class="data-table">
@@ -143,7 +189,13 @@ onMounted(load)
                 <tr v-for="p in filtered" :key="p.id">
                   <td>
                     <router-link :to="`/projects/${p.id}`" class="proj-link">{{ p.title }}</router-link>
-                    <div class="muted small">{{ p.category }}<span v-if="p.location"> · {{ p.location }}</span></div>
+                    <div class="muted small">
+                      {{ p.category }}<span v-if="p.location"> · {{ p.location }}</span>
+                      <span v-if="p.methodology"> · {{ methodologyLabel(p.methodology) }}</span>
+                    </div>
+                    <span v-if="p.development_status" class="stage-pill">
+                      {{ developmentStatusLabel(p.development_status) }}
+                    </span>
                   </td>
                   <td class="num">{{ num(p.estimated_credits) }}</td>
                   <td class="num">{{ p.credit_price ? peso(p.credit_price) : '—' }}</td>
@@ -337,6 +389,17 @@ onMounted(load)
 .proj-link:hover { text-decoration: underline; }
 .irr { color: #065f46; font-weight: 600; }
 .contracted { color: #065f46; font-weight: 600; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.stage-pill {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
 .warn-text { color: #92400e; font-weight: 600; }
 .over-flag {
   display: inline-block;
