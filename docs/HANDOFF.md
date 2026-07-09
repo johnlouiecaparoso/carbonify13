@@ -1,5 +1,31 @@
 # Carbonify — Handoff (current state)
 
+> 🌾 **2026-07-09 — FARMER CARBON PARTICIPATION (#6 now 5/6).** A farmer could see sacks and pesos,
+> never how their feedstock became carbon. Migration **#31** adds `farmer_deliveries.project_id` — the
+> missing link that made attribution impossible — plus `farmer_carbon_participation()`, and the Farmer
+> Portal gains a **Carbon** tab. Build ✅ · ESLint 0 ✅ · **303 tests ✅** (+15).
+>
+> **The attribution rule is written down before the code** in
+> [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md): *pro-rata by delivered mass, per
+> project, lifetime-to-date* — `verified_tCO₂e × farmer_tonnes / project_tonnes`, over **confirmed**
+> deliveries and **approved** VERs. Shares sum to exactly 1, so a farmer can never be attributed carbon
+> the project never verified. What a smallholder is told they contributed is a claim they will repeat;
+> the doc records why this rule and not per-delivery carbon factors (which would let farmer totals
+> exceed the project's verified total — the double-counting failure this platform exists to prevent).
+>
+> **Presented as an ESTIMATE, never as credit ownership** — the farmer cannot sell or retire it, and
+> the UI says so first, not in a footnote. Deliveries in **sacks/bales/m³ are excluded from both sides
+> of the ratio** (no bulk density → treating a sack as a tonne would corrupt *every other farmer's*
+> share, since the denominator is shared), and the farmer is told how many were excluded and why.
+> Deliveries the buyer never attributed to a project are counted and surfaced too.
+>
+> Buyers now name the project when confirming receipt. `confirm_farmer_delivery()` validates the buyer
+> **owns** that project — otherwise a buyer could attribute feedstock to a rival's project, or inflate
+> one farmer's share of it. The 3-arg version is dropped first: a defaulted 4th parameter would create
+> an ambiguous overload for existing callers.
+>
+> **⬜ To finish:** apply migrations **#30** and **#31**.
+>
 > 🗂️ **2026-07-09 — INVESTOR DATA ROOM SHIPPED (#5 COMPLETE, 7/7).** The portal showed a document
 > *count badge* linking out to the project page. A data room is not a link: it is documents you open
 > in context, plus a record of who opened them. Investors now open documents inside
@@ -460,6 +486,7 @@ to confirm an empty result.
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
 > | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
+> | 31 | `20260717000000_farmer_carbon_participation.sql` | ⬜ **pending** | Expansion #6's carbon bullet. Adds `farmer_deliveries.project_id` (the link whose absence made attribution impossible), re-creates `confirm_farmer_delivery()` with a 4th `p_project_id` param **validating the buyer owns that project**, and adds `farmer_carbon_participation()` (SECURITY DEFINER, so a farmer never needs read access to `verified_emission_reductions` or to other farmers' deliveries). Rule: `verified × farmer_tonnes / project_tonnes` over confirmed deliveries + approved VERs — see [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md). **Apply, then a buyer confirms a delivery naming a project → the farmer's Carbon tab shows their attributed tCO₂e.** |
 > | 30 | `20260716000000_data_room_access_log.sql` | ⬜ **pending** | Expansion #5's last bullet. Creates `data_room_access_log` (project, developer, viewer, document, action) with **no INSERT/UPDATE/DELETE policy** — writes go only through `log_data_room_access()`, a SECURITY DEFINER RPC deriving viewer from `auth.uid()` and developer from `projects.user_id`, so neither identity can be forged and a log row can't be erased by the person it incriminates. Reads are limited to the two parties + admin (one investor must not see which rivals are doing diligence). Self-views and non-validated projects are skipped. **Apply, then an investor opens a document in `/investor` → the developer sees it at `/developer/data-room`.** |
 > | 29 | `20260715000000_ver_reduction_type.sql` | ✅ **applied (2026-07-09)** | Adds `verified_emission_reductions.reduction_type` (`removal` / `avoidance`, **nullable**, CHECK-constrained + partial index on approved rows). Closes #4's CO₂-avoided-vs-removed bullet. **Deliberately not backfilled** — a legacy VER was approved without anyone asserting a type, and guessing from the project category would fake a verifier's assertion on an issued credit. The MRV dashboard shows an explicit **Unclassified** bucket instead. **Apply, then approve an MRV report → pick Removal/Avoidance → the dashboard splits it.** |
 > | 28 | `20260714000000_project_development_status.sql` | ✅ **applied (2026-07-09)** | Adds `projects.development_status` (concept / feasibility / financing / construction / operational / decommissioned, nullable, CHECK-constrained + partial index) — the **real-world lifecycle**, distinct from `projects.status` (the Carbonify validation workflow). Closes #1's "development status" bullet. `methodology` intentionally stays free TEXT (the UI drives it from a canonical list; a CHECK would reject legacy rows like "Verra VM0044" on any later UPDATE). **Apply, then Submit/Edit Project offers a Development Status dropdown and the Investor Portal gains a stage filter.** |

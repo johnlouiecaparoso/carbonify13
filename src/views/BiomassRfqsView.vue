@@ -12,6 +12,7 @@ import {
   confirmDelivery,
   markDeliveryPaid,
 } from '@/services/farmerService'
+import { getSupabase } from '@/services/supabaseClient'
 import { biomassTypeLabel } from '@/constants/biomass'
 
 const loading = ref(true)
@@ -31,6 +32,12 @@ const quoteForm = ref({ price_per_unit: '', message: '' })
 const payDelivery = ref(null)
 const payReference = ref('')
 
+// Confirm-receipt modal (buyer names the project the feedstock fed, so the
+// farmer's carbon contribution can be attributed)
+const confirmDeliveryRow = ref(null)
+const confirmProjectId = ref('')
+const myProjects = ref([])
+
 function peso(n) {
   return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
@@ -45,20 +52,42 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [b, s, d] = await Promise.all([
+    const [b, s, d, projects] = await Promise.all([
       getMyBuyerRfqs(),
       getMySellerRfqs(),
       getIncomingDeliveries(),
+      getMyProjects(),
     ])
     buyerRfqs.value = b
     sellerRfqs.value = s
     deliveries.value = d
+    myProjects.value = projects
   } catch (err) {
     console.error('Failed to load RFQs:', err)
     loadError.value = err?.message || 'We could not load your requests right now.'
   } finally {
     loading.value = false
   }
+}
+
+/** The signed-in buyer's own projects — offered when confirming a delivery. */
+async function getMyProjects() {
+  const supabase = getSupabase()
+  if (!supabase) return []
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, title')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.warn('Could not load projects for delivery attribution:', error.message)
+    return []
+  }
+  return data || []
 }
 
 function replaceRfq(list, updated) {
@@ -117,11 +146,19 @@ function replaceDelivery(updated) {
   if (i !== -1) deliveries.value[i] = updated
 }
 
-async function reviewDelivery(delivery, accept) {
+function openConfirm(delivery) {
+  confirmDeliveryRow.value = delivery
+  confirmProjectId.value = ''
+  actionError.value = ''
+}
+
+/** Accept (with an optional project) or reject. */
+async function reviewDelivery(delivery, accept, projectId = null) {
   busyId.value = delivery.id
   actionError.value = ''
   try {
-    replaceDelivery(await confirmDelivery(delivery, accept))
+    replaceDelivery(await confirmDelivery(delivery, accept, null, projectId))
+    confirmDeliveryRow.value = null
   } catch (err) {
     actionError.value = err?.message || 'Could not update the delivery.'
   } finally {
@@ -282,7 +319,7 @@ onMounted(load)
           <p v-if="d.note" class="rfq-msg">"{{ d.note }}"</p>
 
           <div v-if="d.status === 'pending'" class="rfq-actions">
-            <button class="btn-primary sm" :disabled="busyId === d.id" @click="reviewDelivery(d, true)">
+            <button class="btn-primary sm" :disabled="busyId === d.id" @click="openConfirm(d)">
               Confirm receipt
             </button>
             <button class="btn-ghost sm" :disabled="busyId === d.id" @click="reviewDelivery(d, false)">
@@ -303,6 +340,44 @@ onMounted(load)
         </div>
       </section>
     </template>
+
+    <!-- Confirm-receipt modal -->
+    <div v-if="confirmDeliveryRow" class="modal-overlay" @click.self="confirmDeliveryRow = null">
+      <div class="modal">
+        <h2>Confirm receipt</h2>
+        <p class="muted small">
+          {{ Number(confirmDeliveryRow.quantity).toLocaleString('en-PH') }} {{ confirmDeliveryRow.unit }}
+          delivered {{ shortDate(confirmDeliveryRow.delivered_on) }}
+        </p>
+
+        <div v-if="myProjects.length" class="form-row">
+          <label for="confirm-project">Which project did this feedstock feed?</label>
+          <select id="confirm-project" v-model="confirmProjectId">
+            <option value="">Not specified</option>
+            <option v-for="p in myProjects" :key="p.id" :value="p.id">{{ p.title }}</option>
+          </select>
+          <span class="muted small">
+            Naming the project lets the supplier see the carbon their feedstock contributed to. Leave
+            it blank and the delivery simply won't be attributed.
+          </span>
+        </div>
+        <p v-else class="muted small">
+          You have no projects, so this delivery can't be attributed to one.
+        </p>
+
+        <p v-if="actionError" class="notice error sm">{{ actionError }}</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" @click="confirmDeliveryRow = null">Cancel</button>
+          <button
+            class="btn-primary"
+            :disabled="busyId === confirmDeliveryRow.id"
+            @click="reviewDelivery(confirmDeliveryRow, true, confirmProjectId)"
+          >
+            {{ busyId === confirmDeliveryRow.id ? 'Confirming…' : 'Confirm receipt' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Mark-paid modal -->
     <div v-if="payDelivery" class="modal-overlay" @click.self="payDelivery = null">
@@ -411,7 +486,7 @@ onMounted(load)
 .form-row { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
 .form-row label { font-size: 0.85rem; font-weight: 600; color: #374151; }
 .form-row .opt { font-weight: 400; color: #9ca3af; }
-.form-row input, .form-row textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+.form-row input, .form-row select, .form-row textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
 .estimate { margin-top: 8px; font-size: 0.85rem; color: #065f46; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 </style>

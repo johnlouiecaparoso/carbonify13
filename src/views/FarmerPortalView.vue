@@ -12,16 +12,19 @@ import {
   estimateDeliveryTotal,
   aggregateFarmerDeliveries,
   aggregateParcels,
+  getMyCarbonParticipation,
+  unattributableDeliveries,
 } from '@/services/farmerService'
 import { FARM_CROP_TYPES, PARCEL_STATUSES, cropTypeLabel } from '@/constants/farmer'
 import { biomassTypeLabel } from '@/constants/biomass'
 
 const loading = ref(true)
 const loadError = ref('')
-const tab = ref('parcels') // 'parcels' | 'deliveries'
+const tab = ref('parcels') // 'parcels' | 'deliveries' | 'carbon'
 const parcels = ref([])
 const deliveries = ref([])
 const acceptedRfqs = ref([])
+const carbon = ref([])
 const busyId = ref(null)
 const actionError = ref('')
 
@@ -66,6 +69,10 @@ function emptyDelivery() {
 
 const summary = computed(() => aggregateFarmerDeliveries(deliveries.value))
 const parcelStats = computed(() => aggregateParcels(parcels.value))
+const totalAttributed = computed(() =>
+  Math.round(carbon.value.reduce((s, c) => s + (Number(c.attributedTco2e) || 0), 0) * 1000) / 1000,
+)
+const excluded = computed(() => unattributableDeliveries(deliveries.value))
 
 function peso(n) {
   return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -93,10 +100,16 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [p, d, r] = await Promise.all([getMyParcels(), getMyDeliveries(), getMyAcceptedRfqs()])
+    const [p, d, r, c] = await Promise.all([
+      getMyParcels(),
+      getMyDeliveries(),
+      getMyAcceptedRfqs(),
+      getMyCarbonParticipation(),
+    ])
     parcels.value = p
     deliveries.value = d
     acceptedRfqs.value = r
+    carbon.value = c
   } catch (err) {
     console.error('Failed to load farmer portal:', err)
     loadError.value = err?.message || 'We could not load your farm data right now.'
@@ -237,6 +250,11 @@ onMounted(load)
           <span class="stat-value">{{ qty(parcelStats.totalHectares) }} ha</span>
           <span class="stat-sub">{{ parcelStats.activeCount }} active parcels</span>
         </div>
+        <div v-if="carbon.length" class="stat">
+          <span class="stat-label">Carbon contribution</span>
+          <span class="stat-value">{{ qty(totalAttributed) }}</span>
+          <span class="stat-sub">tCO₂e, estimated</span>
+        </div>
       </div>
 
       <div class="tabs">
@@ -245,6 +263,9 @@ onMounted(load)
         </button>
         <button :class="{ active: tab === 'deliveries' }" @click="tab = 'deliveries'">
           Deliveries <span class="count">{{ deliveries.length }}</span>
+        </button>
+        <button :class="{ active: tab === 'carbon' }" @click="tab = 'carbon'">
+          Carbon <span class="count">{{ carbon.length }}</span>
         </button>
       </div>
 
@@ -369,7 +390,7 @@ onMounted(load)
       </section>
 
       <!-- Deliveries -->
-      <section v-else>
+      <section v-else-if="tab === 'deliveries'">
         <div class="section-head">
           <h2>Deliveries</h2>
         </div>
@@ -422,6 +443,71 @@ onMounted(load)
           </div>
           <div v-else-if="d.payment_status === 'paid'" class="notice ok sm inline">
             Paid {{ shortDate(d.paid_at) }}<span v-if="d.payment_reference"> · ref {{ d.payment_reference }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Carbon participation -->
+      <section v-else>
+        <div class="section-head">
+          <h2>Your carbon contribution</h2>
+        </div>
+
+        <div class="notice info">
+          <span class="material-symbols-outlined" aria-hidden="true">info</span>
+          <div>
+            <strong>This is an estimate, not carbon credits you own.</strong>
+            You supplied part of the biomass a project used, so part of the carbon that project
+            <em>verified</em> is attributed to you — in proportion to the tonnes you delivered. You
+            cannot sell or retire it; the project developer holds the credits.
+          </div>
+        </div>
+
+        <div v-if="!carbon.length" class="empty">
+          <span class="material-symbols-outlined empty-icon" aria-hidden="true">eco</span>
+          <p class="muted">
+            No carbon attributed yet. It appears once a buyer confirms a delivery, names the project
+            it fed, and that project has verified emission reductions.
+          </p>
+        </div>
+
+        <div v-for="c in carbon" :key="c.projectId" class="card">
+          <div class="card-head">
+            <div>
+              <h3>{{ c.projectTitle }}</h3>
+              <div class="meta">
+                You delivered {{ qty(c.farmerTonnes) }} of {{ qty(c.projectTonnes) }} tonnes
+                ({{ (c.share * 100).toFixed(1) }}% of this project's feedstock)
+              </div>
+            </div>
+            <span class="carbon-badge">{{ qty(c.attributedTco2e) }} tCO₂e</span>
+          </div>
+          <div class="bar" role="img" :aria-label="`${(c.share * 100).toFixed(1)} percent of this project's feedstock`">
+            <div class="bar-fill" :style="{ width: Math.min(100, c.share * 100) + '%' }"></div>
+          </div>
+          <div class="detail">
+            Project has verified {{ qty(c.projectVerifiedTco2e) }} tCO₂e in total.
+            <span v-if="!c.projectVerifiedTco2e">
+              Nothing verified yet — your share is recorded and will convert once it is.
+            </span>
+          </div>
+        </div>
+
+        <div v-if="excluded.nonMassUnits || excluded.unattributedProject" class="notice warn">
+          <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+          <div>
+            <strong>Some deliveries couldn't be counted.</strong>
+            <ul class="excl-list">
+              <li v-if="excluded.nonMassUnits">
+                {{ excluded.nonMassUnits }} delivery(ies) measured in sacks, bales or m³. Their weight
+                depends on the feedstock, so we can't convert them to tonnes without guessing — and a
+                guess would change every other farmer's share too.
+              </li>
+              <li v-if="excluded.unattributedProject">
+                {{ excluded.unattributedProject }} delivery(ies) where the buyer didn't say which
+                project the feedstock fed. Ask them to name it.
+              </li>
+            </ul>
           </div>
         </div>
       </section>
@@ -518,7 +604,12 @@ onMounted(load)
 
 .notice { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; }
 .notice.error { background: #fee2e2; color: #991b1b; }
-.notice.info { background: #eff6ff; color: #1e40af; }
+.notice.info { background: #eff6ff; color: #1e40af; display: flex; gap: 12px; align-items: flex-start; }
+.notice.warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; display: flex; gap: 12px; align-items: flex-start; }
+.excl-list { margin: 6px 0 0; padding-left: 18px; }
+.carbon-badge { background: #d1fae5; color: #065f46; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 0.85rem; white-space: nowrap; height: fit-content; }
+.bar { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin: 12px 0 8px; }
+.bar-fill { height: 100%; background: #069e2d; border-radius: 999px; }
 .notice.ok { background: #ecfdf5; color: #065f46; }
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; }
 .notice.inline { margin: 10px 0 0; }

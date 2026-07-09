@@ -70,6 +70,63 @@ const num = (v) => {
   return isFinite(n) ? n : 0
 }
 
+/** Units we can express in tonnes. Sacks/bales/m³ need bulk density we don't have. */
+const TONNE_FACTORS = { tonnes: 1, kg: 0.001 }
+
+/** A delivery's mass in tonnes, or null when its unit isn't mass-denominated. */
+export function deliveryTonnes(delivery = {}) {
+  const factor = TONNE_FACTORS[String(delivery.unit || '').toLowerCase()]
+  if (factor == null) return null
+  const qty = Number(delivery.quantity)
+  return isFinite(qty) && qty > 0 ? qty * factor : null
+}
+
+/**
+ * The farmer's attributed share of a project's verified carbon.
+ *
+ * Pro-rata by delivered mass: `verified × farmerTonnes / projectTonnes`. Shares
+ * across all farmers sum to exactly 1, so nobody is attributed carbon the project
+ * never verified. See docs/FARMER_CARBON_ATTRIBUTION.md for why this rule and not
+ * a per-delivery carbon factor.
+ *
+ * Returns zeros when the denominator is zero or the inputs are nonsense, rather
+ * than NaN or Infinity — a farmer must never be shown "NaN tCO₂e".
+ *
+ * @returns {{share:number, attributed:number}}
+ */
+export function attributeCarbon(farmerTonnes, projectTonnes, verifiedTco2e) {
+  const farmer = num(farmerTonnes)
+  const project = num(projectTonnes)
+  const verified = num(verifiedTco2e)
+  if (farmer <= 0 || project <= 0) return { share: 0, attributed: 0 }
+
+  // A farmer cannot have supplied more than the project received; clamp rather
+  // than emit a share above 1, which would over-attribute verified carbon.
+  const share = Math.min(1, farmer / project)
+  return {
+    share: Math.round(share * 1e6) / 1e6,
+    attributed: Math.round(Math.max(0, verified) * share * 1000) / 1000,
+  }
+}
+
+/**
+ * Deliveries that cannot be attributed, and why. The farmer is told this rather
+ * than left to wonder why their tonnage doesn't match their carbon.
+ *
+ * @returns {{unattributedProject:number, nonMassUnits:number}}
+ */
+export function unattributableDeliveries(deliveries = []) {
+  const rows = Array.isArray(deliveries) ? deliveries : []
+  let unattributedProject = 0
+  let nonMassUnits = 0
+  for (const d of rows) {
+    if (d?.status !== 'confirmed') continue
+    if (deliveryTonnes(d) == null) nonMassUnits += 1
+    else if (!d.project_id) unattributedProject += 1
+  }
+  return { unattributedProject, nonMassUnits }
+}
+
 /**
  * Roll a farmer's deliveries up into the portal's headline numbers.
  *
@@ -290,6 +347,38 @@ export async function getIncomingDeliveries() {
 }
 
 /**
+ * The signed-in farmer's estimated carbon participation, per project.
+ *
+ * Computed server-side by `farmer_carbon_participation()` so the farmer never
+ * needs read access to `verified_emission_reductions` or to other farmers'
+ * deliveries. Degrades to [] when migration #31 isn't applied — the portal then
+ * simply doesn't show the section, rather than erroring.
+ */
+export async function getMyCarbonParticipation() {
+  const supabase = getSupabase()
+  if (!supabase) return []
+  try {
+    const { data, error } = await supabase.rpc('farmer_carbon_participation')
+    if (error) {
+      console.warn('[farmer] carbon participation unavailable:', error.message)
+      return []
+    }
+    return (data || []).map((r) => ({
+      projectId: r.project_id,
+      projectTitle: r.project_title,
+      farmerTonnes: Number(r.farmer_tonnes) || 0,
+      projectTonnes: Number(r.project_tonnes) || 0,
+      share: Number(r.share) || 0,
+      projectVerifiedTco2e: Number(r.project_verified_tco2e) || 0,
+      attributedTco2e: Number(r.attributed_tco2e) || 0,
+    }))
+  } catch (err) {
+    console.warn('[farmer] carbon participation threw:', err?.message)
+    return []
+  }
+}
+
+/**
  * Upload a delivery proof photo/receipt to the private `project-documents`
  * bucket. Returns `{ path, name }` for storing in `proof_docs`.
  */
@@ -343,14 +432,21 @@ export async function recordDelivery({
   return data
 }
 
-/** Buyer confirms or rejects receipt of a delivery. Notifies the farmer. */
-export async function confirmDelivery(delivery, accept, note) {
+/**
+ * Buyer confirms or rejects receipt of a delivery. Notifies the farmer.
+ *
+ * `projectId` names the project this feedstock fed — the link that makes carbon
+ * attribution possible. Optional: a delivery with no project simply can't be
+ * attributed, and the farmer is told so rather than being credited by guesswork.
+ */
+export async function confirmDelivery(delivery, accept, note, projectId = null) {
   const supabase = getSupabase()
   if (!supabase) throw new Error('Supabase client not available')
   const { data, error } = await supabase.rpc('confirm_farmer_delivery', {
     p_delivery_id: delivery.id,
     p_accept: !!accept,
     p_note: note || null,
+    p_project_id: projectId || null,
   })
   if (error) throw new Error(error.message || 'Failed to update delivery')
 

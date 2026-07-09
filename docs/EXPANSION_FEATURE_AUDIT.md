@@ -33,14 +33,13 @@
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
 | 4 | MRV Dashboard | **6 / 8** fully | 🟡 only satellite + IoT remain (both external, deferred) |
 | 5 | Investor Portal | **7 / 7** | ✅ complete — offtake agreements + real data room shipped 2026-07-09 |
-| 6 | Farmer Portal | 3 / 6 | 🟡 **carbon participation + training missing** |
+| 6 | Farmer Portal | **5 / 6** | 🟡 only training remains (content, not code) |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
 
-> **Net (2026-07-09, after the close-out pass):** features **#1, #2, #3 and #5 are complete**. What
-> remains is: the **farmer-facing storytelling layer** (carbon participation, training), the
-> **AI backend**, and **satellite/IoT** — the last two needing external services with a running cost.
-> Farmer carbon participation is the only remaining item that is codeable today, and it needs an
-> **attribution-rule decision** first, not just code.
+> **Net (2026-07-09, after the close-out pass):** features **#1, #2, #3 and #5 are complete**; **#4 is
+> 6/8 and #6 is 5/6**. Everything still open needs something other than code: **training content**
+> (#6e), an **API key + running cost** (#7 AI backend), **external feeds** (#4 satellite/IoT), or an
+> **actual-vs-expected yield** design (#6f, the last codeable item).
 >
 > The original finding still holds as a lesson: feature-level "shipped" labels hid missing sub-items,
 > and the missing ones clustered precisely in the investor- and farmer-facing surfaces that matter
@@ -155,9 +154,9 @@ document to a specific investor, that is a new feature, not a bug in this one.
 | Register | ✅ | `farmer` role, applyable at `/apply`, admin-assignable |
 | Upload deliveries | ✅ | `record_farmer_delivery` RPC + proof upload to the private bucket |
 | Track payments | 🟡✅ | Works, but **bookkeeping only** by design — a buyer-set flag, deliberately not wired to ledger/escrow/payouts. Farmers see pesos owed and paid, but no money moves through Carbonify. |
-| **View carbon participation** | ❌ | **Missing.** No mention of tCO₂e, credits, or carbon anywhere in [FarmerPortalView.vue](../src/views/FarmerPortalView.vue). `farmer_deliveries` has **no link to credit issuance**. A farmer sees sacks and pesos, never how their feedstock became a carbon credit. |
+| **View carbon participation** | ✅ | **Shipped 2026-07-09** (migration #31). A **Carbon** tab attributes verified tCO₂e pro-rata by delivered mass per project. Rule written down first: [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md). Presented as an **estimate**, never as credit ownership. |
 | Receive training | ❌ | **Missing.** No training module, content, route, or table anywhere. |
-| Monitor plantation performance | 🟡 | A **static register**: parcels store `expected_yield_tonnes`, and totals are summed. There is **no actual-yield capture, no actual-vs-expected, no trend**. Deliveries record real quantities but are never reconciled back to the parcel that produced them. |
+| Monitor plantation performance | 🟡 | Still a **static register** plus expected-yield totals. Deliveries carry `parcel_id` but are not reconciled against a parcel's expected yield, so there is no actual-vs-expected or trend. |
 
 **Gap to close:** carbon participation is the emotional core of the farmer proposition and the
 reason a smallholder would care. Deliveries already carry `parcel_id` — reconciling delivered
@@ -200,10 +199,10 @@ Ranked by *investor-visible value per unit of work*.
 
 **Next up:**
 
-4. **Farmer carbon participation** — surface tCO₂e attributable to a farmer's deliveries. Needs a
-   delivery→credit linkage decision: a delivery feeds a project, whose VERs mint credits, so the
-   attribution rule (pro-rata by delivered mass over the reporting period?) is a **methodology
-   choice, not just code**. Worth deciding deliberately.
+- ~~**4. Farmer carbon participation**~~ ✅ done (migration #31; rule in
+  [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md))
+
+**Next up:**
 - ~~**5. Methodology enum + development-status lifecycle**~~ ✅ done (migration #28)
 
 - ~~**7. CO₂ avoided vs removed split**~~ ✅ done (migration #29)

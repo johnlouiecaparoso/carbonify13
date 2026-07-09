@@ -5,6 +5,9 @@ import {
   estimateDeliveryTotal,
   aggregateFarmerDeliveries,
   aggregateParcels,
+  deliveryTonnes,
+  attributeCarbon,
+  unattributableDeliveries,
 } from '@/services/farmerService'
 import { cropTypeLabel } from '@/constants/farmer'
 
@@ -183,5 +186,95 @@ describe('cropTypeLabel', () => {
 
   it('falls back for an empty value', () => {
     expect(cropTypeLabel('')).toBe('Crop')
+  })
+})
+
+describe('deliveryTonnes', () => {
+  it('converts tonnes and kg', () => {
+    expect(deliveryTonnes({ quantity: 2, unit: 'tonnes' })).toBe(2)
+    expect(deliveryTonnes({ quantity: 2500, unit: 'kg' })).toBe(2.5)
+  })
+
+  it('is case-insensitive on the unit', () => {
+    expect(deliveryTonnes({ quantity: 1, unit: 'Tonnes' })).toBe(1)
+  })
+
+  it('returns null for units with no defensible tonnage', () => {
+    // A sack of rice husk and a sack of biochar are wildly different masses.
+    expect(deliveryTonnes({ quantity: 100, unit: 'sacks' })).toBeNull()
+    expect(deliveryTonnes({ quantity: 10, unit: 'bales' })).toBeNull()
+    expect(deliveryTonnes({ quantity: 10, unit: 'm³' })).toBeNull()
+  })
+
+  it('returns null for a non-positive or missing quantity', () => {
+    expect(deliveryTonnes({ quantity: 0, unit: 'tonnes' })).toBeNull()
+    expect(deliveryTonnes({ unit: 'tonnes' })).toBeNull()
+  })
+})
+
+describe('attributeCarbon', () => {
+  it('gives a farmer their pro-rata share of verified carbon', () => {
+    // Supplied 20 of 100 tonnes; project verified 500 tCO2e → 100 tCO2e.
+    const { share, attributed } = attributeCarbon(20, 100, 500)
+    expect(share).toBe(0.2)
+    expect(attributed).toBe(100)
+  })
+
+  it('attributes everything to a sole supplier', () => {
+    expect(attributeCarbon(50, 50, 300)).toEqual({ share: 1, attributed: 300 })
+  })
+
+  it('shares across farmers sum to the project total, never more', () => {
+    const a = attributeCarbon(30, 100, 900).attributed
+    const b = attributeCarbon(70, 100, 900).attributed
+    expect(a + b).toBeCloseTo(900, 3)
+  })
+
+  it('returns zeros rather than NaN when the project has no mass', () => {
+    // A farmer must never be shown "NaN tCO2e".
+    expect(attributeCarbon(10, 0, 500)).toEqual({ share: 0, attributed: 0 })
+    expect(attributeCarbon(0, 0, 500)).toEqual({ share: 0, attributed: 0 })
+  })
+
+  it('returns zeros for nonsense input instead of Infinity', () => {
+    expect(attributeCarbon('abc', 'def', 'ghi')).toEqual({ share: 0, attributed: 0 })
+  })
+
+  it('clamps a share above 1 rather than over-attributing', () => {
+    // Shouldn't happen, but a data error must not mint phantom carbon.
+    const { share, attributed } = attributeCarbon(150, 100, 200)
+    expect(share).toBe(1)
+    expect(attributed).toBe(200)
+  })
+
+  it('attributes zero when the project has verified nothing yet', () => {
+    expect(attributeCarbon(20, 100, 0).attributed).toBe(0)
+    expect(attributeCarbon(20, 100, 0).share).toBe(0.2)
+  })
+
+  it('never attributes negative carbon', () => {
+    expect(attributeCarbon(20, 100, -500).attributed).toBe(0)
+  })
+})
+
+describe('unattributableDeliveries', () => {
+  it('counts confirmed deliveries that cannot be attributed, by reason', () => {
+    const out = unattributableDeliveries([
+      { status: 'confirmed', quantity: 5, unit: 'tonnes', project_id: 'p1' }, // fine
+      { status: 'confirmed', quantity: 5, unit: 'tonnes' }, // no project
+      { status: 'confirmed', quantity: 5, unit: 'sacks', project_id: 'p1' }, // non-mass
+      { status: 'pending', quantity: 5, unit: 'sacks' }, // not confirmed → ignored
+    ])
+    expect(out).toEqual({ unattributedProject: 1, nonMassUnits: 1 })
+  })
+
+  it('counts a non-mass unit once, not twice, when it also lacks a project', () => {
+    const out = unattributableDeliveries([{ status: 'confirmed', quantity: 5, unit: 'sacks' }])
+    expect(out.nonMassUnits).toBe(1)
+    expect(out.unattributedProject).toBe(0)
+  })
+
+  it('handles empty input', () => {
+    expect(unattributableDeliveries([])).toEqual({ unattributedProject: 0, nonMassUnits: 0 })
   })
 })
