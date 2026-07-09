@@ -806,13 +806,31 @@ watch(purchaseQuantity, (newQuantity) => {
   }
 })
 
-// Methods
-async function loadMarketplaceData(forceRefresh = false) {
-  loading.value = true
-  errorMessage.value = ''
+// Monotonic request id. Two loads can overlap (the 15s poll vs a manual refresh
+// vs a purchase completion); without this the SLOWER response wins and overwrites
+// the fresher data. Each call claims an id and only commits if it is still the
+// latest when it resolves.
+let loadSeq = 0
 
-  // Clear old listings to prevent stale data
-  listings.value = []
+/**
+ * @param {boolean} background - the 15s poll. A background refresh must be
+ *   *silent*: no skeleton, no clearing the grid, and no blanking the list on a
+ *   transient error. Doing any of those threw away the user's scroll position
+ *   every 15 seconds.
+ * @param {boolean} forceRefresh - bypass the listings cache. Defaults to
+ *   `background`, but a foreground reload after a purchase also needs it, or the
+ *   grid re-renders the pre-purchase availability straight from cache.
+ */
+async function loadMarketplaceData(background = false, forceRefresh = background) {
+  const seq = ++loadSeq
+  const isBackground = background
+
+  if (!isBackground) {
+    loading.value = true
+    errorMessage.value = ''
+    // Clear stale data only on a foreground load, where a skeleton covers the gap.
+    listings.value = []
+  }
 
   // Load listings and stats in parallel; use 90s timeout (Supabase can be slow on first load / weak networks)
   const timeoutMs = 90000
@@ -833,10 +851,9 @@ async function loadMarketplaceData(forceRefresh = false) {
       withTimeout(getMarketplaceStats(), 'Stats'),
     ])
 
-    console.log('📦 Received listings data:', listingsData?.length || 0, 'listings')
-    if (listingsData?.length) {
-      console.log('📦 First listing price:', listingsData[0]?.price_per_credit)
-    }
+    // A newer load started while this one was in flight — discard this result
+    // rather than overwrite fresher data with staler data.
+    if (seq !== loadSeq) return
 
     listings.value = Array.isArray(listingsData) ? listingsData : []
     marketplaceStats.value = statsData || {
@@ -850,13 +867,19 @@ async function loadMarketplaceData(forceRefresh = false) {
     // (best-effort; never blocks the render). Skipped on the silent 15s
     // auto-refresh — the last_seen_at high-water mark already dedupes, and we
     // don't need to poll saved searches every cycle.
-    if (!forceRefresh && userStore.session?.user?.id && listings.value.length) {
+    if (!isBackground && userStore.session?.user?.id && listings.value.length) {
       checkSavedSearchAlerts(listings.value).catch((err) =>
         console.warn('Saved-search alert check failed:', err?.message),
       )
     }
   } catch (err) {
     console.error('Error loading marketplace data:', err)
+    if (seq !== loadSeq) return
+
+    // A failed BACKGROUND poll must not destroy a perfectly good grid the user is
+    // reading. Log it and leave the last good data on screen.
+    if (isBackground) return
+
     if (err.message?.includes('timed out')) {
       errorMessage.value =
         'Request took too long. Please check your connection and try "Try Again" below.'
@@ -871,7 +894,7 @@ async function loadMarketplaceData(forceRefresh = false) {
       recentTransactions: 0,
     }
   } finally {
-    loading.value = false
+    if (!isBackground && seq === loadSeq) loading.value = false
   }
 }
 
@@ -1126,7 +1149,7 @@ async function handlePurchase() {
     // Force reload marketplace so sold-out / remaining stock is correct (bypass cache)
     const { invalidateMarketplaceCache } = await import('@/services/marketplaceService')
     invalidateMarketplaceCache()
-    await loadMarketplaceData()
+    await loadMarketplaceData(false, true)
   } catch (err) {
     console.error('❌ Purchase failed:', err)
     console.error('❌ Purchase error details:', {
@@ -1231,7 +1254,7 @@ async function adminDeleteListing(listing) {
     console.log('✅ Project deleted successfully from marketplace:', projectId)
 
     // Reload marketplace data
-    await loadMarketplaceData()
+    await loadMarketplaceData(false, true)
 
     await success({
       title: 'Project Deleted!',

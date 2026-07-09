@@ -535,12 +535,18 @@ export async function getMarketplaceStats() {
       throw error
     }
 
+    // Guard every term. `price_per_credit` is legitimately null on listings that
+    // inherit the project's price, and a single null turned the whole reduce into
+    // NaN — which `|| 0` then collapsed to zero, silently reporting the entire
+    // market as worthless rather than skipping the one unpriced row.
+    const rows = Array.isArray(listings) ? listings : []
     const stats = {
-      totalListings: listings?.length || 0,
-      totalCreditsAvailable: listings?.reduce((sum, listing) => sum + listing.quantity, 0) || 0,
-      totalMarketValue:
-        listings?.reduce((sum, listing) => sum + listing.quantity * listing.price_per_credit, 0) ||
+      totalListings: rows.length,
+      totalCreditsAvailable: rows.reduce((sum, l) => sum + (Number(l?.quantity) || 0), 0),
+      totalMarketValue: rows.reduce(
+        (sum, l) => sum + (Number(l?.quantity) || 0) * (Number(l?.price_per_credit) || 0),
         0,
+      ),
     }
 
     return stats

@@ -20,6 +20,15 @@
 > **Nothing codeable remains in #1–#6.** What's open needs training *content* (#6e), an **API key +
 > running cost** (#7), or **external feeds** (#4 satellite/IoT).
 >
+> ### 🔎 Codebase audit — [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md)
+> Four fixed (empty charts on /analytics · the 15s marketplace refresh wiping the grid · a load race ·
+> one unpriced listing reporting the whole market as ₱0). **One HIGH left unfixed on purpose:**
+> retirement is **not atomic** — `retire_credits_atomic` burns the credits, then a *separate*
+> transaction writes `credit_retirements`. If that insert fails the units are gone with no retirement
+> record. The fix rewrites a SECURITY DEFINER function on the proven money path, so it needs runtime
+> verification, not a blind commit. Also: `send-approval-email` lets **any signed-in user** send
+> arbitrary HTML email from the Carbonify sender.
+>
 > ### 🔴 Do these next, in order
 > 1. **[RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md)** — nothing here has been
 >    exercised against the live DB. Unit tests prove the pure math; they prove nothing about RLS
