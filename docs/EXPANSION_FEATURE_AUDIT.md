@@ -32,14 +32,15 @@
 | 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
 | 4 | MRV Dashboard | **6 / 8** fully | 🟡 only satellite + IoT remain (both external, deferred) |
-| 5 | Investor Portal | **6 / 7** | 🟡 offtake agreements shipped 2026-07-09; data room is still a link-out |
+| 5 | Investor Portal | **7 / 7** | ✅ complete — offtake agreements + real data room shipped 2026-07-09 |
 | 6 | Farmer Portal | 3 / 6 | 🟡 **carbon participation + training missing** |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
 
-> **Net (2026-07-09, after the close-out pass):** features **#1, #2 and #3 are complete**. What
-> remains is: the **farmer-facing storytelling layer** (carbon participation, training), a **real
-> in-portal data room**, the **AI backend**, and **satellite/IoT** — the last two needing external
-> services with a running cost.
+> **Net (2026-07-09, after the close-out pass):** features **#1, #2, #3 and #5 are complete**. What
+> remains is: the **farmer-facing storytelling layer** (carbon participation, training), the
+> **AI backend**, and **satellite/IoT** — the last two needing external services with a running cost.
+> Farmer carbon participation is the only remaining item that is codeable today, and it needs an
+> **attribution-rule decision** first, not just code.
 >
 > The original finding still holds as a lesson: feature-level "shipped" labels hid missing sub-items,
 > and the missing ones clustered precisely in the investor- and farmer-facing surfaces that matter
@@ -132,7 +133,7 @@ running cost, and both were deferred from the start.
 | Carbon revenue | ✅ | `estimated_credits × credit_price` |
 | **Offtake agreements** | ✅ | **Shipped 2026-07-09** (migration #27). Developers record ERPAs at [`/developer/offtakes`](../src/views/OfftakeAgreementsView.vue). The portal splits **contracted vs speculative** revenue, blends the negotiated price with the listed price for uncontracted credits, and shows a **downside IRR on contracted revenue alone**. Owner-only RLS; investors see aggregates via `offtake_summary()`, never a counterparty or price. |
 | Funding requirements | ✅ | `funding_target` / `funding_raised` → funding gap |
-| Due-diligence documents | 🟡 | The portal shows a **document count badge** and links out to the project page ([investorService.js:107](../src/services/investorService.js#L107)). There is no data room *inside* the portal — no in-context viewer, no access log, no per-investor permissioning. |
+| Due-diligence documents | ✅ | **Shipped 2026-07-09** (migration #30). Documents open **inside** the portal via short-lived signed URLs, every open is logged, and developers see who is reading what at `/developer/data-room`. Viewers are **counted, not named** — an investor doing diligence isn't published as a lead list. Per-investor *permissioning* remains out of scope: today every validated project's documents are readable by any authenticated user, as they already were on the project page. |
 
 **Closed.** Only `signed`/`active` count as contracted — a draft, negotiation, completed or
 terminated agreement contributes nothing, or speculative revenue would be restated as contracted.
@@ -140,7 +141,10 @@ Over-commitment (contracted volume > estimated issuance) is flagged rather than 
 speculative volume negative. `irrContracted` distinguishes "nothing contracted" from "contracted
 revenue ≤ OPEX" — the latter is a solvency warning, not a missing number.
 
-**Remaining:** a real in-portal data room (viewer, access log, per-investor permissioning).
+**Closed.** All seven bullets are met. Note the one thing NOT built: **per-investor permissioning**.
+Documents on a validated project are readable by any authenticated user — that was already true of the
+public project page, and the data room did not change it. If a developer needs to gate a specific
+document to a specific investor, that is a new feature, not a bug in this one.
 
 ---
 
@@ -192,6 +196,7 @@ Ranked by *investor-visible value per unit of work*.
 - ~~**2. Asset ledger: buyer history**~~ ✅ done
 - ~~**3. Black pellets**~~ ✅ done
 - ~~**6. Offtake agreements / ERPAs**~~ ✅ done (migration #27)
+- ~~**7b. Real in-portal data room**~~ ✅ done (migration #30)
 
 **Next up:**
 
@@ -205,7 +210,6 @@ Ranked by *investor-visible value per unit of work*.
 
 - ~~**7c. MRV reports as a registry document type**~~ ✅ done
 - ~~**Energy-generated tile**~~ ✅ done
-7b. **Real in-portal data room** — document viewer, access log, per-investor permissioning. *(migration)*
 8. **AI assistant backend** — Claude API edge fn, RLS-scoped to the caller. *(external cost)*
 9. **Satellite / IoT feeds** — external APIs + running cost. *(deferred)*
 10. **Training module** — content problem more than a code problem.

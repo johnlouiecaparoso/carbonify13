@@ -205,6 +205,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/developer/data-room',
+      name: 'data-room-activity',
+      component: () => import('@/views/DataRoomActivityView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
       path: '/developer/offtakes',
       name: 'offtake-agreements',
       component: () => import('@/views/OfftakeAgreementsView.vue'),

@@ -1,5 +1,32 @@
 # Carbonify — Handoff (current state)
 
+> 🗂️ **2026-07-09 — INVESTOR DATA ROOM SHIPPED (#5 COMPLETE, 7/7).** The portal showed a document
+> *count badge* linking out to the project page. A data room is not a link: it is documents you open
+> in context, plus a record of who opened them. Investors now open documents inside
+> [`/investor`](../src/views/InvestorPortalView.vue) via short-lived signed URLs; developers see
+> **who is reading what** at [`/developer/data-room`](../src/views/DataRoomActivityView.vue).
+> Migration **#30**. Build ✅ · ESLint 0 ✅ · **288 tests ✅** (+16).
+>
+> **Three deliberate calls.** (1) The access log is written **only** through
+> `log_data_room_access()`, a SECURITY DEFINER RPC that derives *both* the viewer (`auth.uid()`) and
+> the developer (`projects.user_id`) server-side — with a plain INSERT policy the client supplies
+> `developer_id` and could forge either side, or erase a row that incriminates them. (2) **Viewers are
+> counted, never named.** An investor doing diligence reasonably expects not to be published as a
+> named lead list; "is anyone reading my PDD?" is answered by distinct-viewer counts. (3) **Distinct
+> viewers, not raw views** — one investor refreshing a PDD ten times is one interested party, and
+> "10 viewers" would flatter the developer with a meaningless number. Self-views aren't recorded.
+>
+> **⬜ To finish:** apply migration **#30**.
+>
+> 🔓 **2026-07-09 — EMAIL CONFIRMATION IS OFF, DELIBERATELY (accepted risk, not an oversight).**
+> Supabase Auth "Confirm email" stays **disabled** because the custom-SMTP sender needs a paid domain
+> the owner isn't buying yet. Consequence: **anyone can sign up with an email address they do not
+> control.** That is tolerable for demos and testing; it is **not** tolerable once real users hold
+> real money, because account recovery and every notification route through an unverified address.
+> **Before real users:** register a domain → verify it in Resend → set the Supabase SMTP sender +
+> creds → re-enable confirmation. Steps in [TODAY_2026-07-07.md](TODAY_2026-07-07.md) §1c. No code
+> change needed; signup is a standard `supabase.auth.signUp()`.
+>
 > 📑 **2026-07-09 — #1 COMPLETE (8/8) · #4 now 6/8.** Two small closers, **no migration**:
 > **MRV Report** is now an optional project document type (a published monitoring report reaches the
 > public project page — #1's last bullet), and the MRV dashboard gained a dedicated **Energy
@@ -433,6 +460,7 @@ to confirm an empty result.
 > | 21 | `20260707000200_project_registry_fields.sql` | ✅ **applied (2026-07-08)** | Adds `feedstock`, `capacity`, `capacity_unit` to `projects` (+ non-negative `capacity` check) for the investor-facing Project Registry. Applied live; the form now persists these + `methodology`. ⬜ Remaining: a runtime click-through (submit a project with the new fields → confirm they render on the detail page). |
 > | 22 | `20260708000000_biomass_marketplace.sql` | ✅ **applied (2026-07-08)** | Expansion #3. Creates `biomass_products` (supplier feedstock catalog) + `biomass_rfqs` (buyer request + folded quote) with RLS (public browse of active products; owner writes; buyer-or-seller-or-admin reads RFQs) and 3 SECURITY DEFINER RPCs for status transitions (`submit_biomass_quote` / `respond_biomass_quote` / `close_biomass_rfq`). Applied live. ⬜ Remaining: runtime click-through (list feedstock KYB-gated → request a quote as another user → quote → accept). |
 > | 24 | `20260710000000_project_financials.sql` | ✅ **applied (2026-07-09)** | Expansion #5. Adds `capex`, `opex`, `project_lifetime_years`, `funding_target`, `funding_raised` to `projects` (non-negative checks) so the Investor Portal can model IRR/NPV/payback + funding gap. The submit form now captures them (new "Financials" subsection). ⬜ Remaining: a developer edits a project → fills Financials → the Investor Portal shows IRR/NPV. |
+> | 30 | `20260716000000_data_room_access_log.sql` | ⬜ **pending** | Expansion #5's last bullet. Creates `data_room_access_log` (project, developer, viewer, document, action) with **no INSERT/UPDATE/DELETE policy** — writes go only through `log_data_room_access()`, a SECURITY DEFINER RPC deriving viewer from `auth.uid()` and developer from `projects.user_id`, so neither identity can be forged and a log row can't be erased by the person it incriminates. Reads are limited to the two parties + admin (one investor must not see which rivals are doing diligence). Self-views and non-validated projects are skipped. **Apply, then an investor opens a document in `/investor` → the developer sees it at `/developer/data-room`.** |
 > | 29 | `20260715000000_ver_reduction_type.sql` | ✅ **applied (2026-07-09)** | Adds `verified_emission_reductions.reduction_type` (`removal` / `avoidance`, **nullable**, CHECK-constrained + partial index on approved rows). Closes #4's CO₂-avoided-vs-removed bullet. **Deliberately not backfilled** — a legacy VER was approved without anyone asserting a type, and guessing from the project category would fake a verifier's assertion on an issued credit. The MRV dashboard shows an explicit **Unclassified** bucket instead. **Apply, then approve an MRV report → pick Removal/Avoidance → the dashboard splits it.** |
 > | 28 | `20260714000000_project_development_status.sql` | ✅ **applied (2026-07-09)** | Adds `projects.development_status` (concept / feasibility / financing / construction / operational / decommissioned, nullable, CHECK-constrained + partial index) — the **real-world lifecycle**, distinct from `projects.status` (the Carbonify validation workflow). Closes #1's "development status" bullet. `methodology` intentionally stays free TEXT (the UI drives it from a canonical list; a CHECK would reject legacy rows like "Verra VM0044" on any later UPDATE). **Apply, then Submit/Edit Project offers a Development Status dropdown and the Investor Portal gains a stage filter.** |
 > | 27 | `20260713000000_offtake_agreements.sql` | ✅ **applied (2026-07-09)** | Expansion #5's missing bullet. Creates `offtake_agreements` (project, counterparty, volume, price, term, status) — **owner-only RLS**, since counterparty + price are commercially sensitive — plus `offtake_summary(uuid[])`, a SECURITY DEFINER RPC returning only contracted volume/value/count per validated project (never a counterparty or price) so investors can see contracted share without seeing terms. Insert is doubly guarded: `developer_id = auth.uid()` **and** the caller owns the project. **Apply, then a developer records a signed agreement → the Investor Portal shows contracted % + downside IRR.** |

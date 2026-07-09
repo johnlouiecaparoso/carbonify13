@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getInvestmentPipeline, documentCount } from '@/services/investorService'
+import { getProjectDocuments, logAccess, formatSize } from '@/services/dataRoomService'
 import { FEATURES } from '@/constants/plans'
 import FeatureGate from '@/components/ui/FeatureGate.vue'
 import CategoryChart from '@/components/charts/CategoryChart.vue'
@@ -18,6 +19,37 @@ const categoryFilter = ref('')
 const methodologyFilter = ref('')
 const stageFilter = ref('')
 const detail = ref(null) // selected project for the financial modal
+
+// Data room
+const dataRoom = ref(null) // selected project
+const dataRoomDocs = ref([])
+const dataRoomLoading = ref(false)
+const dataRoomError = ref('')
+
+async function openDataRoom(project) {
+  dataRoom.value = project
+  dataRoomDocs.value = []
+  dataRoomError.value = ''
+  dataRoomLoading.value = true
+  try {
+    dataRoomDocs.value = await getProjectDocuments(project)
+  } catch (err) {
+    dataRoomError.value = err?.message || 'We could not open this data room.'
+  } finally {
+    dataRoomLoading.value = false
+  }
+}
+
+/**
+ * Log the access, then open. Logging is best-effort and deliberately not awaited
+ * as a gate: a failed audit write must never stop an investor from reading a
+ * document they're entitled to read.
+ */
+function openDocument(doc) {
+  if (!doc?.url) return
+  logAccess(dataRoom.value?.id, doc.label || doc.name, 'view')
+  window.open(doc.url, '_blank', 'noopener')
+}
 
 function peso(n) {
   return `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -226,7 +258,16 @@ onMounted(load)
                     </div>
                   </td>
                   <td class="num">{{ p.financials.fundingGap != null ? peso(p.financials.fundingGap) : '—' }}</td>
-                  <td class="num">{{ documentCount(p) }}</td>
+                  <td class="num">
+                    <button
+                      v-if="documentCount(p)"
+                      class="link-btn"
+                      @click="openDataRoom(p)"
+                    >
+                      {{ documentCount(p) }}
+                    </button>
+                    <span v-else class="muted">—</span>
+                  </td>
                   <td class="num">
                     <button class="link-btn" @click="detail = p">Financials</button>
                   </td>
@@ -251,6 +292,44 @@ onMounted(load)
         <router-link to="/marketplace" class="btn-primary">Browse the marketplace</router-link>
       </div>
     </FeatureGate>
+
+    <!-- Data room -->
+    <div v-if="dataRoom" class="modal-overlay" @click.self="dataRoom = null">
+      <div class="modal">
+        <h2>Data room</h2>
+        <p class="muted small">{{ dataRoom.title }}</p>
+
+        <div v-if="dataRoomLoading" class="muted">Opening…</div>
+        <p v-else-if="dataRoomError" class="notice error sm">{{ dataRoomError }}</p>
+        <p v-else-if="!dataRoomDocs.length" class="notice info sm">
+          This project hasn't published any documents yet.
+        </p>
+
+        <ul v-else class="doc-list">
+          <li v-for="doc in dataRoomDocs" :key="doc.path || doc.name" class="doc-row">
+            <span class="material-symbols-outlined doc-icon" aria-hidden="true">description</span>
+            <span class="doc-main">
+              <span class="doc-name">{{ doc.label }}</span>
+              <span class="muted small">
+                {{ doc.name }}<span v-if="formatSize(doc.size)"> · {{ formatSize(doc.size) }}</span>
+              </span>
+            </span>
+            <button v-if="doc.url" class="btn-primary sm" @click="openDocument(doc)">Open</button>
+            <span v-else class="muted small">Unavailable</span>
+          </li>
+        </ul>
+
+        <p class="muted small note-box">
+          The developer can see that you opened these documents, and when. They cannot see anything
+          else about you.
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" @click="dataRoom = null">Close</button>
+          <router-link :to="`/projects/${dataRoom.id}`" class="btn-primary">Full project page</router-link>
+        </div>
+      </div>
+    </div>
 
     <!-- Financial detail modal -->
     <div v-if="detail" class="modal-overlay" @click.self="detail = null">
@@ -390,6 +469,15 @@ onMounted(load)
 .irr { color: #065f46; font-weight: 600; }
 .contracted { color: #065f46; font-weight: 600; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.doc-list { list-style: none; margin: 14px 0 0; padding: 0; }
+.doc-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #e5e7eb; }
+.doc-row:first-child { border-top: none; }
+.doc-icon { color: #069e2d; }
+.doc-main { flex: 1; display: flex; flex-direction: column; }
+.doc-name { font-weight: 600; font-size: 0.9rem; }
+.note-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-top: 14px; }
+.btn-ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+.btn-primary.sm { padding: 6px 12px; font-size: 0.82rem; }
 .stage-pill {
   display: inline-block;
   margin-top: 4px;

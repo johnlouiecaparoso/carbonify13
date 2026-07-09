@@ -402,6 +402,7 @@ const profileSections = computed(() => {
       { path: '/submit-project', label: 'Submit Project', icon: 'add_circle' },
       { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
       { path: '/developer/offtakes', label: 'Offtake Agreements', icon: 'handshake' },
+      { path: '/developer/data-room', label: 'Data Room Activity', icon: 'visibility' },
       { path: '/sales', label: 'Seller Earnings', icon: 'payments' },
       { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
       { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
