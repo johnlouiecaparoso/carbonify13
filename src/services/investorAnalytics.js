@@ -69,35 +69,78 @@ export function computePayback(cashflows = []) {
   return null
 }
 
+const asRate = (irr) => (irr == null ? null : Math.round(irr * 10000) / 10000)
+
 /**
- * Build a per-project financial model from the project's economic fields.
+ * Build a per-project financial model from the project's economic fields, split
+ * into contracted and speculative revenue when offtake agreements exist.
  *
  * Revenue model: `estimated_credits` is treated as the TOTAL credits issued over
  * the project lifetime, so annual credits = estimated_credits / lifetime, and
  * annual revenue = annual credits × credit_price. Annual net = revenue − opex.
  * Cashflows = [−capex, net, net, … (lifetime years)].
  *
+ * With offtakes, revenue becomes **blended**: the contracted volume earns its
+ * negotiated price, and only the *remaining* credits are valued at the listed
+ * `credit_price`. That is strictly more truthful than the listed-price-for-
+ * everything model, because an ERPA price is a real number and a listed price is
+ * an assumption.
+ *
+ * `irrContracted` re-runs the model on contracted revenue ALONE — the downside
+ * case where not a single speculative credit sells. That is the number a
+ * diligence team trusts, and it is why this split exists.
+ *
  * @param {Object} project - a projects row (capex, opex, project_lifetime_years,
  *   estimated_credits, credit_price, funding_target, funding_raised)
  * @param {number} [discountRate=0.1] - annual discount rate for NPV
+ * @param {{contractedVolume?:number, contractedRevenue?:number, agreementCount?:number}} [offtake]
+ *   aggregate from `summarizeOfftakes` / the `offtake_summary` RPC. Omit for none.
  * @returns {Object} model incl. hasFinancials flag; degrades gracefully.
  */
-export function computeProjectFinancials(project = {}, discountRate = 0.1) {
+export function computeProjectFinancials(project = {}, discountRate = 0.1, offtake = null) {
   const capex = Number(project.capex) || 0
   const opex = Number(project.opex) || 0
   const lifetime = Math.floor(Number(project.project_lifetime_years) || 0)
   const credits = Number(project.estimated_credits) || 0
   const price = Number(project.credit_price) || 0
 
+  // Value of every estimated credit at the *listed* price — the legacy basis.
   const grossRevenue = round2(credits * price)
+
+  const agreementCount = Number(offtake?.agreementCount) || 0
+  const contractedVolume = Math.max(0, Number(offtake?.contractedVolume) || 0)
+  const contractedRevenue = round2(Math.max(0, Number(offtake?.contractedRevenue) || 0))
+
+  // A developer can contract more volume than the project is estimated to issue.
+  // That is a real integrity signal, not a rounding artefact — surface it rather
+  // than letting speculative volume go negative.
+  const overCommitted = contractedVolume > credits && credits > 0
+  const speculativeVolume = round2(Math.max(0, credits - contractedVolume))
+  const speculativeRevenue = round2(speculativeVolume * price)
+
+  const hasOfftake = agreementCount > 0 && contractedRevenue > 0
+  const totalRevenue = hasOfftake ? round2(contractedRevenue + speculativeRevenue) : grossRevenue
+  // A ratio, not a peso amount — round2 here would quantize 67.7% to 68%.
+  const contractedShare = totalRevenue > 0 ? asRate(contractedRevenue / totalRevenue) : 0
 
   const fundingTarget = project.funding_target != null ? Number(project.funding_target) : null
   const fundingRaised = project.funding_raised != null ? Number(project.funding_raised) : null
   const fundingGap =
     fundingTarget != null ? round2(Math.max(0, fundingTarget - (fundingRaised || 0))) : null
 
+  const offtakeFields = {
+    contractedVolume: round2(contractedVolume),
+    contractedRevenue,
+    speculativeVolume,
+    speculativeRevenue,
+    contractedShare,
+    agreementCount,
+    overCommitted,
+    revenueBasis: hasOfftake ? 'blended' : 'listed',
+  }
+
   // Enough to model a return series?
-  const hasFinancials = capex > 0 && lifetime > 0 && grossRevenue > 0
+  const hasFinancials = capex > 0 && lifetime > 0 && totalRevenue > 0
 
   if (!hasFinancials) {
     return {
@@ -106,37 +149,67 @@ export function computeProjectFinancials(project = {}, discountRate = 0.1) {
       opex,
       lifetimeYears: lifetime,
       grossRevenue,
-      annualRevenue: lifetime > 0 ? round2(grossRevenue / lifetime) : 0,
+      totalRevenue,
+      annualRevenue: lifetime > 0 ? round2(totalRevenue / lifetime) : 0,
       annualNet: null,
       npv: null,
       irr: null,
+      irrContracted: null,
+      npvContracted: null,
       paybackYears: null,
       fundingTarget,
       fundingRaised,
       fundingGap,
       cashflows: [],
+      ...offtakeFields,
     }
   }
 
-  const annualRevenue = round2(grossRevenue / lifetime)
+  const annualRevenue = round2(totalRevenue / lifetime)
   const annualNet = round2(annualRevenue - opex)
   const cashflows = [-capex, ...Array.from({ length: lifetime }, () => annualNet)]
 
-  const irr = computeIrr(cashflows)
+  // Downside case: only contracted revenue materialises.
+  //
+  // `irrContracted` is null in TWO different situations, and a reader must not
+  // confuse them, so `contractedCoversOpex` disambiguates:
+  //   • nothing contracted        → contractedAnnualNet null, coversOpex null
+  //   • contracted, but annual contracted revenue ≤ opex → every year is negative,
+  //     there is no sign change, so no real IRR exists. coversOpex false. This is
+  //     a solvency warning, not a missing number, and rendering it as "—" alongside
+  //     the no-contract case would hide it.
+  let irrContracted = null
+  let npvContracted = null
+  let contractedAnnualNet = null
+  let contractedCoversOpex = null
+  if (contractedRevenue > 0) {
+    contractedAnnualNet = round2(round2(contractedRevenue / lifetime) - opex)
+    contractedCoversOpex = contractedAnnualNet > 0
+    const contractedFlows = [-capex, ...Array.from({ length: lifetime }, () => contractedAnnualNet)]
+    irrContracted = asRate(computeIrr(contractedFlows))
+    npvContracted = round2(computeNpv(discountRate, contractedFlows))
+  }
+
   return {
     hasFinancials: true,
     capex,
     opex,
     lifetimeYears: lifetime,
     grossRevenue,
+    totalRevenue,
     annualRevenue,
     annualNet,
     npv: round2(computeNpv(discountRate, cashflows)),
-    irr: irr == null ? null : Math.round(irr * 10000) / 10000,
+    irr: asRate(computeIrr(cashflows)),
+    irrContracted,
+    npvContracted,
+    contractedAnnualNet,
+    contractedCoversOpex,
     paybackYears: computePayback(cashflows),
     fundingTarget,
     fundingRaised,
     fundingGap,
     cashflows,
+    ...offtakeFields,
   }
 }

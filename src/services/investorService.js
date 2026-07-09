@@ -1,5 +1,6 @@
 import { getSupabase } from '@/services/supabaseClient'
 import { computeProjectFinancials } from '@/services/investorAnalytics'
+import { getOfftakeSummary } from '@/services/offtakeService'
 
 /**
  * Investor Portal data service (expansion feature #5).
@@ -24,9 +25,13 @@ export function summarizePipeline(projects = []) {
     projects: 0,
     credits: 0,
     grossRevenue: 0,
+    totalRevenue: 0,
+    contractedRevenue: 0,
+    speculativeRevenue: 0,
     fundingTarget: 0,
     fundingGap: 0,
     withFinancials: 0,
+    withOfftake: 0,
     irrSum: 0,
     irrCount: 0,
   }
@@ -36,6 +41,10 @@ export function summarizePipeline(projects = []) {
     totals.projects += 1
     totals.credits += Number(p.estimated_credits) || 0
     totals.grossRevenue += Number(f.grossRevenue) || 0
+    totals.totalRevenue += Number(f.totalRevenue) || Number(f.grossRevenue) || 0
+    totals.contractedRevenue += Number(f.contractedRevenue) || 0
+    totals.speculativeRevenue += Number(f.speculativeRevenue) || 0
+    if (f.agreementCount > 0) totals.withOfftake += 1
     if (f.fundingTarget != null) totals.fundingTarget += Number(f.fundingTarget) || 0
     if (f.fundingGap != null) totals.fundingGap += Number(f.fundingGap) || 0
     if (f.hasFinancials) {
@@ -54,10 +63,19 @@ export function summarizePipeline(projects = []) {
     byCategory.set(cat, c)
   }
 
+  const totalRevenue = round2(totals.totalRevenue)
   return {
     projects: totals.projects,
     credits: round2(totals.credits),
     grossRevenue: round2(totals.grossRevenue),
+    totalRevenue,
+    contractedRevenue: round2(totals.contractedRevenue),
+    speculativeRevenue: round2(totals.speculativeRevenue),
+    withOfftake: totals.withOfftake,
+    // Share of pipeline revenue actually under contract. A ratio, not pesos —
+    // round to 4dp so 67.7% doesn't become 68%.
+    contractedShare:
+      totalRevenue > 0 ? Math.round((totals.contractedRevenue / totalRevenue) * 10000) / 10000 : 0,
     fundingTarget: round2(totals.fundingTarget),
     fundingGap: round2(totals.fundingGap),
     withFinancials: totals.withFinancials,
@@ -96,9 +114,16 @@ export async function getInvestmentPipeline({ category = '', discountRate = 0.1 
     throw new Error(error.message || 'Failed to load the investment pipeline')
   }
 
-  const projects = (data || []).map((p) => ({
+  // Contracted position per project. Aggregate-only: the RPC never returns a
+  // counterparty or a negotiated price, so browsing the pipeline can't leak
+  // another developer's commercial terms. Degrades to {} if migration #27 is
+  // unapplied — projects then model on the listed price, as they did before.
+  const rows = data || []
+  const offtakes = await getOfftakeSummary(rows.map((p) => p.id))
+
+  const projects = rows.map((p) => ({
     ...p,
-    financials: computeProjectFinancials(p, discountRate),
+    financials: computeProjectFinancials(p, discountRate, offtakes[p.id] || null),
   }))
   return { projects, summary: summarizePipeline(projects) }
 }

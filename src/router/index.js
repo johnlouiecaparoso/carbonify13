@@ -205,6 +205,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/developer/offtakes',
+      name: 'offtake-agreements',
+      component: () => import('@/views/OfftakeAgreementsView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
       path: '/assistant',
       name: 'ai-assistant',
       component: () => import('@/views/AiAssistantView.vue'),

@@ -32,7 +32,7 @@
 | 2 | Carbon Asset Management | **6 / 6** | ✅ buyer history shipped 2026-07-09 |
 | 3 | Biomass Marketplace | **7 / 7** | ✅ black pellets shipped 2026-07-09 |
 | 4 | MRV Dashboard | **3 / 8** fully | 🟡 farmers + biomass collected + hectares shipped; CO₂ avoided/removed split and satellite/IoT remain |
-| 5 | Investor Portal | 5 / 7 | 🟡 **offtake agreements missing**; data room is a link-out |
+| 5 | Investor Portal | **6 / 7** | 🟡 offtake agreements shipped 2026-07-09; data room is still a link-out |
 | 6 | Farmer Portal | 3 / 6 | 🟡 **carbon participation + training missing** |
 | 7 | AI Project Assistant | 0 / 5 | 🔴 interface preview only; no backend |
 
@@ -126,13 +126,17 @@ delivered — an all-zero panel would read as "we have no farmers" rather than "
 | IRR | ✅ | bisection solver ([investorAnalytics.js:23](../src/services/investorAnalytics.js#L23)) |
 | Project pipeline | ✅ | cross-developer validated projects |
 | Carbon revenue | ✅ | `estimated_credits × credit_price` |
-| **Offtake agreements** | ❌ | **Missing entirely.** A whole-repo grep for offtake / ERPA / purchase-agreement returns **zero functional code** — two descriptive words in a comment. No table, no field, no UI. |
+| **Offtake agreements** | ✅ | **Shipped 2026-07-09** (migration #27). Developers record ERPAs at [`/developer/offtakes`](../src/views/OfftakeAgreementsView.vue). The portal splits **contracted vs speculative** revenue, blends the negotiated price with the listed price for uncontracted credits, and shows a **downside IRR on contracted revenue alone**. Owner-only RLS; investors see aggregates via `offtake_summary()`, never a counterparty or price. |
 | Funding requirements | ✅ | `funding_target` / `funding_raised` → funding gap |
 | Due-diligence documents | 🟡 | The portal shows a **document count badge** and links out to the project page ([investorService.js:107](../src/services/investorService.js#L107)). There is no data room *inside* the portal — no in-context viewer, no access log, no per-investor permissioning. |
 
-**Gap to close:** offtake agreements are the single most investor-relevant missing item — an ERPA is
-what converts "projected carbon revenue" into contracted revenue. Without it, every IRR in the portal
-is built on an *assumed* credit price.
+**Closed.** Only `signed`/`active` count as contracted — a draft, negotiation, completed or
+terminated agreement contributes nothing, or speculative revenue would be restated as contracted.
+Over-commitment (contracted volume > estimated issuance) is flagged rather than allowed to drive
+speculative volume negative. `irrContracted` distinguishes "nothing contracted" from "contracted
+revenue ≤ OPEX" — the latter is a solvency warning, not a missing number.
+
+**Remaining:** a real in-portal data room (viewer, access log, per-investor permissioning).
 
 ---
 
@@ -183,6 +187,7 @@ Ranked by *investor-visible value per unit of work*.
 - ~~**1. MRV: farmers participating + plantation hectares**~~ ✅ done (needed migration #26 for hectares)
 - ~~**2. Asset ledger: buyer history**~~ ✅ done
 - ~~**3. Black pellets**~~ ✅ done
+- ~~**6. Offtake agreements / ERPAs**~~ ✅ done (migration #27)
 
 **Next up:**
 
@@ -191,8 +196,8 @@ Ranked by *investor-visible value per unit of work*.
    attribution rule (pro-rata by delivered mass over the reporting period?) is a **methodology
    choice, not just code**. Worth deciding deliberately.
 5. **Methodology enum** + **development-status lifecycle field** — makes the registry filterable and credible. *(migration)*
-6. **Offtake agreements / ERPAs** — the largest genuinely-new build; converts projected revenue into contracted revenue in the investor model. *(migration)*
 7. **CO₂ avoided vs removed split** — needs a methodology/VER flag. *(migration)*
+7b. **Real in-portal data room** — document viewer, access log, per-investor permissioning. *(migration)*
 8. **AI assistant backend** — Claude API edge fn, RLS-scoped to the caller. *(external cost)*
 9. **Satellite / IoT feeds** — external APIs + running cost. *(deferred)*
 10. **Training module** — content problem more than a code problem.

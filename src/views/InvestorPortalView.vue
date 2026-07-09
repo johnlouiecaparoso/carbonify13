@@ -89,8 +89,13 @@ onMounted(load)
           </div>
           <div class="card">
             <div class="card-label">Projected value</div>
-            <div class="card-value">{{ peso(summary.grossRevenue) }}</div>
-            <div class="muted small">gross, at listed prices</div>
+            <div class="card-value">{{ peso(summary.totalRevenue) }}</div>
+            <div class="muted small">
+              <template v-if="summary.contractedRevenue > 0">
+                {{ peso(summary.contractedRevenue) }} contracted ({{ pct(summary.contractedShare) }})
+              </template>
+              <template v-else>none contracted — all at listed prices</template>
+            </div>
           </div>
           <div class="card">
             <div class="card-label">Funding gap</div>
@@ -126,7 +131,8 @@ onMounted(load)
                   <th>Project</th>
                   <th class="num">Credits</th>
                   <th class="num">Price</th>
-                  <th class="num">Gross value</th>
+                  <th class="num">Projected value</th>
+                  <th class="num">Contracted</th>
                   <th class="num">IRR</th>
                   <th class="num">Funding gap</th>
                   <th class="num">Docs</th>
@@ -141,10 +147,31 @@ onMounted(load)
                   </td>
                   <td class="num">{{ num(p.estimated_credits) }}</td>
                   <td class="num">{{ p.credit_price ? peso(p.credit_price) : '—' }}</td>
-                  <td class="num">{{ peso(p.financials.grossRevenue) }}</td>
+                  <td class="num">
+                    {{ peso(p.financials.totalRevenue) }}
+                    <div v-if="p.financials.revenueBasis === 'blended'" class="muted small">blended</div>
+                  </td>
+                  <td class="num">
+                    <template v-if="p.financials.agreementCount > 0">
+                      <span class="contracted">{{ pct(p.financials.contractedShare) }}</span>
+                      <div class="muted small">{{ peso(p.financials.contractedRevenue) }}</div>
+                      <div v-if="p.financials.overCommitted" class="over-flag" title="Contracted volume exceeds estimated issuance">
+                        over-committed
+                      </div>
+                    </template>
+                    <span v-else class="muted" title="No offtake agreement — all revenue is speculative">—</span>
+                  </td>
                   <td class="num">
                     <span v-if="p.financials.irr != null" class="irr">{{ pct(p.financials.irr) }}</span>
                     <span v-else class="muted">—</span>
+                    <div v-if="p.financials.agreementCount > 0" class="muted small">
+                      <template v-if="p.financials.irrContracted != null">
+                        {{ pct(p.financials.irrContracted) }} contracted
+                      </template>
+                      <template v-else-if="p.financials.contractedCoversOpex === false">
+                        <span class="warn-text">contracted &lt; opex</span>
+                      </template>
+                    </div>
                   </td>
                   <td class="num">{{ p.financials.fundingGap != null ? peso(p.financials.fundingGap) : '—' }}</td>
                   <td class="num">{{ documentCount(p) }}</td>
@@ -157,7 +184,10 @@ onMounted(load)
           </div>
           <p class="muted small legend">
             IRR/NPV/payback are modelled from developer-provided CAPEX, OPEX and project lifetime;
-            projects without those show “—”. Open a project to view its data room (documents).
+            projects without those show “—”. <strong>Contracted</strong> is the share of projected
+            value under a signed or active offtake agreement (ERPA) — the rest is speculative, valued
+            at the developer's listed credit price. The second IRR is the downside case: contracted
+            revenue only. Open a project to view its data room (documents).
           </p>
         </section>
       </template>
@@ -177,11 +207,49 @@ onMounted(load)
         <p class="muted small">{{ detail.category }}<span v-if="detail.location"> · {{ detail.location }}</span></p>
 
         <div class="fin-grid">
-          <div class="fin"><span class="fin-l">Projected gross value</span><span class="fin-v">{{ peso(detail.financials.grossRevenue) }}</span></div>
+          <div class="fin"><span class="fin-l">Projected value</span><span class="fin-v">{{ peso(detail.financials.totalRevenue) }}</span></div>
           <div class="fin"><span class="fin-l">Estimated credits</span><span class="fin-v">{{ num(detail.estimated_credits) }}</span></div>
           <div class="fin"><span class="fin-l">Credit price</span><span class="fin-v">{{ detail.credit_price ? peso(detail.credit_price) : '—' }}</span></div>
           <div class="fin"><span class="fin-l">Capacity</span><span class="fin-v">{{ detail.capacity != null ? num(detail.capacity) + ' ' + (detail.capacity_unit || '') : '—' }}</span></div>
         </div>
+
+        <!-- Contracted vs speculative: what an ERPA actually secures -->
+        <h3>Revenue certainty</h3>
+        <template v-if="detail.financials.agreementCount > 0">
+          <div class="fin-grid">
+            <div class="fin highlight">
+              <span class="fin-l">Contracted</span>
+              <span class="fin-v">{{ peso(detail.financials.contractedRevenue) }}</span>
+            </div>
+            <div class="fin">
+              <span class="fin-l">Speculative</span>
+              <span class="fin-v">{{ peso(detail.financials.speculativeRevenue) }}</span>
+            </div>
+            <div class="fin">
+              <span class="fin-l">Contracted volume</span>
+              <span class="fin-v">{{ num(detail.financials.contractedVolume) }} credits</span>
+            </div>
+            <div class="fin">
+              <span class="fin-l">Under agreement</span>
+              <span class="fin-v">{{ pct(detail.financials.contractedShare) }}</span>
+            </div>
+          </div>
+          <div class="bar" role="img" :aria-label="`${pct(detail.financials.contractedShare)} of projected value is contracted`">
+            <div class="bar-fill" :style="{ width: (detail.financials.contractedShare * 100) + '%' }"></div>
+          </div>
+          <p class="muted small">
+            {{ detail.financials.agreementCount }} signed/active offtake agreement(s). Counterparties
+            and negotiated prices are confidential to the developer.
+          </p>
+          <p v-if="detail.financials.overCommitted" class="notice warn sm">
+            <strong>Over-committed.</strong> Contracted volume exceeds this project's estimated
+            issuance, so some contracted credits may not be deliverable.
+          </p>
+        </template>
+        <p v-else class="notice info sm">
+          <strong>No offtake agreement.</strong> All projected revenue is speculative — every credit
+          is valued at the developer's listed price, not a contracted one.
+        </p>
 
         <template v-if="detail.financials.hasFinancials">
           <h3>Financial model</h3>
@@ -194,6 +262,30 @@ onMounted(load)
             <div class="fin highlight"><span class="fin-l">NPV (10%)</span><span class="fin-v">{{ peso(detail.financials.npv) }}</span></div>
             <div class="fin"><span class="fin-l">Payback</span><span class="fin-v">{{ detail.financials.paybackYears != null ? num(detail.financials.paybackYears) + ' yrs' : '—' }}</span></div>
           </div>
+
+          <!-- Downside case: only the contracted revenue materialises -->
+          <template v-if="detail.financials.agreementCount > 0">
+            <h3>Downside — contracted revenue only</h3>
+            <div v-if="detail.financials.irrContracted != null" class="fin-grid">
+              <div class="fin highlight">
+                <span class="fin-l">IRR (contracted)</span>
+                <span class="fin-v">{{ pct(detail.financials.irrContracted) }}</span>
+              </div>
+              <div class="fin">
+                <span class="fin-l">NPV (contracted)</span>
+                <span class="fin-v">{{ peso(detail.financials.npvContracted) }}</span>
+              </div>
+            </div>
+            <p v-else-if="detail.financials.contractedCoversOpex === false" class="notice warn sm">
+              <strong>Contracted revenue doesn't cover OPEX.</strong> At
+              {{ peso(detail.financials.contractedAnnualNet) }} annual net, the project loses money
+              every year on contracted volume alone, so no return can be computed for the downside
+              case. It depends on selling speculative credits.
+            </p>
+            <p class="muted small">
+              Assumes not one speculative credit sells. Compare against the headline IRR above.
+            </p>
+          </template>
         </template>
         <p v-else class="notice info sm">
           The developer hasn't provided CAPEX / OPEX / lifetime for this project, so a full return
@@ -223,6 +315,7 @@ onMounted(load)
 .notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; }
 .notice.error { background: #fee2e2; color: #991b1b; }
 .notice.info { background: #eff6ff; color: #1e40af; }
+.notice.warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; display: block; }
 .notice.sm { padding: 8px 12px; font-size: 0.85rem; margin: 12px 0 0; }
 .notice-body { display: flex; flex-direction: column; gap: 4px; }
 .retry-btn { margin-top: 8px; padding: 6px 14px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 8px; font-weight: 600; cursor: pointer; }
@@ -243,6 +336,22 @@ onMounted(load)
 .proj-link { color: #069e2d; font-weight: 600; text-decoration: none; }
 .proj-link:hover { text-decoration: underline; }
 .irr { color: #065f46; font-weight: 600; }
+.contracted { color: #065f46; font-weight: 600; }
+.warn-text { color: #92400e; font-weight: 600; }
+.over-flag {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.bar { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin: 10px 0 6px; }
+.bar-fill { height: 100%; background: #069e2d; border-radius: 999px; }
 .link-btn { background: none; border: none; color: #069e2d; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
 .legend { margin: 12px 0 0; }
 .btn-primary { background: #069e2d; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
