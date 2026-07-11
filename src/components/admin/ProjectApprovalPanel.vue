@@ -807,7 +807,12 @@ async function openVerificationModal(project, newStatus) {
         // mint/list credits at the wrong (or unset) price. Abort and tell the
         // verifier instead of showing a false success.
         try {
-          await projectService.updateProject(project.id, { credit_price: price })
+          // isAdmin=true: this panel is staff-only, and the verifier is editing
+          // the DEVELOPER's project — not their own. Without it, updateProject's
+          // getProject filters projects by user_id=<verifier> and 406s ("cannot
+          // coerce to a single JSON object"). Staff writes are authorized by the
+          // projects RLS, not by ownership.
+          await projectService.updateProject(project.id, { credit_price: price }, true)
           project.credit_price = price
         } catch (priceErr) {
           throw new Error(
