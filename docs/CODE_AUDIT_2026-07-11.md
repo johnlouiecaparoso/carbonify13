@@ -60,8 +60,14 @@ This session **fixed 17 findings** (5 HIGH, 6 MED, 6 LOW) and consolidated the l
 
 Live schema confirmed **both** columns existed. `credits_available` (numeric) is **canonical** — the money
 path decrements it. `available_credits` (integer) was a stale stray: a live query showed `2000` where the
-true remaining was `1638`, it was maintained by **no trigger**, and once the dead `assetLedgerService`
-fallback was removed it was read by no code.
+true remaining was `1638`, and once the dead `assetLedgerService` fallback was removed it was read by no code.
+
+> **⚠️ CORRECTION (2026-07-11, later).** This section claimed `available_credits` was "maintained by **no
+> trigger**." **That was wrong.** Two SECURITY DEFINER issuance triggers write it —
+> `activate_validated_project_trigger` (validation) and `mint_credits_on_ver_approval` (VER approval). So
+> dropping the column (`000700`) broke validation live (`column available_credits does not exist`). Repaired
+> by migration `20260718000900`, which redefines both trigger functions to write only `credits_available`.
+> Lesson: the drift check searched the service layer but not the trigger/function bodies in SQL.
 
 Fix: code now writes/reads only `credits_available` (projectWorkflowService, projectApprovalService,
 assetLedgerService, marketplaceService). The stray is retired via **expand/contract** so there is no broken

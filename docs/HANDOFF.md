@@ -4,7 +4,25 @@
 >
 > **Build ✅ · ESLint 0 ✅ · 313 tests ✅.**
 >
-> ### 🔴 2026-07-11 (latest) — LIVE RLS AUDIT: 3 CREDIT-INTEGRITY HOLES FOUND + CLOSED
+> ### 🛠️ 2026-07-11 (latest) — DRIFT REPAIR: issuance triggers still wrote the dropped `available_credits`
+> Validating a project failed live with `column "available_credits" of relation "project_credits" does not
+> exist`. **Root cause:** the M6 consolidation dropped `available_credits` (migration `000700`) on the
+> premise it was "maintained by NO trigger" — **that premise was wrong.** Two SECURITY DEFINER issuance
+> triggers write it: `activate_validated_project_trigger` (fires on validation, latest body from
+> `20260626000500`) and `mint_credits_on_ver_approval`. After the column drop, the validation trigger throws
+> and the whole `projects` status UPDATE rolls back — a **DB** failure surfacing as a frontend error, which
+> is why no redeploy fixed it.
+> **Fix:** migration **`20260718000900_issuance_triggers_use_credits_available.sql`** redefines both trigger
+> functions to write only the canonical `credits_available` (same pool/listing logic otherwise). Also fixed
+> a real client bug: the verifier's price-save called `updateProject` without `isAdmin`, 406-ing on a
+> non-owned project (PR #9).
+> **Note on the real flow:** the LIVE DB issues on **validation** — `activate_validated_project_trigger`
+> creates the pool **and** an active listing the moment a project is validated, so a validated project goes
+> straight to the marketplace. (The `20260604010100` "decouple, mint-on-VER" model was superseded on live by
+> `20260626000500`, which re-established validation-time issuance.) **⚠️ Apply `000900` in the SQL Editor;
+> then validating a project should succeed and list it.**
+>
+> ### 🔴 2026-07-11 (earlier) — LIVE RLS AUDIT: 3 CREDIT-INTEGRITY HOLES FOUND + CLOSED
 > Merged the 2026-07-11 batch to `main` via **PR #7**, then audited the live `pg_policies` for the money
 > tables. **Good:** the four ledger tables (`credit_ownership`, `wallet_accounts`, `wallet_transactions`,
 > `credit_transactions`) are already client-SELECT-only. **Bad — three live, exploitable write holes:**
