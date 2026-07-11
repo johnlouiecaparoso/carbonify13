@@ -1,10 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import LoginForm from '@/components/auth/LoginForm.vue'
 
-// Fixed route injection issues - no route dependency
-const showRegisteredBanner = ref(false)
-// Cache buster: ${new Date().toISOString()}
+const route = useRoute()
+
+// Set by RegisterForm on a successful signup. Without it the user lands on a
+// bare sign-in form with no confirmation their account was created.
+const showRegisteredBanner = computed(() => route.query.registered === '1')
 </script>
 
 <template>
@@ -31,13 +34,17 @@ const showRegisteredBanner = ref(false)
 
     <section class="auth-panel">
       <div class="panel-card">
-        <div v-if="showRegisteredBanner" class="success-banner">
-          Registration successful. Please log in.
+        <div v-if="showRegisteredBanner" class="success-banner" role="status">
+          Account created. Sign in to continue.
         </div>
         <LoginForm />
         <div class="panel-footer">
           <span class="panel-desc">New to Carbonify?</span>
           <router-link class="muted-link" to="/register">Create an account</router-link>
+        </div>
+        <div class="panel-footer farmer-hint">
+          <span class="panel-desc">Are you a farmer?</span>
+          <router-link class="muted-link" to="/register/farmer">Register as a farmer</router-link>
         </div>
       </div>
     </section>
@@ -223,6 +230,11 @@ const showRegisteredBanner = ref(false)
 }
 
 /* Enhanced Footer */
+.farmer-hint {
+  padding-top: 0.25rem;
+  margin-top: 0;
+}
+
 .panel-footer {
   padding: 1rem 0 0 0;
   text-align: center;

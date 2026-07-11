@@ -23,6 +23,7 @@
             <option value="admin">Admin</option>
             <option value="verifier">Verifier</option>
             <option value="project_developer">Project Developer</option>
+            <option value="farmer">Farmer</option>
             <option value="general_user">General User</option>
           </select>
         </div>
@@ -38,6 +39,7 @@
                 <th>Email</th>
                 <th>Role</th>
                 <th>KYC Level</th>
+                <th>Business (KYB)</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -52,6 +54,11 @@
                   </span>
                 </td>
                 <td>{{ user.kyc_level || 0 }} · {{ kycLevelLabel(user.kyc_level) }}</td>
+                <td>
+                  <span class="kyb-badge" :class="user.kyb_verified ? 'kyb-verified' : 'kyb-none'">
+                    {{ user.kyb_verified ? 'Verified' : '—' }}
+                  </span>
+                </td>
                 <td>{{ formatDate(user.created_at) }}</td>
                 <td>
                   <button
@@ -72,20 +79,23 @@
           <div class="modal-content" @click.stop>
             <h3>Edit User</h3>
             <div v-if="selectedUser" class="form-group">
-              <label>Full Name</label>
-              <input v-model="selectedUser.full_name" type="text" />
+              <label for="um-full-name">Full Name</label>
+              <input id="um-full-name" v-model="selectedUser.full_name" type="text" />
             </div>
             <div v-if="selectedUser" class="form-group">
-              <label>Role</label>
-              <select v-model="selectedUser.role">
+              <label for="um-role">Role</label>
+              <select id="um-role" v-model="selectedUser.role">
                 <option value="general_user">General User</option>
+                <option value="buyer_investor">Buyer/Investor</option>
+                <option value="project_developer">Project Developer</option>
+                <option value="farmer">Farmer</option>
                 <option value="verifier">Verifier</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
             <div v-if="selectedUser" class="form-group">
-              <label>KYC Level</label>
-              <select v-model.number="selectedUser.kyc_level">
+              <label for="um-kyc">KYC Level</label>
+              <select id="um-kyc" v-model.number="selectedUser.kyc_level">
                 <option v-for="t in KYC_LEVELS" :key="t.level" :value="t.level">
                   {{ t.level }} — {{ t.label }}
                 </option>
@@ -93,6 +103,20 @@
               <small class="hint">
                 Manual override for testing. Users normally earn KYC via the
                 verification flow (Profile → KYC).
+              </small>
+            </div>
+            <div v-if="selectedUser" class="form-group">
+              <span class="field-caption">Business Verification (KYB)</span>
+              <label class="kyb-toggle">
+                <input v-model="selectedUser.kyb_verified" type="checkbox" class="kyb-switch-input" />
+                <span class="kyb-switch" aria-hidden="true"></span>
+                <span class="kyb-toggle-text">
+                  {{ selectedUser.kyb_verified ? 'Verified' : 'Not verified' }}
+                </span>
+              </label>
+              <small class="hint">
+                Clears the "Business verification required" gate (e.g. Sell
+                Feedstock, seller payouts). Overrides the KYB application flow.
               </small>
             </div>
             <div class="modal-actions">
@@ -103,6 +127,19 @@
         </div>
       </div>
     </div>
+
+    <ModernPrompt
+      :is-open="promptState.isOpen"
+      :type="promptState.type"
+      :title="promptState.title"
+      :message="promptState.message"
+      :confirm-text="promptState.confirmText"
+      :cancel-text="promptState.cancelText"
+      :show-cancel="promptState.showCancel"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="handleClose"
+    />
   </div>
 </template>
 
@@ -110,6 +147,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
 import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
+import { adminSetKybVerified } from '@/services/kybService'
+import { useModernPrompt } from '@/composables/useModernPrompt'
+import ModernPrompt from '@/components/ui/ModernPrompt.vue'
+
+const {
+  promptState,
+  success: showSuccess,
+  error: showError,
+  handleConfirm,
+  handleCancel,
+  handleClose,
+} = useModernPrompt()
 
 const users = ref([])
 const loading = ref(true)
@@ -165,6 +214,9 @@ function formatRole(role) {
     admin: 'Admin',
     verifier: 'Verifier',
     project_developer: 'Project Developer',
+    farmer: 'Farmer',
+    buyer_investor: 'Buyer/Investor',
+    lgu_user: 'LGU User',
     general_user: 'General User',
   }
   return roleMap[role] || role
@@ -202,17 +254,34 @@ async function saveUser() {
       fullName: selectedUser.value.full_name,
     })
 
+    // KYB verification is a separate admin-gated RPC; only call it when changed.
+    const original = users.value.find((u) => u.id === selectedUser.value.id)
+    let kybProfile = null
+    if (!!original?.kyb_verified !== !!selectedUser.value.kyb_verified) {
+      kybProfile = await adminSetKybVerified({
+        userId: selectedUser.value.id,
+        verified: !!selectedUser.value.kyb_verified,
+      })
+    }
+
     // Reflect the server's saved values locally.
     const index = users.value.findIndex((u) => u.id === selectedUser.value.id)
     if (index !== -1) {
-      users.value[index] = { ...users.value[index], ...(updated || selectedUser.value) }
+      users.value[index] = {
+        ...users.value[index],
+        ...(updated || selectedUser.value),
+        kyb_verified: (kybProfile || updated || selectedUser.value).kyb_verified,
+      }
     }
 
     closeEditModal()
-    alert('User updated successfully!')
+    await showSuccess({ title: 'User updated', message: 'The account was updated successfully.' })
   } catch (err) {
     console.error('Error updating user:', err)
-    alert(err.message || 'Failed to update user. Please try again.')
+    await showError({
+      title: 'Update failed',
+      message: err.message || 'Failed to update user. Please try again.',
+    })
   }
 }
 
@@ -312,6 +381,73 @@ th {
   font-weight: 500;
 }
 
+.kyb-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.kyb-verified {
+  background: #d1fae5;
+  color: #065f46;
+}
+.kyb-none {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+/* KYB toggle switch. Selectors are scoped under .form-group so they beat the
+   global `.form-group input { width: 100% }` / `label { display: block }`. */
+.form-group .kyb-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+.form-group .kyb-toggle .kyb-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.kyb-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.kyb-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+.kyb-switch-input:checked + .kyb-switch {
+  background: #069e2d;
+}
+.kyb-switch-input:checked + .kyb-switch::after {
+  transform: translateX(18px);
+}
+.kyb-switch-input:focus-visible + .kyb-switch {
+  outline: 2px solid #069e2d;
+  outline-offset: 2px;
+}
+.kyb-toggle-text {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
 .role-admin {
   background: #fee2e2;
   color: #dc2626;
@@ -374,6 +510,8 @@ th {
   margin-bottom: 1rem;
 }
 
+/* Caption above the KYB toggle. Not a <label>: the toggle wraps its own. */
+.form-group .field-caption,
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;

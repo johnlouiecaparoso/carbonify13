@@ -1,5 +1,31 @@
 <script setup>
 import RegisterForm from '@/components/auth/RegisterForm.vue'
+
+/**
+ * Roles that can't simply be self-selected at signup — each is reviewed. Farmer
+ * leads because it is the lowest-friction path (no business registration, no
+ * accreditation) and the audience least likely to hunt for a link.
+ */
+const specialistRoles = [
+  {
+    to: '/register/farmer',
+    icon: 'agriculture',
+    title: 'I am a farmer',
+    description: 'Sell your biomass, log deliveries, and track what you are paid.',
+  },
+  {
+    to: { path: '/apply', query: { role: 'project_developer' } },
+    icon: 'engineering',
+    title: 'I develop carbon projects',
+    description: 'Register projects, report monitoring data, and issue credits.',
+  },
+  {
+    to: { path: '/apply', query: { role: 'verifier' } },
+    icon: 'verified',
+    title: 'I am a verifier',
+    description: 'Review projects and approve verified emission reductions.',
+  },
+]
 </script>
 
 <template>
@@ -27,17 +53,31 @@ import RegisterForm from '@/components/auth/RegisterForm.vue'
     <section class="auth-panel">
       <div class="panel-card">
         <RegisterForm />
+
+        <!-- Roles that need review before approval. Each says plainly what it's
+             for, so nobody applies as a Verifier when they meant Developer. -->
         <div class="apply-specialist">
-          <span class="apply-specialist__label">Want to join as a specialist?</span>
-          <div class="apply-specialist__links">
-            <router-link :to="{ path: '/apply', query: { role: 'project_developer' } }" class="apply-specialist__link">
-              Apply as Developer
-            </router-link>
-            <router-link :to="{ path: '/apply', query: { role: 'verifier' } }" class="apply-specialist__link">
-              Apply as Verifier
+          <span class="apply-specialist__label">Joining as something specific?</span>
+          <div class="role-cards">
+            <router-link
+              v-for="role in specialistRoles"
+              :key="role.to"
+              :to="role.to"
+              class="role-card"
+            >
+              <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
+              <span class="role-card__body">
+                <span class="role-card__title">{{ role.title }}</span>
+                <span class="role-card__desc">{{ role.description }}</span>
+              </span>
+              <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
             </router-link>
           </div>
+          <p class="apply-specialist__note">
+            These roles are reviewed before approval. You'll create an account first either way.
+          </p>
         </div>
+
         <div class="panel-footer">
           <span class="panel-desc">Already have an account?</span>
           <router-link class="muted-link" to="/login">Sign in</router-link>
@@ -202,27 +242,76 @@ import RegisterForm from '@/components/auth/RegisterForm.vue'
   margin-bottom: 0.75rem;
 }
 
-.apply-specialist__links {
+.apply-specialist {
+  text-align: left;
+}
+
+.apply-specialist__label {
+  text-align: center;
+}
+
+.role-cards {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.role-card {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
-  justify-content: center;
-}
-
-.apply-specialist__link {
-  color: var(--primary-color, #069e2d);
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
   text-decoration: none;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--primary-color, #069e2d);
-  border-radius: 8px;
-  transition: background 0.2s ease, color 0.2s ease;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
-.apply-specialist__link:hover {
-  background: var(--primary-color, #069e2d);
-  color: #fff;
+.role-card:hover,
+.role-card:focus-visible {
+  border-color: var(--primary-color, #069e2d);
+  background: #f0fdf4;
+  transform: translateY(-1px);
+}
+
+.role-card__icon {
+  color: var(--primary-color, #069e2d);
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.role-card__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.role-card__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.role-card__desc {
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.role-card__chevron {
+  color: #9ca3af;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.apply-specialist__note {
+  margin: 0.875rem 0 0;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.45;
 }
 
 /* Enhanced Footer */

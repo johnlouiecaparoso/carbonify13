@@ -7,6 +7,11 @@ import { projectApprovalService } from '@/services/projectApprovalService'
 import UiButton from '@/components/ui/Button.vue'
 import UiInput from '@/components/ui/Input.vue'
 import BoundaryMapPicker from '@/components/map/BoundaryMapPicker.vue'
+import {
+  DEVELOPMENT_STATUSES,
+  methodologyGroups,
+  isKnownMethodology,
+} from '@/constants/projectRegistry'
 import { uploadProjectDocument } from '@/services/storageService'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
@@ -62,6 +67,14 @@ const formData = ref({
   end_date: '',
   host_entity: '',
 
+  // Registry metadata (optional) — investor-facing project registry fields.
+  methodology: '', // canonical key from METHODOLOGY_STANDARDS, or 'other'
+  methodology_custom: '', // free text when methodology === 'other'; stored into `methodology`
+  development_status: '', // real-world lifecycle, NOT the Carbonify review status
+  feedstock: '', // e.g. 'Rice husk', 'Coconut biomass', 'Sugarcane bagasse', 'Bana grass'
+  capacity: '', // nameplate/throughput figure (numeric)
+  capacity_unit: '', // unit for capacity, e.g. 'MW', 'tonnes/year'
+
   // Technical & compliance files (single-file inputs)
   pdd_file: null,
   baseline_file: null,
@@ -69,15 +82,19 @@ const formData = ref({
   leakage_file: null,
   safeguards_file: null,
   feasibility_file: null,
+  mrv_report_file: null,
 
   lgu_endorsement_file: null,
   land_ownership_file: null,
   ecc_file: null,
   moa_file: null,
 
-  // Financials (optional)
-  capex: '',
-  opex: '',
+  // Financials (optional) — power the Investor Portal's return model.
+  capex: '', // up-front capital expenditure (PHP)
+  opex: '', // annual operating expenditure (PHP/yr)
+  project_lifetime_years: '', // crediting/operating horizon (years)
+  funding_target: '', // capital being sought (PHP)
+  funding_raised: '', // capital committed so far (PHP)
   carbon_yield_projection: '',
 
   // Credibility metadata (optional, structured)
@@ -88,6 +105,19 @@ const formData = ref({
 
 const additionalityTypes = ADDITIONALITY_TYPES
 const reversalRiskLevels = REVERSAL_RISK_LEVELS
+
+/**
+ * What actually gets stored in `projects.methodology`.
+ *
+ * 'other' is a UI affordance for "not in our list" — storing the literal string
+ * 'other' would be worse than the free text it replaced. Persist what the
+ * developer typed instead; it renders as-is and simply won't match the filter.
+ */
+function resolvedMethodology() {
+  const selected = formData.value.methodology
+  if (selected !== 'other') return selected
+  return String(formData.value.methodology_custom || '').trim()
+}
 
 // File upload state
 const uploadedFiles = ref([])
@@ -116,6 +146,7 @@ const additionalityInput = ref(null)
 const leakageInput = ref(null)
 const safeguardsInput = ref(null)
 const feasibilityInput = ref(null)
+const mrvReportInput = ref(null)
 
 const lguEndorsementInput = ref(null)
 const landOwnershipInput = ref(null)
@@ -645,7 +676,13 @@ const REQUIRED_DOCS = [
   { field: 'moa_file', label: 'MOA / Agreements', key: 'moa' },
 ]
 
-const OPTIONAL_DOCS = [{ field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' }]
+// MRV reports are produced periodically in the monitoring module; attaching one
+// here is how a *published* report reaches the public registry page, which the
+// registry spec asks for. Optional: a new project has no monitoring history yet.
+const OPTIONAL_DOCS = [
+  { field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' },
+  { field: 'mrv_report_file', label: 'MRV Report', key: 'mrv_report' },
+]
 
 // How many required docs are still missing (drives the submit-button hint).
 const missingRequiredDocs = computed(() =>
@@ -687,8 +724,17 @@ async function handleSubmit() {
       end_date: formData.value.end_date,
       host_entity: formData.value.host_entity,
       estimated_credits: formData.value.estimated_credits,
+      // 'other' is a UI affordance, not a stored value — persist what they typed.
+      methodology: resolvedMethodology(),
+      development_status: formData.value.development_status,
+      feedstock: formData.value.feedstock,
+      capacity: formData.value.capacity,
+      capacity_unit: formData.value.capacity_unit,
       capex: formData.value.capex,
       opex: formData.value.opex,
+      project_lifetime_years: formData.value.project_lifetime_years,
+      funding_target: formData.value.funding_target,
+      funding_raised: formData.value.funding_raised,
       carbon_yield_projection: formData.value.carbon_yield_projection,
       ...normalizeCredibility({
         additionality_type: formData.value.additionality_type,
@@ -977,6 +1023,26 @@ onMounted(() => {
       geo_coordinates: props.project.geo_coordinates || '',
       boundary: props.project.boundary || null,
       expected_impact: props.project.expected_impact || '',
+      // Legacy rows hold arbitrary free text ('Verra VM0044'). Map a canonical key
+      // onto the dropdown; anything else lands in "Other" with the text preserved,
+      // so editing an old project never silently discards its methodology.
+      methodology: isKnownMethodology(props.project.methodology)
+        ? props.project.methodology
+        : props.project.methodology
+          ? 'other'
+          : '',
+      methodology_custom: isKnownMethodology(props.project.methodology)
+        ? ''
+        : props.project.methodology || '',
+      development_status: props.project.development_status || '',
+      feedstock: props.project.feedstock || '',
+      capacity: props.project.capacity ?? '',
+      capacity_unit: props.project.capacity_unit || '',
+      capex: props.project.capex ?? '',
+      opex: props.project.opex ?? '',
+      project_lifetime_years: props.project.project_lifetime_years ?? '',
+      funding_target: props.project.funding_target ?? '',
+      funding_raised: props.project.funding_raised ?? '',
       co_benefits: Array.isArray(props.project.co_benefits)
         ? props.project.co_benefits
             .map((c) => (typeof c === 'string' ? c : c?.label || c?.sdg || ''))
@@ -1233,6 +1299,131 @@ onMounted(() => {
 
         <div class="form-subsection optional">
           <div class="subsection-header">
+            <h4 class="subsection-title">Registry Details (Optional)</h4>
+          </div>
+          <p class="field-help" style="margin-top: 0">
+            These appear on your public project page and help buyers &amp; investors assess the
+            project at a glance.
+          </p>
+
+          <div class="form-group">
+            <label for="methodology" class="form-label"> Methodology / Standard </label>
+            <select id="methodology" v-model="formData.methodology" class="form-select">
+              <option value="">Select a standard…</option>
+              <optgroup v-for="g in methodologyGroups()" :key="g.group" :label="g.group">
+                <option v-for="m in g.items" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </optgroup>
+            </select>
+            <div class="field-help">
+              The carbon standard the project follows. Choosing from this list lets buyers and
+              investors filter by standard.
+            </div>
+          </div>
+
+          <div v-if="formData.methodology === 'other'" class="form-group">
+            <label for="methodology_custom" class="form-label"> Which standard? </label>
+            <UiInput
+              id="methodology_custom"
+              v-model="formData.methodology_custom"
+              placeholder="e.g., Verra VM0044, ISCC PLUS"
+            />
+            <div class="field-help">
+              Recorded as free text, so it won't appear in the standard filter.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="development_status" class="form-label"> Development Status </label>
+            <select id="development_status" v-model="formData.development_status" class="form-select">
+              <option value="">Not specified</option>
+              <option v-for="d in DEVELOPMENT_STATUSES" :key="d.value" :value="d.value">
+                {{ d.label }} — {{ d.description }}
+              </option>
+            </select>
+            <div class="field-help">
+              Where the project is in the real world. This is separate from its Carbonify review
+              status (draft / submitted / validated).
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="feedstock" class="form-label"> Feedstock / Input Material </label>
+            <UiInput
+              id="feedstock"
+              v-model="formData.feedstock"
+              placeholder="e.g., Rice husk, Coconut biomass, Sugarcane bagasse, Bana grass"
+            />
+            <div class="field-help">The biomass or input material the project uses.</div>
+          </div>
+
+          <div class="form-grid two-columns">
+            <div class="form-group">
+              <label for="capacity" class="form-label"> Capacity </label>
+              <UiInput
+                id="capacity"
+                type="number"
+                min="0"
+                step="any"
+                v-model.number="formData.capacity"
+                placeholder="e.g., 10"
+              />
+              <div class="field-help">Nameplate or throughput figure.</div>
+            </div>
+            <div class="form-group">
+              <label for="capacity_unit" class="form-label"> Capacity Unit </label>
+              <UiInput
+                id="capacity_unit"
+                v-model="formData.capacity_unit"
+                placeholder="e.g., MW, tonnes/year"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-subsection optional">
+          <div class="subsection-header">
+            <h4 class="subsection-title">Financials (Optional)</h4>
+          </div>
+          <p class="field-help" style="margin-top: 0">
+            Used to model investor returns (IRR / NPV / payback) and funding needs on the Investor
+            Portal. All optional — leave blank if not applicable.
+          </p>
+
+          <div class="form-grid two-columns">
+            <div class="form-group">
+              <label for="capex" class="form-label"> Capital expenditure (CAPEX) </label>
+              <UiInput id="capex" v-model.number="formData.capex" type="number" min="0" step="any" placeholder="e.g., 5000000" />
+              <div class="field-help">Total up-front investment, in ₱.</div>
+            </div>
+            <div class="form-group">
+              <label for="opex" class="form-label"> Operating cost / year (OPEX) </label>
+              <UiInput id="opex" v-model.number="formData.opex" type="number" min="0" step="any" placeholder="e.g., 400000" />
+              <div class="field-help">Annual running cost, in ₱.</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="project_lifetime_years" class="form-label"> Project lifetime (years) </label>
+            <UiInput id="project_lifetime_years" v-model.number="formData.project_lifetime_years" type="number" min="0" step="1" placeholder="e.g., 10" />
+            <div class="field-help">Crediting / operating horizon used for the cashflow model.</div>
+          </div>
+
+          <div class="form-grid two-columns">
+            <div class="form-group">
+              <label for="funding_target" class="form-label"> Funding target </label>
+              <UiInput id="funding_target" v-model.number="formData.funding_target" type="number" min="0" step="any" placeholder="e.g., 6000000" />
+              <div class="field-help">Capital you are seeking, in ₱.</div>
+            </div>
+            <div class="form-group">
+              <label for="funding_raised" class="form-label"> Funding raised so far </label>
+              <UiInput id="funding_raised" v-model.number="formData.funding_raised" type="number" min="0" step="any" placeholder="e.g., 1500000" />
+              <div class="field-help">Capital committed to date, in ₱.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-subsection optional">
+          <div class="subsection-header">
             <h4 class="subsection-title">Required Technical &amp; Compliance Documents</h4>
           </div>
 
@@ -1313,6 +1504,18 @@ onMounted(() => {
                 <span class="doc-card-file">{{ formData.feasibility_file ? formData.feasibility_file.name : 'Click to upload PDF' }}</span>
               </span>
               <input ref="feasibilityInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'feasibility_file')" />
+            </label>
+
+            <label class="doc-card" :class="{ filled: !!formData.mrv_report_file }">
+              <span class="doc-card-status" aria-hidden="true">
+                <span class="material-symbols-outlined">{{ formData.mrv_report_file ? 'check_circle' : 'monitoring' }}</span>
+              </span>
+              <span class="doc-card-main">
+                <span class="doc-card-title">MRV Report <span class="opt">Optional</span></span>
+                <span class="doc-card-desc">A published monitoring, reporting &amp; verification report. Attach one so buyers and investors can read your measured results on the project page. New projects won't have one yet.</span>
+                <span class="doc-card-file">{{ formData.mrv_report_file ? formData.mrv_report_file.name : 'Click to upload PDF' }}</span>
+              </span>
+              <input ref="mrvReportInput" type="file" accept="application/pdf" class="file-input-hidden" @change="(e) => handleSingleDocUpload(e, 'mrv_report_file')" />
             </label>
 
             <label class="doc-card" :class="{ filled: !!formData.lgu_endorsement_file }">

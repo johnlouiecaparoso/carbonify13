@@ -25,6 +25,7 @@ export const useUserStore = defineStore('user', {
     isVerifier: (state) => roleService.isVerifier(state.role),
     isBuyerInvestor: (state) => roleService.isBuyerInvestor(state.role),
     isLguUser: (state) => roleService.isLguUser(state.role),
+    isFarmer: (state) => roleService.isFarmer(state.role),
     hasPermission: (state) => (permission) => roleService.hasPermission(state.role, permission),
     hasAnyPermission: (state) => (permissions) =>
       roleService.hasAnyPermission(state.role, permissions),

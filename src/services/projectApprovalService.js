@@ -375,7 +375,10 @@ export class ProjectApprovalService {
           {
             project_id: projectId,
             total_credits: creditsAmount,
-            available_credits: creditsAmount,
+            // `credits_available` is the canonical column the purchase path
+            // decrements. (The legacy `available_credits` stray was retired in
+            // 20260718000600 — it was never decremented after a sale.)
+            credits_available: creditsAmount,
             price_per_credit: basePrice,
             currency: 'PHP',
           },

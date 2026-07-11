@@ -35,6 +35,16 @@ const ROLE_DETAILS = {
       'Help maintain marketplace quality and trust',
     ],
   },
+  [ROLE_APPLICATION_ROLES.FARMER]: {
+    title: 'Farmer',
+    summary:
+      'Supply biomass feedstock from your farm. Register your plantation parcels, list feedstock on the marketplace, and track deliveries and payments.',
+    highlights: [
+      'Register plantation parcels and track expected yield',
+      'List feedstock and receive quote requests from buyers',
+      'Log deliveries with proof photos and follow payment status',
+    ],
+  },
 }
 
 const defaultRole =

@@ -59,6 +59,13 @@ export class RoleService {
   }
 
   /**
+   * Check if user is a farmer (smallholder feedstock supplier)
+   */
+  isFarmer(role) {
+    return role === ROLES.FARMER
+  }
+
+  /**
    * Check if user has specific permission
    */
   hasPermission(role, permission) {
@@ -144,6 +151,16 @@ export class RoleService {
         'view_receipts',
         'manage_wallet',
       ],
+      [ROLES.FARMER]: [
+        'manage_farm_parcels',
+        'record_deliveries',
+        'sell_feedstock',
+        'view_marketplace',
+        'view_own_profile',
+        'edit_own_profile',
+        'view_own_transactions',
+        'manage_wallet',
+      ],
       [ROLES.GENERAL_USER]: [
         'view_marketplace',
         'view_own_profile',
@@ -166,6 +183,7 @@ export class RoleService {
       '/admin/analytics': ['view_analytics'],
       '/admin/audit': ['view_audit_logs'],
       '/verifier': ['view_all_projects', 'edit_project_status'],
+      '/farmer': ['manage_farm_parcels'],
       '/projects': ['create_projects', 'view_own_projects'],
       '/marketplace': ['view_marketplace'],
       '/portfolio': ['view_own_portfolio'],
@@ -279,6 +297,7 @@ export class RoleService {
       [ROLES.PROJECT_DEVELOPER]: 'Project Developer',
       [ROLES.LGU_USER]: 'LGU User',
       [ROLES.BUYER_INVESTOR]: 'Buyer/Investor',
+      [ROLES.FARMER]: 'Farmer',
       [ROLES.GENERAL_USER]: 'General User',
     }
 
@@ -296,6 +315,8 @@ export class RoleService {
       [ROLES.BUYER_INVESTOR]: 'Can purchase and manage carbon credits',
       [ROLES.GENERAL_USER]: 'Basic user access to view marketplace and manage profile',
       [ROLES.LGU_USER]: 'Local Government Unit user: upload LGU emissions and manage community projects',
+      [ROLES.FARMER]:
+        'Smallholder feedstock supplier: register plantation parcels, list biomass, and log deliveries against accepted quotes',
     }
 
     return descriptions[role] || 'No description available'
@@ -312,6 +333,7 @@ export const isProjectDeveloper = roleService.isProjectDeveloper.bind(roleServic
 export const isBuyerInvestor = roleService.isBuyerInvestor.bind(roleService)
 export const isGeneralUser = roleService.isGeneralUser.bind(roleService)
 export const isLguUser = roleService.isLguUser.bind(roleService)
+export const isFarmer = roleService.isFarmer.bind(roleService)
 export const hasPermission = roleService.hasPermission.bind(roleService)
 export const hasAnyPermission = roleService.hasAnyPermission.bind(roleService)
 export const hasAllPermissions = roleService.hasAllPermissions.bind(roleService)

@@ -266,6 +266,7 @@ async function handleSubmit() {
           id="mfaCode"
           type="text"
           inputmode="numeric"
+          autocomplete="one-time-code"
           placeholder="6-digit code"
           v-model="mfaCode"
         />
@@ -291,6 +292,7 @@ async function handleSubmit() {
         <UiInput
           id="email"
           type="email"
+          autocomplete="username"
           placeholder="Email"
           v-model="email"
           :error="emailError"
@@ -307,6 +309,7 @@ async function handleSubmit() {
         <UiInput
           id="password"
           type="password"
+          autocomplete="current-password"
           placeholder="Enter your password"
           v-model="password"
           :error="passwordError"
@@ -366,7 +369,7 @@ async function handleSubmit() {
             <span class="material-symbols-outlined label-icon" aria-hidden="true">password</span>
             Verification code
           </label>
-          <UiInput id="otpCode" type="text" inputmode="numeric" placeholder="6-digit code" v-model="otpCode" />
+          <UiInput id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" v-model="otpCode" />
         </div>
 
         <div v-if="phoneError" class="error-message">{{ phoneError }}</div>

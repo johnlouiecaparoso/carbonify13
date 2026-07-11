@@ -7,7 +7,9 @@ import {
   createAdminGuard,
   createVerifierGuard,
   createLguGuard,
+  createFarmerGuard,
 } from '@/middleware/roleGuard'
+import { FEATURES } from '@/constants/plans'
 
 // Lazy load components for better performance
 const HomepageView = () => import(/* webpackChunkName: "homepage" */ '@/views/HomepageView.vue')
@@ -65,6 +67,31 @@ const router = createRouter({
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
     },
     {
+      // Public biomass feedstock marketplace (browse + request-for-quotation).
+      path: '/biomass',
+      name: 'biomass-marketplace',
+      component: () => import('@/views/BiomassMarketplaceView.vue'),
+    },
+    {
+      // Investor Portal — pipeline + financial model + data room. Pro-gated.
+      path: '/investor',
+      name: 'investor-portal',
+      component: () => import('@/views/InvestorPortalView.vue'),
+      meta: { requiresAuth: true, requiresFeature: FEATURES.INVESTOR_PORTAL },
+    },
+    {
+      path: '/biomass/sell',
+      name: 'biomass-sell',
+      component: () => import('@/views/BiomassSellView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/biomass/rfqs',
+      name: 'biomass-rfqs',
+      component: () => import('@/views/BiomassRfqsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       // Public carbon registry — anyone can browse/verify issued & retired credits.
       path: '/registry',
       name: 'registry',
@@ -86,6 +113,13 @@ const router = createRouter({
       path: '/apply',
       name: 'role-application',
       component: () => import('@/views/RoleApplicationView.vue'),
+    },
+    {
+      // A memorable URL to hand a farmer or cooperative on a leaflet or over the
+      // phone. "/apply?role=farmer" is not something you can say out loud.
+      path: '/register/farmer',
+      name: 'register-farmer',
+      redirect: () => ({ path: '/apply', query: { role: 'farmer' } }),
     },
     {
       path: '/retire',
@@ -142,6 +176,24 @@ const router = createRouter({
       },
     },
     {
+      path: '/developer/ledger',
+      name: 'developer-asset-ledger',
+      component: () => import('@/views/CarbonAssetLedgerView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
+      path: '/developer/mrv-dashboard',
+      name: 'developer-mrv-dashboard',
+      component: () => import('@/views/MrvDashboardView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
       path: '/monitoring',
       name: 'monitoring-reports',
       component: () => import('@/views/MonitoringReportView.vue'),
@@ -157,6 +209,39 @@ const router = createRouter({
       meta: {
         requiresAuth: true,
         requiresLgu: true,
+      },
+    },
+    {
+      path: '/developer/data-room',
+      name: 'data-room-activity',
+      component: () => import('@/views/DataRoomActivityView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
+      path: '/developer/offtakes',
+      name: 'offtake-agreements',
+      component: () => import('@/views/OfftakeAgreementsView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresProjectDeveloper: true,
+      },
+    },
+    {
+      path: '/assistant',
+      name: 'ai-assistant',
+      component: () => import('@/views/AiAssistantView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/farmer',
+      name: 'farmer-portal',
+      component: () => import('@/views/FarmerPortalView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresFarmer: true,
       },
     },
     {
@@ -383,7 +468,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
   // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback']
+  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback', 'biomass-marketplace']
   if (publicRoutes.includes(to.name)) {
     console.log('✅ Public route, allowing access')
     next()
@@ -487,7 +572,7 @@ router.beforeEach(async (to, from, next) => {
 
     // IMPORTANT: Ensure profile is loaded before checking role-specific routes
     // This prevents navigation issues where role isn't loaded yet
-    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFeature) {
+    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFarmer || to.meta.requiresFeature) {
       if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
         console.log('⏳ Profile/role not loaded yet, fetching before route check...')
         try {
@@ -517,6 +602,17 @@ router.beforeEach(async (to, from, next) => {
       const guardResult = await lguGuard(to, from)
       if (guardResult) {
         console.log('❌ LGU access required, redirecting...')
+        next(guardResult)
+        return
+      }
+    }
+
+    // Check for farmer-only routes
+    if (to.meta.requiresFarmer) {
+      const farmerGuard = createFarmerGuard(userStore)
+      const guardResult = await farmerGuard(to, from)
+      if (guardResult) {
+        console.log('❌ Farmer access required, redirecting...')
         next(guardResult)
         return
       }

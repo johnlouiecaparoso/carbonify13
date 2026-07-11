@@ -75,6 +75,32 @@ export class ProjectWorkflowService {
         ...(projectData.permanence_years != null &&
           projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
         ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
+        ...(projectData.methodology && { methodology: String(projectData.methodology).trim() }),
+        ...(projectData.development_status && {
+          development_status: String(projectData.development_status).trim(),
+        }),
+        ...(projectData.feedstock && { feedstock: String(projectData.feedstock).trim() }),
+        ...(projectData.capacity != null &&
+          projectData.capacity !== '' &&
+          !isNaN(Number(projectData.capacity)) && { capacity: Number(projectData.capacity) }),
+        ...(projectData.capacity_unit && { capacity_unit: String(projectData.capacity_unit).trim() }),
+        ...(projectData.capex != null &&
+          projectData.capex !== '' &&
+          !isNaN(Number(projectData.capex)) && { capex: Number(projectData.capex) }),
+        ...(projectData.opex != null &&
+          projectData.opex !== '' &&
+          !isNaN(Number(projectData.opex)) && { opex: Number(projectData.opex) }),
+        ...(projectData.project_lifetime_years != null &&
+          projectData.project_lifetime_years !== '' &&
+          !isNaN(Number(projectData.project_lifetime_years)) && {
+            project_lifetime_years: Number(projectData.project_lifetime_years),
+          }),
+        ...(projectData.funding_target != null &&
+          projectData.funding_target !== '' &&
+          !isNaN(Number(projectData.funding_target)) && { funding_target: Number(projectData.funding_target) }),
+        ...(projectData.funding_raised != null &&
+          projectData.funding_raised !== '' &&
+          !isNaN(Number(projectData.funding_raised)) && { funding_raised: Number(projectData.funding_raised) }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
@@ -99,6 +125,16 @@ export class ProjectWorkflowService {
         'additionality_type',
         'permanence_years',
         'reversal_risk',
+        'methodology',
+        'development_status',
+        'feedstock',
+        'capacity',
+        'capacity_unit',
+        'capex',
+        'opex',
+        'project_lifetime_years',
+        'funding_target',
+        'funding_raised',
       ]
       const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
       if (error && driftCols.some((c) => blob.includes(c))) {
@@ -415,7 +451,10 @@ export class ProjectWorkflowService {
           {
             project_id: projectId,
             total_credits: creditsAmount,
-            available_credits: creditsAmount,
+            // `credits_available` is the canonical column the purchase path
+            // decrements. (The legacy `available_credits` stray was retired in
+            // 20260718000600 — it was never decremented after a sale.)
+            credits_available: creditsAmount,
             price_per_credit: basePrice, // This uses project.credit_price if available
             currency: 'PHP',
           },

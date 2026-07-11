@@ -170,7 +170,12 @@ async function createMarketplaceCheckout(body: any, verifiedUserId: string | nul
   if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
     throw new Error('Listing has no valid price')
   }
-  const amount = Math.round(unitAmount * quantity * 100) / 100 // server-computed total
+  // Record the intent amount as EXACTLY what PayMongo will charge: per-unit
+  // centavos (rounded once) times quantity. Computing it as round(unit*qty) instead
+  // can differ by a centavo for sub-centavo prices, making paymongo-reconcile flag a
+  // spurious amount_mismatch against a charge that was actually correct.
+  const unitCentavos = Math.round(unitAmount * 100)
+  const amount = (unitCentavos * quantity) / 100 // server-computed total, matches the charge
   const currency = listing.currency || 'PHP'
 
   // Velocity cap (per KYC tier) — enforced HERE, before a PayMongo session
@@ -221,7 +226,7 @@ async function createMarketplaceCheckout(body: any, verifiedUserId: string | nul
           {
             name: `Carbon Credits x${quantity}`,
             quantity,
-            amount: Math.round(unitAmount * 100), // per-unit centavos; PayMongo multiplies by quantity
+            amount: unitCentavos, // per-unit centavos; PayMongo multiplies by quantity
             currency,
           },
         ],

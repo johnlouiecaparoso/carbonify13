@@ -19,6 +19,9 @@ const props = defineProps({
   ariaInvalid: { type: Boolean, default: false },
   required: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  // Lets password managers and mobile keyboards do their job. Without it, a
+  // browser will not offer to save or fill credentials.
+  autocomplete: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue', 'input', 'blur', 'focus'])
@@ -69,6 +72,7 @@ function togglePasswordVisibility() {
       <input
         :id="id"
         :type="type === 'password' ? (showPassword ? 'text' : 'password') : type"
+        :autocomplete="autocomplete || undefined"
         :placeholder="placeholder"
         :value="modelValue"
         :aria-label="ariaLabel"

@@ -304,7 +304,6 @@ export async function getMarketplaceListings(filters = {}) {
         currency,
         total_credits,
         credits_available,
-        available_credits,
         vintage_year,
         verification_standard,
         projects:projects!inner(
@@ -389,9 +388,9 @@ export async function getMarketplaceListings(filters = {}) {
     }
 
     // Use || (not ??) so a 0 / null estimated_credits falls back to the credit
-    // pool instead of zeroing it. credits_available and available_credits are
-    // both checked because the validation trigger historically wrote the latter.
-    const creditPool = credit.credits_available ?? credit.available_credits
+    // pool instead of zeroing it. `credits_available` is the canonical pool column
+    // (the legacy `available_credits` stray was retired in 20260718000600).
+    const creditPool = credit.credits_available
     const totalPool =
       Number(project.estimated_credits) ||
       Number(credit.total_credits) ||
@@ -535,12 +534,18 @@ export async function getMarketplaceStats() {
       throw error
     }
 
+    // Guard every term. `price_per_credit` is legitimately null on listings that
+    // inherit the project's price, and a single null turned the whole reduce into
+    // NaN — which `|| 0` then collapsed to zero, silently reporting the entire
+    // market as worthless rather than skipping the one unpriced row.
+    const rows = Array.isArray(listings) ? listings : []
     const stats = {
-      totalListings: listings?.length || 0,
-      totalCreditsAvailable: listings?.reduce((sum, listing) => sum + listing.quantity, 0) || 0,
-      totalMarketValue:
-        listings?.reduce((sum, listing) => sum + listing.quantity * listing.price_per_credit, 0) ||
+      totalListings: rows.length,
+      totalCreditsAvailable: rows.reduce((sum, l) => sum + (Number(l?.quantity) || 0), 0),
+      totalMarketValue: rows.reduce(
+        (sum, l) => sum + (Number(l?.quantity) || 0) * (Number(l?.price_per_credit) || 0),
         0,
+      ),
     }
 
     return stats
@@ -884,40 +889,26 @@ export async function retireCredits(userId, projectId, quantity, reason) {
   }
 
   try {
-    // Atomically decrement the owner's balance FIRST via the server RPC. This is
-    // the anti-double-counting guard (the DB only decrements when enough credits
-    // exist, so the same unit can never be retired twice, even concurrently) and
-    // it keeps retirement working after the financial-table RLS lockdown — the
-    // browser no longer writes credit_ownership directly. retire_credits_atomic
-    // is SECURITY DEFINER and granted to authenticated, so it bypasses the (now
-    // write-locked) RLS on credit_ownership.
-    const { data: decremented, error: rpcErr } = await supabase.rpc('retire_credits_atomic', {
+    // Atomically burn the owner's balance AND write the credit_retirements row in
+    // one server transaction. retire_credits_atomic (SECURITY DEFINER) decrements
+    // only when enough credits exist — the anti-double-counting guard (the same
+    // unit can never be retired twice, even concurrently) — and, since the H1 fix,
+    // inserts the retirement record itself and returns it. Doing both in the RPC
+    // is what makes retirement atomic: previously the burn and the record were two
+    // separate statements, so a failed insert left credits gone with no record.
+    // It also keeps retirement working after the financial-table RLS lockdown.
+    const { data: retirement, error: rpcErr } = await supabase.rpc('retire_credits_atomic', {
       p_user_id: userId,
       p_project_id: projectId,
       p_quantity: quantity,
+      p_reason: reason,
     })
     if (rpcErr) {
       throw new Error(`Failed to retire credits: ${rpcErr.message}`)
     }
-    if (decremented !== true) {
+    // NULL return = not enough credits (nothing was burned or recorded).
+    if (!retirement || !retirement.id) {
       throw new Error('Insufficient credits to retire')
-    }
-
-    // Create retirement record (serial number auto-assigned by DB trigger)
-    const { data: retirement, error: retirementError } = await supabase
-      .from('credit_retirements')
-      .insert({
-        user_id: userId,
-        project_id: projectId,
-        quantity: quantity,
-        reason: reason,
-        retired_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (retirementError) {
-      throw new Error('Failed to create retirement record')
     }
 
     // Log the retirement action

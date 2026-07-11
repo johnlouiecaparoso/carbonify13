@@ -92,6 +92,19 @@
               <input id="mrv-vintage" type="number" v-model="vintageYear" class="form-input" />
             </div>
             <div class="form-group">
+              <label class="form-label" for="mrv-reduction-type">Reduction type</label>
+              <select id="mrv-reduction-type" v-model="reductionType" class="form-input">
+                <option value="">Not classified</option>
+                <option v-for="r in REDUCTION_TYPES" :key="r.value" :value="r.value">
+                  {{ r.label }} — {{ r.description }}
+                </option>
+              </select>
+              <span class="hint">
+                Pre-selected from the project type, but you are asserting it. Removals and avoidances
+                are priced differently and are not interchangeable.
+              </span>
+            </div>
+            <div class="form-group">
               <label class="form-label" for="mrv-notes">Notes</label>
               <textarea id="mrv-notes" v-model="notes" class="form-textarea" rows="2" placeholder="Verification notes / rejection reason"></textarea>
             </div>
@@ -120,7 +133,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { REPORT_STATUS_META } from '@/constants/mrv'
+import { REPORT_STATUS_META, REDUCTION_TYPES, suggestedReductionType } from '@/constants/mrv'
 import {
   getReviewQueue,
   getReport,
@@ -139,6 +152,7 @@ const isError = ref(false)
 
 const approvedQuantity = ref(0)
 const vintageYear = ref(new Date().getFullYear())
+const reductionType = ref('')
 const notes = ref('')
 
 const selectedProjectTitle = computed(() => {
@@ -182,6 +196,11 @@ async function select(reportId) {
         (selected.value.period_end ? new Date(selected.value.period_end).getFullYear() : 0) ||
         new Date().getFullYear(),
     )
+    // A suggestion from the project category, not a classification — the verifier
+    // confirms or overrides it before the credits are minted.
+    reductionType.value = suggestedReductionType(
+      selected.value.project?.category || selected.value.category || '',
+    )
     notes.value = ''
   } catch (err) {
     setMessage(err.message || 'Failed to load report', true)
@@ -212,6 +231,7 @@ async function doApprove() {
       vintageYear: vintageYear.value,
       projectId: selected.value.project_id,
       notes: notes.value,
+      reductionType: reductionType.value,
     })
     setMessage('Approved. Credits issued and listed on the marketplace.')
     selected.value = null

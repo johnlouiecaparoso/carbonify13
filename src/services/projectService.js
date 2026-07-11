@@ -101,6 +101,32 @@ export class ProjectService {
         ...(projectData.permanence_years != null &&
           projectData.permanence_years !== '' && { permanence_years: projectData.permanence_years }),
         ...(projectData.reversal_risk && { reversal_risk: projectData.reversal_risk }),
+        ...(projectData.methodology && { methodology: String(projectData.methodology).trim() }),
+        ...(projectData.development_status && {
+          development_status: String(projectData.development_status).trim(),
+        }),
+        ...(projectData.feedstock && { feedstock: String(projectData.feedstock).trim() }),
+        ...(projectData.capacity != null &&
+          projectData.capacity !== '' &&
+          !isNaN(Number(projectData.capacity)) && { capacity: Number(projectData.capacity) }),
+        ...(projectData.capacity_unit && { capacity_unit: String(projectData.capacity_unit).trim() }),
+        ...(projectData.capex != null &&
+          projectData.capex !== '' &&
+          !isNaN(Number(projectData.capex)) && { capex: Number(projectData.capex) }),
+        ...(projectData.opex != null &&
+          projectData.opex !== '' &&
+          !isNaN(Number(projectData.opex)) && { opex: Number(projectData.opex) }),
+        ...(projectData.project_lifetime_years != null &&
+          projectData.project_lifetime_years !== '' &&
+          !isNaN(Number(projectData.project_lifetime_years)) && {
+            project_lifetime_years: Number(projectData.project_lifetime_years),
+          }),
+        ...(projectData.funding_target != null &&
+          projectData.funding_target !== '' &&
+          !isNaN(Number(projectData.funding_target)) && { funding_target: Number(projectData.funding_target) }),
+        ...(projectData.funding_raised != null &&
+          projectData.funding_raised !== '' &&
+          !isNaN(Number(projectData.funding_raised)) && { funding_raised: Number(projectData.funding_raised) }),
         ...(documents?.length && {
           supporting_documents: JSON.stringify(
             documents.map((doc) => ({
@@ -131,6 +157,16 @@ export class ProjectService {
         'additionality_type',
         'permanence_years',
         'reversal_risk',
+        'methodology',
+        'development_status',
+        'feedstock',
+        'capacity',
+        'capacity_unit',
+        'capex',
+        'opex',
+        'project_lifetime_years',
+        'funding_target',
+        'funding_raised',
       ]
       const blob = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
       if (error && driftCols.some((c) => blob.includes(c))) {
@@ -283,6 +319,15 @@ export class ProjectService {
         'barangay',
         'municipality',
         'methodology',
+        'development_status',
+        'feedstock',
+        'capacity',
+        'capacity_unit',
+        'capex',
+        'opex',
+        'project_lifetime_years',
+        'funding_target',
+        'funding_raised',
         'vintage',
         'co_benefits',
         'boundary',
@@ -551,7 +596,7 @@ export class ProjectService {
    * @param {string} verificationNotes - Verification notes
    * @returns {Promise<Object>} Updated project
    */
-  async updateProjectStatus(projectId, status, verificationNotes = '') {
+  async updateProjectStatus(projectId, status, verificationNotes = '', reviewerId = null) {
     if (!projectId) {
       throw new Error('Project ID missing')
     }
@@ -570,7 +615,12 @@ export class ProjectService {
         .update({
           status: canonicalStatus,
           verification_notes: verificationNotes,
-          verified_by: ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus) ? 'current_user()' : null,
+          // `verified_by` is a uuid column — a literal 'current_user()' string
+          // throws invalid-input-syntax. Record the reviewer's id when known,
+          // otherwise leave it null (the admin/verifier panel passes reviewerId).
+          verified_by: ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus)
+            ? reviewerId
+            : null,
           verified_at:
             ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus) ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),

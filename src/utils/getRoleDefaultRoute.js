@@ -21,6 +21,9 @@ export function getRoleDefaultRoute(role) {
     case 'lgu_user':
     case 'lgu':
       return '/lgu'
+    case ROLES.FARMER:
+    case 'farmer':
+      return '/farmer'
     case ROLES.BUYER_INVESTOR:
     case 'buyer_investor':
     case ROLES.GENERAL_USER:

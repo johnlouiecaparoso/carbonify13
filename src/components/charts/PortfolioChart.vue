@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import {
   Chart,
   LineController,
@@ -83,19 +83,31 @@ const defaultOptions = {
   },
 }
 
-onMounted(() => {
-  if (chartCanvas.value) {
-    chartInstance = new Chart(chartCanvas.value, {
-      type: 'line',
-      data: props.data,
-      options: { ...defaultOptions, ...props.options },
-    })
-  }
-})
+function render() {
+  if (!chartCanvas.value) return
+  if (chartInstance) chartInstance.destroy()
+  chartInstance = new Chart(chartCanvas.value, {
+    type: 'line',
+    data: props.data,
+    options: { ...defaultOptions, ...props.options },
+  })
+}
+
+onMounted(render)
+
+/**
+ * Parents mount this chart before their async load resolves, so the first render
+ * is always empty. Without this watcher the chart is never told the data arrived
+ * and stays blank forever — which is what Pro users saw on /analytics.
+ *
+ * `deep` because the parent may mutate the same object rather than replace it.
+ */
+watch(() => [props.data, props.options], render, { deep: true })
 
 onUnmounted(() => {
   if (chartInstance) {
     chartInstance.destroy()
+    chartInstance = null
   }
 })
 </script>

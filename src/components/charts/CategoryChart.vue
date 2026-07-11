@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { Chart, DoughnutController, ArcElement, Tooltip, Legend, Title } from 'chart.js'
 
 // Register Chart.js components. The CONTROLLER (DoughnutController) must be
@@ -44,19 +44,26 @@ const defaultOptions = {
   },
 }
 
-onMounted(() => {
-  if (chartCanvas.value) {
-    chartInstance = new Chart(chartCanvas.value, {
-      type: 'doughnut',
-      data: props.data,
-      options: { ...defaultOptions, ...props.options },
-    })
-  }
-})
+function render() {
+  if (!chartCanvas.value) return
+  if (chartInstance) chartInstance.destroy()
+  chartInstance = new Chart(chartCanvas.value, {
+    type: 'doughnut',
+    data: props.data,
+    options: { ...defaultOptions, ...props.options },
+  })
+}
+
+onMounted(render)
+
+// The chart mounts before the parent's async load resolves. Without this it is
+// never told the data arrived and renders empty forever.
+watch(() => [props.data, props.options], render, { deep: true })
 
 onUnmounted(() => {
   if (chartInstance) {
     chartInstance.destroy()
+    chartInstance = null
   }
 })
 </script>

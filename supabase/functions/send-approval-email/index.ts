@@ -5,11 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Escape untrusted applicant-supplied text before interpolating into HTML email. */
+function escapeHtml(value?: string): string {
+  if (!value) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// H4: this function is a fixed-purpose notifier for role applications, NOT a
+// general mailer. It deliberately accepts ONLY role_requested + applicant fields.
+// Recipients, subject, and body are all derived server-side. Previously it
+// forwarded caller-supplied `to`/`subject`/`html` straight to Resend, which — with
+// the project's public anon key and open signup — let anyone send arbitrary HTML
+// from Carbonify's own verified sender: a brand-credible phishing/spam relay.
 type EmailPayload = {
-  to?: string | string[]
-  subject?: string
-  html?: string
-  from?: string
   role_requested?: string
   applicant_full_name?: string
   applicant_email?: string
@@ -32,73 +45,67 @@ Deno.serve(async (req) => {
     }
 
     const payload = (await req.json()) as EmailPayload
-    let to = Array.isArray(payload.to) ? payload.to : [payload.to].filter(Boolean)
 
-    if (!to.length && payload.role_requested) {
-      if (!supabaseUrl || !serviceRoleKey) {
-        return new Response(
-          JSON.stringify({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secret' }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        )
-      }
-
-      const supabase = createClient(supabaseUrl, serviceRoleKey)
-      const targetRoles =
-        payload.role_requested === 'project_developer' ? ['verifier', 'admin'] : ['admin']
-      const roleLabel = payload.role_requested === 'project_developer' ? 'Project Developer' : 'Verifier'
-      const reviewDestination =
-        payload.role_requested === 'project_developer'
-          ? 'the verifier panel'
-          : 'the admin role applications panel'
-
-      const { data: recipients, error: recipientsError } = await supabase
-        .from('profiles')
-        .select('email')
-        .in('role', targetRoles)
-        .not('email', 'is', null)
-
-      if (recipientsError) {
-        return new Response(
-          JSON.stringify({
-            error: 'Failed to load reviewer recipients',
-            details: recipientsError.message,
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        )
-      }
-
-      to = (recipients || []).map((recipient) => recipient.email).filter(Boolean)
-
-      if (!payload.subject) {
-        payload.subject = `New ${roleLabel} Application`
-      }
-
-      if (!payload.html) {
-        payload.html = `
-          <p>A new role application has been submitted.</p>
-          <p><strong>Applicant:</strong> ${payload.applicant_full_name || 'N/A'}</p>
-          <p><strong>Email:</strong> ${payload.applicant_email || 'N/A'}</p>
-          <p><strong>Requested role:</strong> ${roleLabel}</p>
-          <p>Please review this request in ${reviewDestination}.</p>
-        `
-      }
-    }
-
-    if (!to.length || !payload.subject || !payload.html) {
+    // Only the structured role-application notification is supported. Recipients
+    // and content are derived server-side; nothing about them is caller-supplied.
+    if (payload.role_requested !== 'project_developer' && payload.role_requested !== 'verifier') {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: to, subject, html' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        JSON.stringify({ error: 'Unsupported request: role_requested must be project_developer or verifier' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secret' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
+    const targetRoles =
+      payload.role_requested === 'project_developer' ? ['verifier', 'admin'] : ['admin']
+    const roleLabel = payload.role_requested === 'project_developer' ? 'Project Developer' : 'Verifier'
+    const reviewDestination =
+      payload.role_requested === 'project_developer'
+        ? 'the verifier panel'
+        : 'the admin role applications panel'
+
+    const { data: recipients, error: recipientsError } = await supabase
+      .from('profiles')
+      .select('email')
+      .in('role', targetRoles)
+      .not('email', 'is', null)
+
+    if (recipientsError) {
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to load reviewer recipients',
+          details: recipientsError.message,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const to = (recipients || []).map((recipient) => recipient.email).filter(Boolean)
+    if (!to.length) {
+      // No reviewers to notify — not an error the caller can fix.
+      return new Response(
+        JSON.stringify({ success: true, message: 'No reviewer recipients configured', sent: 0 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Body is a fixed template. Applicant name/email are escaped so a malicious
+    // application (attacker-chosen name) can't inject markup into the reviewer email.
+    const subject = `New ${roleLabel} Application`
+    const html = `
+      <p>A new role application has been submitted.</p>
+      <p><strong>Applicant:</strong> ${escapeHtml(payload.applicant_full_name) || 'N/A'}</p>
+      <p><strong>Email:</strong> ${escapeHtml(payload.applicant_email) || 'N/A'}</p>
+      <p><strong>Requested role:</strong> ${roleLabel}</p>
+      <p>Please review this request in ${reviewDestination}.</p>
+    `
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -112,8 +119,8 @@ Deno.serve(async (req) => {
         // function can't be used to spoof mail from an arbitrary domain.
         from: Deno.env.get('APPROVAL_EMAIL_FROM') || 'Carbonify <notifications@resend.dev>',
         to,
-        subject: payload.subject,
-        html: payload.html,
+        subject,
+        html,
       }),
     })
 

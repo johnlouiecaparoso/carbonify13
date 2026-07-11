@@ -42,7 +42,7 @@
                   </dd>
                 </div>
                 <div v-if="reviewedDate"><dt>Validated</dt><dd>{{ reviewedDate }}</dd></div>
-                <div><dt>Standard</dt><dd>{{ project.methodology || 'Carbonify Standard' }}</dd></div>
+                <div><dt>Standard</dt><dd>{{ methodologyLabel(project.methodology) || 'Carbonify Standard' }}</dd></div>
                 <div><dt>Vintage</dt><dd>{{ project.vintage || '—' }}</dd></div>
                 <div><dt>Credit source</dt><dd>{{ sourceLabel }}</dd></div>
                 <div v-if="project.additionality_type">
@@ -71,7 +71,16 @@
             <section class="card">
               <h2>Project Details</h2>
               <dl class="facts">
-                <div><dt>Methodology</dt><dd>{{ project.methodology || '—' }}</dd></div>
+                <div><dt>Methodology</dt><dd>{{ methodologyLabel(project.methodology) || '—' }}</dd></div>
+                <div>
+                  <dt>Development status</dt>
+                  <dd>{{ developmentStatusLabel(project.development_status) || '—' }}</dd>
+                </div>
+                <div v-if="project.feedstock"><dt>Feedstock</dt><dd>{{ project.feedstock }}</dd></div>
+                <div v-if="project.capacity != null && project.capacity !== ''">
+                  <dt>Capacity</dt>
+                  <dd>{{ formatNumber(project.capacity) }}{{ project.capacity_unit ? ' ' + project.capacity_unit : '' }}</dd>
+                </div>
                 <div><dt>Estimated credits</dt><dd>{{ formatNumber(project.estimated_credits) }}</dd></div>
                 <div><dt>Feasibility score</dt><dd>{{ project.feasibility_score ?? '—' }}</dd></div>
                 <div><dt>Social impact</dt><dd>{{ project.social_impact_score ?? '—' }}</dd></div>
@@ -167,6 +176,7 @@ import { getProject } from '@/services/projectService'
 import { marketplaceIntegrationService } from '@/services/marketplaceIntegrationService'
 import { getSupabase } from '@/services/supabaseClient'
 import { resolveDocumentUrls } from '@/services/storageService'
+import { methodologyLabel, developmentStatusLabel } from '@/constants/projectRegistry'
 import {
   additionalityLabel,
   reversalRiskLabel,

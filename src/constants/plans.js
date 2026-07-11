@@ -21,13 +21,18 @@ export const PLANS = {
 export const FEATURES = {
   ADVANCED_ANALYTICS: 'advanced_analytics', // Selling analytics tab, deeper charts
   UNLIMITED_LISTINGS: 'unlimited_listings', // remove the free-tier listing cap
+  INVESTOR_PORTAL: 'investor_portal', // pipeline, financial model (IRR/NPV), data room
 }
 
 /** Which features each plan grants. Higher tiers are supersets here. */
 export const PLAN_FEATURES = {
   [PLANS.FREE]: [],
-  [PLANS.PRO]: [FEATURES.ADVANCED_ANALYTICS, FEATURES.UNLIMITED_LISTINGS],
-  [PLANS.BUSINESS]: [FEATURES.ADVANCED_ANALYTICS, FEATURES.UNLIMITED_LISTINGS],
+  [PLANS.PRO]: [FEATURES.ADVANCED_ANALYTICS, FEATURES.UNLIMITED_LISTINGS, FEATURES.INVESTOR_PORTAL],
+  [PLANS.BUSINESS]: [
+    FEATURES.ADVANCED_ANALYTICS,
+    FEATURES.UNLIMITED_LISTINGS,
+    FEATURES.INVESTOR_PORTAL,
+  ],
 }
 
 /** Max simultaneously-active listings on the Free tier (unlimited above). */

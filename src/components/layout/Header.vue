@@ -300,6 +300,7 @@ const navItems = computed(() => {
   const baseItems = [
     { path: '/', label: 'Home' },
     { path: '/marketplace', label: 'Marketplace' },
+    { path: '/biomass', label: 'Biomass' },
     { path: '/market', label: 'Market' },
     { path: '/registry', label: 'Registry' },
     { path: '/about', label: 'About' },
@@ -342,6 +343,7 @@ const navItems = computed(() => {
   if (userStore.isProjectDeveloper) {
     items.push({ path: '/submit-project', label: 'Submit Project' })
     items.push({ path: '/developer/projects', label: 'My Project Dashboard' })
+    items.push({ path: '/developer/ledger', label: 'Carbon Assets' })
     items.push({ path: '/sales', label: 'Seller Earnings' })
     // Project Map + Monitoring (MRV) live in the profile dropdown (accountLinks).
   }
@@ -352,6 +354,15 @@ const navItems = computed(() => {
 
   if (userStore.isLguUser) {
     items.push({ path: '/lgu', label: 'LGU Tools' })
+  }
+
+  if (userStore.isFarmer) {
+    items.push({ path: '/farmer', label: 'Farmer Portal' })
+    items.push({ path: '/biomass/sell', label: 'Sell Feedstock' })
+  }
+
+  if (userStore.isBuyerInvestor) {
+    items.push({ path: '/investor', label: 'Investor Portal' })
   }
 
   return items
@@ -389,19 +400,35 @@ const profileSections = computed(() => {
     workspace.push(
       { path: '/developer/projects', label: 'My Projects', icon: 'space_dashboard' },
       { path: '/submit-project', label: 'Submit Project', icon: 'add_circle' },
+      { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
+      { path: '/developer/offtakes', label: 'Offtake Agreements', icon: 'handshake' },
+      { path: '/developer/data-room', label: 'Data Room Activity', icon: 'visibility' },
       { path: '/sales', label: 'Seller Earnings', icon: 'payments' },
+      { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
+      { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
     )
   }
   if (userStore.isLguUser) {
     workspace.push({ path: '/lgu', label: 'LGU Tools', icon: 'apartment' })
   }
+  if (userStore.isFarmer) {
+    workspace.push(
+      { path: '/farmer', label: 'Farmer Portal', icon: 'agriculture' },
+      { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
+      { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
+    )
+  }
   if (workspace.length) sections.push({ title: 'Workspace', items: workspace })
 
   // Analytics is available to EVERY authenticated role. Free users get a summary;
-  // Pro unlocks the full dashboard (gated inside the view).
+  // Pro unlocks the full dashboard (gated inside the view). The AI Assistant sits
+  // here too — currently an interface preview, ungated until the backend lands.
   sections.push({
     title: 'Insights',
-    items: [{ path: '/analytics', label: 'Analytics', icon: 'monitoring' }],
+    items: [
+      { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
+      { path: '/assistant', label: 'AI Assistant', icon: 'smart_toy' },
+    ],
   })
 
   // 2) Project developers: map + monitoring tucked under the profile menu.
@@ -411,6 +438,7 @@ const profileSections = computed(() => {
         title: 'Project Tools',
         items: [
           { path: '/map', label: 'Project Map', icon: 'map' },
+          { path: '/developer/mrv-dashboard', label: 'MRV Dashboard', icon: 'query_stats' },
           { path: '/monitoring', label: 'Monitoring (MRV)', icon: 'monitoring' },
         ],
       },
@@ -428,6 +456,12 @@ const profileSections = computed(() => {
   // 3) Buyers / general / LGU users: account pages grouped by purpose. KYC gates
   //    transacting, so it leads the Account group.
   if (!(userStore.isAdmin || userStore.isVerifier)) {
+    if (userStore.isBuyerInvestor) {
+      sections.push({
+        title: 'Investor',
+        items: [{ path: '/investor', label: 'Investor Portal', icon: 'trending_up' }],
+      })
+    }
     sections.push(
       {
         title: 'Account',
@@ -452,6 +486,13 @@ const profileSections = computed(() => {
         items: [
           { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
           { path: '/retire', label: 'Retire Credits', icon: 'eco' },
+        ],
+      },
+      {
+        title: 'Biomass',
+        items: [
+          { path: '/biomass/rfqs', label: 'Feedstock Requests', icon: 'request_quote' },
+          { path: '/biomass/sell', label: 'Sell Feedstock', icon: 'compost' },
         ],
       },
       {
