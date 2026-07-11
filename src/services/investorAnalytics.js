@@ -108,17 +108,28 @@ export function computeProjectFinancials(project = {}, discountRate = 0.1, offta
   const grossRevenue = round2(credits * price)
 
   const agreementCount = Number(offtake?.agreementCount) || 0
-  const contractedVolume = Math.max(0, Number(offtake?.contractedVolume) || 0)
-  const contractedRevenue = round2(Math.max(0, Number(offtake?.contractedRevenue) || 0))
+  const rawContractedVolume = Math.max(0, Number(offtake?.contractedVolume) || 0)
+  const rawContractedRevenue = round2(Math.max(0, Number(offtake?.contractedRevenue) || 0))
 
-  // A developer can contract more volume than the project is estimated to issue.
-  // That is a real integrity signal, not a rounding artefact — surface it rather
-  // than letting speculative volume go negative.
-  const overCommitted = contractedVolume > credits && credits > 0
+  // A developer can contract MORE volume than the project is estimated to issue.
+  // That is a real integrity signal, and the excess is not realizable revenue: the
+  // project can only ever deliver `credits`. Value the excess at the negotiated
+  // price would model income from credits that cannot exist, overstating projected
+  // value, IRR and NPV. So clamp the contracted position to the deliverable volume
+  // at the same average negotiated price, and surface the over-commitment flag.
+  const overCommitted = rawContractedVolume > credits && credits > 0
+  const deliverableFraction =
+    overCommitted && rawContractedVolume > 0 ? credits / rawContractedVolume : 1
+  const contractedVolume = round2(overCommitted ? credits : rawContractedVolume)
+  const contractedRevenue = round2(rawContractedRevenue * deliverableFraction)
+
   const speculativeVolume = round2(Math.max(0, credits - contractedVolume))
   const speculativeRevenue = round2(speculativeVolume * price)
 
-  const hasOfftake = agreementCount > 0 && contractedRevenue > 0
+  // Any signed/active agreement makes this a blended model — including a legitimately
+  // zero-priced (donated/prepaid) offtake. Gating on contractedRevenue > 0 wrongly
+  // re-valued already-committed volume at the listed speculative price.
+  const hasOfftake = agreementCount > 0
   const totalRevenue = hasOfftake ? round2(contractedRevenue + speculativeRevenue) : grossRevenue
   // A ratio, not a peso amount — round2 here would quantize 67.7% to 68%.
   const contractedShare = totalRevenue > 0 ? asRate(contractedRevenue / totalRevenue) : 0
@@ -129,7 +140,11 @@ export function computeProjectFinancials(project = {}, discountRate = 0.1, offta
     fundingTarget != null ? round2(Math.max(0, fundingTarget - (fundingRaised || 0))) : null
 
   const offtakeFields = {
-    contractedVolume: round2(contractedVolume),
+    contractedVolume,
+    // Raw volume the developer actually signed, before clamping to deliverable
+    // issuance — so the UI can show HOW over-committed a project is, not just that
+    // it is. Equals contractedVolume unless overCommitted.
+    committedVolume: round2(rawContractedVolume),
     contractedRevenue,
     speculativeVolume,
     speculativeRevenue,

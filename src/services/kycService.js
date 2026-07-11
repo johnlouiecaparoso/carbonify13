@@ -133,6 +133,11 @@ export async function submitKycApplication({
     throw new Error('Full name and ID document type are required.')
   }
 
+  // Clamp the self-requested tier to [1,2]. Tier 3 ("Enhanced") is admin-only and
+  // is never granted by approving a self-submitted application (the RPC clamps too,
+  // and a CHECK backstops the column); this keeps the UI from ever asking for it.
+  const requestedLevel = Math.min(Math.max(Math.floor(Number(levelRequested) || 1), 1), 2)
+
   const { data, error } = await supabase
     .from('kyc_applications')
     .insert([
@@ -142,7 +147,7 @@ export async function submitKycApplication({
         id_document_type: idDocumentType,
         id_document_url: idDocumentUrl,
         organization,
-        level_requested: levelRequested,
+        level_requested: requestedLevel,
         status: 'pending',
       },
     ])

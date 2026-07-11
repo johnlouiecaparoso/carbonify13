@@ -359,7 +359,17 @@ export async function getBlockingRoleApplicationForUser({ userId, email }) {
 
   const latestApplication = data?.[0] || null
 
-  if (!latestApplication || latestApplication.status === ROLE_APPLICATION_STATUS.APPROVED) {
+  // Only an application still AWAITING a decision should block login. Previously
+  // any non-approved status blocked, so a REJECTED or CANCELLED applicant was
+  // permanently locked out of their pre-existing account (with an error telling
+  // them to wait for approval that will never come). A finished decision —
+  // approved, rejected, or cancelled — must let the user into their base account.
+  const BLOCKING_STATUSES = new Set([
+    ROLE_APPLICATION_STATUS.PENDING,
+    ROLE_APPLICATION_STATUS.UNDER_REVIEW,
+  ])
+
+  if (!latestApplication || !BLOCKING_STATUSES.has(latestApplication.status)) {
     return null
   }
 

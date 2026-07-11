@@ -596,7 +596,7 @@ export class ProjectService {
    * @param {string} verificationNotes - Verification notes
    * @returns {Promise<Object>} Updated project
    */
-  async updateProjectStatus(projectId, status, verificationNotes = '') {
+  async updateProjectStatus(projectId, status, verificationNotes = '', reviewerId = null) {
     if (!projectId) {
       throw new Error('Project ID missing')
     }
@@ -615,7 +615,12 @@ export class ProjectService {
         .update({
           status: canonicalStatus,
           verification_notes: verificationNotes,
-          verified_by: ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus) ? 'current_user()' : null,
+          // `verified_by` is a uuid column — a literal 'current_user()' string
+          // throws invalid-input-syntax. Record the reviewer's id when known,
+          // otherwise leave it null (the admin/verifier panel passes reviewerId).
+          verified_by: ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus)
+            ? reviewerId
+            : null,
           verified_at:
             ['validated', 'rejected', 'needs_revision'].includes(canonicalStatus) ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),

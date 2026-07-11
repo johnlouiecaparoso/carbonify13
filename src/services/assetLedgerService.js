@@ -11,7 +11,7 @@ import { getSupabase } from '@/services/supabaseClient'
  * Data sources (all keyed to projects the developer owns, `projects.user_id`):
  *   - projects                     → title, status, estimated_credits, credit_price
  *   - project_credits              → issued pool (`total_credits`) + remaining
- *                                    inventory (`credits_available`/`available_credits`)
+ *                                    inventory (`credits_available`, canonical)
  *   - credit_transactions (seller) → sold quantity + gross revenue (completed only)
  *   - verified_emission_reductions → issued (approved) / pending VER quantities [drift-safe]
  *   - credit_retirements           → retired quantity against the project [drift-safe]
@@ -29,7 +29,7 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
  *
  * @param {Object} input
  * @param {Array<{id:string, title?:string, status?:string, estimated_credits?:number, credit_price?:number}>} input.projects
- * @param {Array<{project_id:string, total_credits?:number, credits_available?:number, available_credits?:number, price_per_credit?:number, currency?:string}>} [input.pools]
+ * @param {Array<{project_id:string, total_credits?:number, credits_available?:number, price_per_credit?:number, currency?:string}>} [input.pools]
  * @param {Array<{project_id:string, quantity?:number, total_amount?:number, status?:string, buyer_id?:string, created_at?:string}>} [input.sales]
  * @param {Array<{project_id:string, approved_quantity?:number, status?:string}>} [input.vers]
  * @param {Array<{project_id:string, quantity?:number}>} [input.retirements]
@@ -123,14 +123,14 @@ export function aggregateAssetLedger({
     // approved VER volume, then 0.
     const issued = Number(pool.total_credits) || ver.approved || 0
     const pending = ver.pending || 0
-    // Remaining unsold in the pool. Prefer the read-path column `credits_available`,
-    // then its synced sibling `available_credits`, then derive issued − sold.
+    // Remaining unsold in the pool. `credits_available` is the canonical column
+    // (the money path decrements it); fall back to issued − sold only if it is
+    // somehow absent. The legacy `available_credits` column was a stale stray
+    // (never decremented after a sale) and has been retired.
     const inventory =
       pool.credits_available != null
         ? Number(pool.credits_available) || 0
-        : pool.available_credits != null
-          ? Number(pool.available_credits) || 0
-          : Math.max(0, issued - sold.qty)
+        : Math.max(0, issued - sold.qty)
     const retired = retiredBy.get(proj.id) || 0
     const pricePerCredit = Number(pool.price_per_credit) || Number(proj.credit_price) || 0
 
@@ -251,7 +251,7 @@ export async function getMyAssetLedger() {
     safeSelect(
       supabase,
       'project_credits',
-      'project_id, total_credits, credits_available, available_credits, price_per_credit, currency',
+      'project_id, total_credits, credits_available, price_per_credit, currency',
       projectIds,
     ),
     (async () => {

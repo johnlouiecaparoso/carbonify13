@@ -1,6 +1,59 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — 2026-07-09
+> ## 📍 Where we are — 2026-07-11
+>
+> **Build ✅ · ESLint 0 ✅ · 313 tests ✅.**
+>
+> ### 🔎 2026-07-11 (later) — SENIOR REVIEW + 3 FOLLOW-UP CHANGES ON TOP OF THE 17 FIXES
+> A senior-dev pass over architecture + security, on top of the audit below. **3 concrete changes made
+> (working tree, uncommitted, still part of the same un-applied batch):**
+> - **H1 regression corrected — do this BEFORE applying the batch.** Migration
+>   `20260718000000_retire_credits_atomic_with_record.sql` had reintroduced
+>   `v_user := coalesce(auth.uid(), p_user_id)` — the client-supplied-identity fallback that
+>   `20260703000400` had deliberately removed. Now bound to `auth.uid()` with a null-reject (the 4-arg
+>   signature/grant are unchanged, so the client caller is unaffected). Not exploitable under the
+>   authenticated-only grant, but it silently undid a prior hardening; corrected while still un-applied.
+> - **Dead client-side money writers deleted** — `addCreditsToPortfolio` / `removeCreditsFromPortfolio`
+>   (290 lines) removed from `creditOwnershipService.js`. They did **un-transacted** browser writes to
+>   `credit_ownership` + `credit_retirements` with a **client-supplied userId** (the TOCTOU/double-retire
+>   pattern the atomic RPC replaced) and were called by no view. The read methods (`getUserCreditPortfolio`
+>   / `getUserCreditStats`, used by `CreditPortfolioView` + `esgReportService`) are untouched.
+> - **2 zero-byte dead files deleted** — `services/adminService.js`, `services/verifierService.js`
+>   (imported nowhere). Progress against backlog #8.
+>
+> **Two review findings recorded, not yet actioned** (see [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md)):
+> - **🔴 The financial-table RLS posture is not in version control.** There is no `create policy` for
+>   `credit_ownership` / `wallet_accounts` / `wallet_transactions` / `credit_transactions` anywhere in
+>   `supabase/migrations/`; the only lockdown lives in the gated `supabase/cutover/` script (backlog P1).
+>   Any fresh env (staging/DR/local) rebuilds with client-writable money tables. **The repo cannot prove
+>   the money tables are locked down** — capture the live `pg_policies` into a versioned migration.
+> - **🟠 Escrow was silently reverted.** `escrow_holds` has had no writer since `20260606000600`; every
+>   later `process_marketplace_purchase` credits `seller_payable` directly. Sellers are immediately
+>   withdrawable with **no dispute/chargeback hold window** — a real fraud exposure on the card rail once
+>   live keys are on. Decide instant-payout-by-design vs. restore the hold.
+>
+> Build ✅ · ESLint 0 ✅ · **313 tests ✅** after all three changes.
+>
+> ### 🛠️ 2026-07-11 — WHOLE-CODEBASE CODE AUDIT + 17 FIXES → [CODE_AUDIT_2026-07-11.md](CODE_AUDIT_2026-07-11.md)
+> A four-reviewer code-level bug hunt (money path · expansion features · registry/investor · auth/roles),
+> every finding adjudicated against the actual RPC/RLS SQL. **Fixed 17** (5 HIGH, 6 MED, 6 LOW) and
+> consolidated the `project_credits` column drift. Highlights:
+> - **H1 retirement is now atomic** — the burn + `credit_retirements` insert happen in one RPC
+>   transaction (the HIGH previously "left unfixed on purpose" is closed).
+> - **H2 wallet top-up double-credit** and **M1 double payout** — idempotency/claim guards added.
+> - **H3 (NEW)** — any signed-in user could read/enumerate **every** project's compliance PII; the
+>   bucket read policy is now scoped. **H4** send-approval-email relay closed. **H5 (NEW)** offtake
+>   project-reassignment closed.
+> - **`project_credits` drift RESOLVED** — `credits_available` (numeric) is canonical; the stale
+>   `available_credits` stray is retired via expand/contract migrations.
+>
+> **7 new migrations (`20260718000000`–`000700`) + 4 edge-fn redeploys are written but NOT yet applied
+> to the live DB.** Deploy order + pairing rules are in §"2026-07-11 deploy runbook" below. Three LOWs
+> and one H3 residual (public/private bucket split) were deliberately deferred.
+>
+> ---
+>
+> #### Earlier baseline — 2026-07-09
 >
 > **All 31 migrations applied. Build ✅ · ESLint 0 ✅ · 312 tests ✅.**
 >
@@ -20,21 +73,27 @@
 > **Nothing codeable remains in #1–#6.** What's open needs training *content* (#6e), an **API key +
 > running cost** (#7), or **external feeds** (#4 satellite/IoT).
 >
-> ### 🔎 Codebase audit — [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md)
-> Four fixed (empty charts on /analytics · the 15s marketplace refresh wiping the grid · a load race ·
-> one unpriced listing reporting the whole market as ₱0). **One HIGH left unfixed on purpose:**
-> retirement is **not atomic** — `retire_credits_atomic` burns the credits, then a *separate*
-> transaction writes `credit_retirements`. If that insert fails the units are gone with no retirement
-> record. The fix rewrites a SECURITY DEFINER function on the proven money path, so it needs runtime
-> verification, not a blind commit. Also: `send-approval-email` lets **any signed-in user** send
-> arbitrary HTML email from the Carbonify sender.
+> ### 🔎 Codebase audits
+> - **[CODE_AUDIT_2026-07-11.md](CODE_AUDIT_2026-07-11.md)** (latest) — whole-codebase, 17 fixed. The
+>   retirement-atomicity HIGH and the `send-approval-email` relay noted below are now **fixed** (pending
+>   live apply/redeploy). Two NEW HIGHs were found and fixed: unscoped project-document reads (PII) and
+>   offtake project-reassignment.
+> - **[CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md)** — earlier pass (empty /analytics charts ·
+>   the 15s marketplace refresh wiping the grid · a load race · one unpriced listing reporting ₱0).
 >
 > ### 🔴 Do these next, in order
-> 1. **[RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md)** — nothing here has been
+> 1. **Apply the 2026-07-11 fixes to the live DB** — 7 new migrations + 4 edge-fn redeploys, written but
+>    not yet applied. Order + pairing rules in the "2026-07-11 deploy runbook" note below. The
+>    `20260718000000` H1 migration already carries the `auth.uid()` correction (above) — no extra step,
+>    just apply the current file.
+> 2. **Capture the live financial-table RLS into a versioned migration** (backlog P1). Dump
+>    `select * from pg_policies where tablename in ('credit_ownership','wallet_accounts','wallet_transactions','credit_transactions')`
+>    and codify it, so the migration chain — not an out-of-band cutover script — *is* the security posture.
+> 3. **[RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md)** — nothing here has been
 >    exercised against the live DB. Unit tests prove the pure math; they prove nothing about RLS
 >    policies or RPC grants. **Start with §1, the privilege-escalation check.**
-> 2. **Independent penetration test** — last P0 before live payment keys.
-> 3. **Email confirmation** — OFF by choice (needs a domain, ~₱600–900/yr; Resend's free tier is
+> 4. **Independent penetration test** — last P0 before live payment keys.
+> 5. **Email confirmation** — OFF by choice (needs a domain, ~₱600–900/yr; Resend's free tier is
 >    3,000 emails/mo). Until then **anyone can sign up with an address they do not control.**
 >
 > ### Two honest caveats about the positioning
@@ -47,6 +106,34 @@
 > ---
 >
 > <details><summary>Session-by-session notes (newest first)</summary>
+>
+> 🛠️ **2026-07-11 — WHOLE-CODEBASE AUDIT + 17 FIXES (deploy runbook).** Full findings in
+> [CODE_AUDIT_2026-07-11.md](CODE_AUDIT_2026-07-11.md). Build ✅ · ESLint 0 ✅ · **313 tests ✅**. All
+> code is in the working tree; **the DB/edge changes are NOT yet applied to the live project.**
+>
+> **① Run these 7 migrations in the SQL Editor** (`supabase/migrations/`):
+> `20260718000000_retire_credits_atomic_with_record` (H1) · `…000100_scope_project_documents_read`
+> (H3) · `…000200_offtake_update_ownership_guard` (H5) · `…000300_payout_processing_returns_claim`
+> (M1) · `…000400_kyc_level_clamp` (M3) · `…000500_biomass_rpc_grant_hygiene` (L7) ·
+> `…000600_available_credits_nullable` (M6 phase 1).
+>
+> **② Redeploy 4 edge functions:** `paymongo-webhook` (H2) · `paymongo-checkout` (L2) ·
+> `send-approval-email` (H4) · `process-payouts` (M1). *(`npm run deploy:webhook` /
+> `deploy:paymongo` cover the first two; the other two: `supabase functions deploy <name>`.)*
+>
+> **③ Deploy the frontend** (normal build) — carries H1-client, M2, M3, M4, M5, M6, L5, L6, L8, L9.
+>
+> **④ Then run the final migration:** `…000700_drop_available_credits` (M6 phase 2) — **only after ③**.
+>
+> **Hard pairing rules:** H1 migration must land **with** the frontend (old 3-arg
+> `retire_credits_atomic` is dropped); M1 migration must land **with** the `process-payouts` redeploy
+> (RPC return type changed `void→boolean`). The `available_credits` drop is expand/contract: `…000600`
+> before the frontend, `…000700` after — no broken window.
+>
+> **Deferred (not touched):** L1 displayed-vs-charged price · L3 client-computed receipt total · L4
+> `getTransactions` writing on a read path · H3 residual (a doc a validated project publishes is still
+> viewable; the full fix is a public/private bucket split). **Then verify live** per
+> [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md).
 >
 > 🧪 **2026-07-09 — ALL 31 MIGRATIONS APPLIED. THE GAP IS NOW RUNTIME, NOT CODE.**
 > All seven expansion features are code-complete to the limit of what code can do (#1 8/8 · #2 6/6 ·

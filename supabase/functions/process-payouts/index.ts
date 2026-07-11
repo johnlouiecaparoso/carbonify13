@@ -56,8 +56,17 @@ serve(async (req) => {
 
   const results: Array<{ id: string; status: string }> = []
   for (const payout of (pending ?? []) as PayoutRow[]) {
-    // Claim it (requested -> processing).
-    await supabase.rpc('mark_payout_processing', { p_payout_id: payout.id })
+    // Claim it (requested -> processing). mark_payout_processing returns true only
+    // if THIS call won the atomic transition. If two runs overlap (cron overlap),
+    // both may SELECT the same 'requested' row, but only one claims it — the other
+    // gets false and MUST skip, or the payout would be disbursed twice.
+    const { data: claimed, error: claimErr } = await supabase.rpc('mark_payout_processing', {
+      p_payout_id: payout.id,
+    })
+    if (claimErr || claimed !== true) {
+      results.push({ id: payout.id, status: 'skipped_not_claimed' })
+      continue
+    }
 
     const outcome = disburse(payout)
     if (outcome.ok) {

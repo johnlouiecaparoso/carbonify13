@@ -386,7 +386,29 @@ serve(async (req) => {
       // truth), record a completed wallet_transactions row keyed on the checkout
       // session id (so the callback's waitForWebhookTransaction finds it).
       if (intentRow?.purpose === 'wallet_topup') {
-        if (intentRow.status === 'paid') {
+        // Idempotency claim. update_wallet_balance_atomic('add') is NOT idempotent,
+        // and an in-memory status read is not a guard: PayMongo delivers both
+        // checkout_session.payment.paid AND payment.paid (distinct event ids, so
+        // both clear event-level dedup), and may retry concurrently — all reading
+        // the intent as still unpaid. Claim the credit by atomically flipping the
+        // intent to 'paid' ONLY if it isn't already, and credit only if THIS call
+        // won the transition. Concurrent updates serialize on the row lock: the
+        // loser matches 0 rows and short-circuits.
+        const { data: claimed, error: claimErr } = await supabase
+          .from('payment_intents')
+          .update({
+            status: 'paid',
+            provider_payment_id: paymentId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', paymentIntentId)
+          .neq('status', 'paid')
+          .select('id')
+        if (claimErr) {
+          // Leave the event unprocessed so PayMongo retries.
+          throw new Error(`wallet top-up claim failed: ${claimErr.message}`)
+        }
+        if (!claimed || claimed.length === 0) {
           await markEventProcessed(supabase, eventId)
           return new Response(
             JSON.stringify({ success: true, message: 'Top-up already credited' }),
@@ -401,7 +423,12 @@ serve(async (req) => {
           p_operation: 'add',
         })
         if (balErr) {
-          // Leave the event unprocessed so PayMongo retries.
+          // Crediting failed after we claimed: release the claim so PayMongo
+          // retries this delivery, otherwise the paid top-up would never credit.
+          await supabase
+            .from('payment_intents')
+            .update({ status: intentRow.status, updated_at: new Date().toISOString() })
+            .eq('id', paymentIntentId)
           throw new Error(`wallet top-up failed: ${balErr.message}`)
         }
 
@@ -435,11 +462,7 @@ serve(async (req) => {
           console.warn('wallet_transactions record failed (non-critical):', (err as Error)?.message)
         }
 
-        await supabase
-          .from('payment_intents')
-          .update({ status: 'paid', provider_payment_id: paymentId, updated_at: new Date().toISOString() })
-          .eq('id', paymentIntentId)
-
+        // Intent was already flipped to 'paid' by the idempotency claim above.
         await markEventProcessed(supabase, eventId)
         return new Response(
           JSON.stringify({ success: true, message: 'Wallet topped up', amount: topupAmount }),

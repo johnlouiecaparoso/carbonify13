@@ -56,10 +56,14 @@ export function summarizePipeline(projects = []) {
     }
 
     const cat = p.category || 'Uncategorized'
-    const c = byCategory.get(cat) || { category: cat, projects: 0, credits: 0, grossRevenue: 0 }
+    const c =
+      byCategory.get(cat) || { category: cat, projects: 0, credits: 0, grossRevenue: 0, totalRevenue: 0 }
     c.projects += 1
     c.credits += Number(p.estimated_credits) || 0
     c.grossRevenue += Number(f.grossRevenue) || 0
+    // Blended (contracted + speculative) revenue, so the category chart matches the
+    // headline "Projected value" instead of showing listed-price gross.
+    c.totalRevenue += Number(f.totalRevenue) || Number(f.grossRevenue) || 0
     byCategory.set(cat, c)
   }
 
@@ -81,8 +85,13 @@ export function summarizePipeline(projects = []) {
     withFinancials: totals.withFinancials,
     avgIrr: totals.irrCount ? Math.round((totals.irrSum / totals.irrCount) * 10000) / 10000 : null,
     byCategory: Array.from(byCategory.values())
-      .map((c) => ({ ...c, credits: round2(c.credits), grossRevenue: round2(c.grossRevenue) }))
-      .sort((a, b) => b.grossRevenue - a.grossRevenue),
+      .map((c) => ({
+        ...c,
+        credits: round2(c.credits),
+        grossRevenue: round2(c.grossRevenue),
+        totalRevenue: round2(c.totalRevenue),
+      }))
+      .sort((a, b) => b.totalRevenue - a.totalRevenue),
   }
 }
 
@@ -95,10 +104,19 @@ export async function getInvestmentPipeline({ category = '', discountRate = 0.1 
   const supabase = getSupabase()
   if (!supabase) return empty
 
-  const BASE_COLUMNS =
-    'id, title, category, location, status, estimated_credits, credit_price, capacity, capacity_unit, ' +
-    'feedstock, methodology, capex, opex, project_lifetime_years, funding_target, funding_raised, ' +
-    'feasibility_score, social_impact_score, climate_risk_rating, supporting_documents, user_id, created_at'
+  // Columns guaranteed to exist since early migrations.
+  const CORE_COLUMNS =
+    'id, title, category, location, status, estimated_credits, credit_price, ' +
+    'supporting_documents, user_id, created_at'
+  // Optional columns added by later migrations (#24/#27/#28 era). On a
+  // partially-migrated DB, selecting ANY absent column 400s the whole query, so
+  // each is dropped from the SELECT if it turns out to be missing — rather than
+  // blanking the entire pipeline over one optional field.
+  const OPTIONAL_COLUMNS = [
+    'capacity', 'capacity_unit', 'feedstock', 'methodology', 'capex', 'opex',
+    'project_lifetime_years', 'funding_target', 'funding_raised', 'feasibility_score',
+    'social_impact_score', 'climate_risk_rating', 'development_status',
+  ]
 
   const runQuery = async (columns) => {
     let q = supabase
@@ -111,13 +129,19 @@ export async function getInvestmentPipeline({ category = '', discountRate = 0.1 
     return q
   }
 
-  // `development_status` arrives with migration #28. Selecting a column that
-  // doesn't exist 400s the whole query, so fall back rather than blanking the
-  // entire pipeline over one optional field.
-  let { data, error } = await runQuery(`${BASE_COLUMNS}, development_status`)
-  if (error && /development_status/.test(error.message || '')) {
-    console.warn('[investor] development_status absent, retrying without it')
-    ;({ data, error } = await runQuery(BASE_COLUMNS))
+  // Retry loop: on a "column does not exist" 400, drop the named column and retry,
+  // until the query succeeds or no optional columns remain.
+  let present = [...OPTIONAL_COLUMNS]
+  let data, error
+  for (;;) {
+    const cols = [CORE_COLUMNS, ...present].join(', ')
+    ;({ data, error } = await runQuery(cols))
+    if (!error) break
+    const msg = error.message || ''
+    const missing = present.find((c) => new RegExp(`\\b${c}\\b`).test(msg))
+    if (!missing || !/column|does not exist|schema cache/i.test(msg)) break
+    console.warn(`[investor] column "${missing}" absent, retrying without it`)
+    present = present.filter((c) => c !== missing)
   }
   if (error) {
     console.error('Error loading investment pipeline:', error.message)

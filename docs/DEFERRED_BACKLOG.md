@@ -8,7 +8,16 @@ Come back to this list after the phases are implemented.
 
 ## From Phase 0 (Stabilize & Clean Up)
 
-### 1. Dual `available_credits` / `credits_available` on `project_credits` 🟠
+### 1. Dual `available_credits` / `credits_available` on `project_credits` ✅ RESOLVED (2026-07-11)
+**Resolution:** Live schema confirmed both columns existed. `credits_available` (numeric) is
+canonical — the money path decrements it; `available_credits` (integer) was a stale stray (observed
+2000 where the true remaining was 1638), maintained by no trigger and read by no code once the dead
+`assetLedgerService` fallback was removed. Code now writes/reads only `credits_available`
+(projectWorkflowService, projectApprovalService, assetLedgerService, marketplaceService). The stray is
+retired via expand/contract: migration `20260718000600` drops its NOT NULL (run before the frontend
+deploy), `20260718000700` drops the column (run after). Original note kept below for history.
+
+
 **What:** The `project_credits` table is referenced by two different column names:
 - DB migrations + issuance triggers write **`available_credits`**
   (`20260604010100_decouple_issuance_mint_on_ver.sql`, `20260602001000_add_active_pool_on_validation.sql`).
@@ -98,9 +107,14 @@ record a `payment_intent` (purpose `wallet_topup`) for consistent reconciliation
 
 ## From the 2026-07-09 whole-codebase audit ([CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md))
 
-### 8. Delete 30 verified-dead files 🟢
+### 8. Delete 30 verified-dead files 🟢 (partially done 2026-07-11)
 Zero imports, not routed, not test fixtures. Includes `services/authServiceSimple.js` — a **mock auth
 service with a `demo@carbonify.io / demo123` login** sitting in the repo.
+
+**Done 2026-07-11:** deleted zero-byte `services/adminService.js` + `services/verifierService.js`, and
+removed the dead `addCreditsToPortfolio` / `removeCreditsFromPortfolio` writers from
+`creditOwnershipService.js` (290 lines — non-atomic, client-userId money writes; a double-retire vector
+if ever called). Remainder of the list still pending; mind the two traps below before deleting more.
 
 **Two traps before deleting:**
 - `components/search/AdvancedSearch.vue` is dead but **pinned by `vite.config.js` manualChunks** —
@@ -129,3 +143,44 @@ merged list to `limit`, so a heavy trader's **retirements disappear** from the c
 They grant EXECUTE to `authenticated` without first revoking the Postgres default `PUBLIC` grant. Not
 exploitable today (each self-gates on `is_admin()`/`auth.uid()`), but inconsistent with the financial
 RPCs and one regression away from being a hole. One migration.
+
+---
+
+## From the 2026-07-11 senior review
+
+### 13. Financial-table RLS posture is not in version control 🔴 (highest-leverage)
+There is **no `create policy`** for `credit_ownership`, `wallet_accounts`, `wallet_transactions`, or
+`credit_transactions` anywhere in `supabase/migrations/` — those tables predate version control and the
+only write-lockdown lives in the **gated, out-of-band** `supabase/cutover/lockdown_financial_writes.sql`
+(same as P1). Consequence: the repo **cannot prove** the money tables are server-write-only, and any fresh
+environment (staging, DR, a new region, a fresh local stack) rebuilds with **client-writable** money
+tables. This is what makes the deleted-but-callable client writers (#8) and P2 latent rather than closed.
+**Close:** dump the live posture —
+`select tablename, policyname, cmd, qual, with_check from pg_policies where tablename in ('credit_ownership','wallet_accounts','wallet_transactions','credit_transactions','credit_listings','project_credits','credit_retirements')` —
+and codify it as a declarative migration (RLS enabled, read-own SELECT only, no client write policies,
+service_role bypasses). Then the migration chain *is* the security posture, and the cutover script retires.
+
+### 14. Escrow was silently reverted — sellers withdrawable with no hold window 🟠 (business + fraud)
+`20260606000600_escrow_and_seller_balance.sql` routed seller net into `escrow_holds` + an `escrow_held`
+ledger account, but **every later** `CREATE OR REPLACE process_marketplace_purchase` (`20260615000200`,
+`20260702000000`, `20260703000500`) credits `seller_payable:<id>` **directly** and never inserts an
+`escrow_holds` row. `grep escrow_holds` confirms no writer after `20260606000600`; the table + `release_escrow`
+RPC are dead for card purchases. **Effect:** sellers are immediately withdrawable with **no dispute /
+chargeback hold** — on the card rail this is a fraud path (list → self-buy with a stolen card → withdraw
+before the chargeback lands, loss lands on the platform). **Decide before live keys:** instant-payout by
+design (document it, drop the dead escrow table/RPC) **or** restore the hold window through settlement.
+
+### 15. Root-cause cleanups behind the review symptoms 🟠
+Recorded so they aren't re-discovered each audit:
+- **Nullable async Supabase client** → the `const s = getSupabase(); if (!s) return` guard is copy-pasted
+  ~233× across 49 files. Fix at the root: `await initSupabase()` before mount; make `getSupabase()`
+  throw-or-return; delete the guards.
+- **Schema-probing at runtime** (the 5-attempt insert loop / "retry without `updated_at`" fallbacks) exists
+  because migrations aren't authoritative. Once #13 + CLI migration tracking (#7) land, run
+  `supabase gen types` and delete the probes.
+- **Fulfillment saga exists twice** (`services/credits/fulfillmentSaga.js` + a hand-ported copy inside
+  `paymongo-webhook`) "kept in sync by hand." The webhook copy is the one that settles money — make it the
+  only one and test it directly (Deno test).
+- **Error handling is three systems, none on** — `errorStore` + `ErrorBoundary` are commented out in
+  `App.vue`; services `console.error` + inconsistently swallow/throw; `main.js` monkeypatches `window.fetch`
+  + `console.error` globally (which can eat unrelated errors). Pick one contract and turn the boundary on.

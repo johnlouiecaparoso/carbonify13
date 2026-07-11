@@ -60,7 +60,10 @@ export function aggregateFarmerSupply(deliveries = [], parcels = []) {
     if (d.farmer_id) farmers.add(d.farmer_id)
     if (d.parcel_id) parcelIds.add(d.parcel_id)
 
-    const factor = TONNE_FACTORS[d.unit]
+    // Lower-case the unit before lookup: the attribution SQL and farmerService
+    // both lowercase, so a delivery stored as 'Tonnes' must not count as biomass
+    // on one screen and drop to "unconverted" on the dashboard.
+    const factor = TONNE_FACTORS[String(d.unit || '').toLowerCase()]
     if (factor == null) {
       unconvertedDeliveries += 1
       continue

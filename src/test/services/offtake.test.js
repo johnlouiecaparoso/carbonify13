@@ -179,16 +179,39 @@ describe('computeProjectFinancials — contracted vs speculative', () => {
     expect(f.npvContracted).toBeLessThan(0)
   })
 
-  it('flags over-commitment and never lets speculative volume go negative', () => {
+  it('flags over-commitment and clamps revenue to deliverable volume', () => {
+    // 1500 credits contracted at an avg ₱600 (900,000) but only 1000 can ever be
+    // issued. Revenue must be clamped to the deliverable 1000 at that same avg
+    // price = 600,000 — valuing the undeliverable 500 would model income from
+    // credits that cannot exist and overstate IRR/NPV/projected value.
     const f = computeProjectFinancials(project, 0.1, {
-      contractedVolume: 1500, // more than the 1000 estimated credits
+      contractedVolume: 1500,
       contractedRevenue: 900_000,
       agreementCount: 2,
     })
     expect(f.overCommitted).toBe(true)
     expect(f.speculativeVolume).toBe(0)
     expect(f.speculativeRevenue).toBe(0)
-    expect(f.totalRevenue).toBe(900_000)
+    expect(f.contractedVolume).toBe(1000) // clamped to issuance
+    expect(f.committedVolume).toBe(1500) // raw signed volume preserved for display
+    expect(f.contractedRevenue).toBe(600_000) // 900,000 × (1000/1500)
+    expect(f.totalRevenue).toBe(600_000)
+  })
+
+  it('treats a zero-priced (donated) offtake as contracted, not as listed-price revenue', () => {
+    // 800 of 1000 credits committed at ₱0 (prepaid/donated). The committed volume
+    // must NOT be re-valued at the ₱500 listed price; only the uncommitted 200 is
+    // speculative revenue.
+    const f = computeProjectFinancials(project, 0.1, {
+      contractedVolume: 800,
+      contractedRevenue: 0,
+      agreementCount: 1,
+    })
+    expect(f.revenueBasis).toBe('blended')
+    expect(f.contractedRevenue).toBe(0)
+    expect(f.speculativeVolume).toBe(200)
+    expect(f.speculativeRevenue).toBe(100_000)
+    expect(f.totalRevenue).toBe(100_000)
   })
 
   it('does not flag over-commitment when volume exactly matches issuance', () => {
