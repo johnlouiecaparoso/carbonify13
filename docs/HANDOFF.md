@@ -4,7 +4,18 @@
 >
 > **Build ✅ · ESLint 0 ✅ · 313 tests ✅.**
 >
-> ### 🛠️ 2026-07-11 (latest) — DRIFT REPAIR: issuance triggers still wrote the dropped `available_credits`
+> ### 🛠️ 2026-07-11 (latest) — CERTIFICATES SCHEMA CATCH-UP (retirement/purchase certs failed silently)
+> After a retirement, certificate generation 400'd ("creating certificate with all fields" / retirement
+> cert lookups by `retirement_id`). The `certificates` table predated version control and its live shape was
+> **missing 11 columns** certificateService writes: `retirement_id` (the retirement↔certificate link the
+> lookups filter on), `project_description`, `tonnes_co2`, `beneficiary_email`, `purpose`,
+> `transaction_id_ref`, `payment_reference`, `wallet_address`, `purchase_date`, `purchase_datetime`,
+> `timestamp`. The retirement itself is unaffected (burn+record are atomic); only the certificate row failed.
+> **Fix:** migration **`20260718001000_certificates_schema_catchup.sql`** adds the columns (idempotent) and
+> captures the full table into version control from the live dump. **⚠️ Apply in the SQL Editor.** After it,
+> new retirements/purchases mint proper certificates; existing retirements can be regenerated.
+>
+> ### 🛠️ 2026-07-11 — DRIFT REPAIR: issuance triggers still wrote the dropped `available_credits`
 > Validating a project failed live with `column "available_credits" of relation "project_credits" does not
 > exist`. **Root cause:** the M6 consolidation dropped `available_credits` (migration `000700`) on the
 > premise it was "maintained by NO trigger" — **that premise was wrong.** Two SECURITY DEFINER issuance
