@@ -148,17 +148,33 @@ RPCs and one regression away from being a hole. One migration.
 
 ## From the 2026-07-11 senior review
 
-### 13. Financial-table RLS posture is not in version control 🔴 (highest-leverage)
+### 13. Financial-table RLS posture is not in version control 🟠 (audited 2026-07-11; 3 holes closed, capture remainder)
 There is **no `create policy`** for `credit_ownership`, `wallet_accounts`, `wallet_transactions`, or
 `credit_transactions` anywhere in `supabase/migrations/` — those tables predate version control and the
 only write-lockdown lives in the **gated, out-of-band** `supabase/cutover/lockdown_financial_writes.sql`
-(same as P1). Consequence: the repo **cannot prove** the money tables are server-write-only, and any fresh
-environment (staging, DR, a new region, a fresh local stack) rebuilds with **client-writable** money
-tables. This is what makes the deleted-but-callable client writers (#8) and P2 latent rather than closed.
-**Close:** dump the live posture —
-`select tablename, policyname, cmd, qual, with_check from pg_policies where tablename in ('credit_ownership','wallet_accounts','wallet_transactions','credit_transactions','credit_listings','project_credits','credit_retirements')` —
-and codify it as a declarative migration (RLS enabled, read-own SELECT only, no client write policies,
-service_role bypasses). Then the migration chain *is* the security posture, and the cutover script retires.
+(same as P1).
+
+**Live `pg_policies` audited 2026-07-11.** Findings:
+- ✅ **Four ledger tables already client-SELECT-only** (`credit_ownership`, `wallet_accounts`,
+  `wallet_transactions`, `credit_transactions`) — no client write policies. The gated lockdown script's
+  job is effectively already done for these; it also does **not** cover the three tables below.
+- 🔴 **Three live, exploitable write holes found and closed** by migration
+  `20260718000800_lock_credit_pool_and_listing_writes.sql`:
+  1. `project_credits` "Allow all project credits operations" (`USING(true) WITH CHECK(true)` ALL) — any
+     user could UPDATE `credits_available` and **mint inventory**. Dropped; writes now staff-only (issuance
+     is the `activate_validated_project_trigger` SECURITY DEFINER trigger, RLS-exempt; purchase decrement
+     is the service_role RPC). Added an owner/admin DELETE for project-deletion.
+  2. `credit_listings` "Allow all credit listings operations" (same blanket) — any user could UPDATE **any
+     listing's `price_per_credit`**, which checkout reads to compute the charge → **buy real credits for
+     ₱0.01**. Dropped; sellers keep own-listing control, staff keep all.
+  3. `credit_retirements` client INSERT policy — **forge a retirement + certificate with no burn**. Dropped;
+     `retire_credits_atomic` (SECURITY DEFINER) is the only writer.
+
+**Still open:** (a) apply `…000800` and verify the full validate→list→buy→retire flow (rollback SQL is in
+the file); (b) confirm `marketplaceIntegrationService` credit-pool/listing inserts are dead (they appear so)
+— if any live non-staff caller writes these tables, it will surface on verification; (c) capture the
+remaining **SELECT** policies + the four already-locked tables into a declarative migration so a fresh env
+rebuilds the *complete* posture, and retire the gated cutover script.
 
 ### 14. Escrow was silently reverted — sellers withdrawable with no hold window 🟠 (business + fraud)
 `20260606000600_escrow_and_seller_balance.sql` routed seller net into `escrow_holds` + an `escrow_held`
