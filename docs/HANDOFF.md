@@ -4,7 +4,29 @@
 >
 > **Build ✅ · ESLint 0 ✅ · 313 tests ✅.**
 >
-> ### 🛠️ 2026-07-11 (latest) — CERTIFICATES SCHEMA CATCH-UP (retirement/purchase certs failed silently)
+> ### ✅ 2026-07-11 (live testing) — END-TO-END FLOW NOW WORKS; drift fixed migration-by-migration
+> A full live run (developer submits → verifier validates → buy → retire) surfaced a chain of
+> **live-DB-vs-code drift** bugs, each fixed by a small migration. Apply status on the live DB:
+> - ✅ **`000900`** issuance triggers → `credits_available` (validation + auto-listing work). *Applied.*
+> - ✅ **`001000`** certificates schema catch-up (retirement/purchase certs generate). *Applied.*
+> - ⬜ **`001100`** receipt FK cache reload (below). *Pending — or run `notify pgrst, 'reload schema';`.*
+> - ⬜ **`000800`** RLS write-lockdown (the security one). *Pending — apply last, then re-run the flow.*
+>
+> Confirmed working live after `000900`+`001000`: validate → project auto-lists → purchase → retire →
+> certificate. See per-fix notes below.
+>
+> ### 🛠️ 2026-07-11 — RECEIPT JOIN 400 (`credit_transactions ↔ profiles` not in PostgREST cache)
+> The receipt embeds `buyer/seller:profiles!credit_transactions_*_id_fkey(...)` and 400'd with "Could not
+> find a relationship … in the schema cache", then the per-profile fallback 406'd under `profiles` RLS — so
+> the receipt rendered without counterparty names. The buyer/seller→`profiles(id)` FKs exist
+> (`20260606000100`/`20260626000700`); **PostgREST's relationship cache was stale.** **Fix:** migration
+> **`20260718001100_credit_tx_profile_fk_reload.sql`** re-asserts both FKs (idempotent, NOT VALID) and
+> reloads the schema cache. Non-fatal (receipt already worked), but clears the console 400/406. Caveat:
+> after the reload, `profiles` RLS still governs which embedded rows are visible, so a counterparty's name
+> may still be blank by design — showing it would need a small `SECURITY DEFINER` name-only RPC (not a
+> `profiles` RLS loosening, which we deliberately hardened).
+>
+> ### 🛠️ 2026-07-11 — CERTIFICATES SCHEMA CATCH-UP (retirement/purchase certs failed silently)
 > After a retirement, certificate generation 400'd ("creating certificate with all fields" / retirement
 > cert lookups by `retirement_id`). The `certificates` table predated version control and its live shape was
 > **missing 11 columns** certificateService writes: `retirement_id` (the retirement↔certificate link the
@@ -12,8 +34,7 @@
 > `transaction_id_ref`, `payment_reference`, `wallet_address`, `purchase_date`, `purchase_datetime`,
 > `timestamp`. The retirement itself is unaffected (burn+record are atomic); only the certificate row failed.
 > **Fix:** migration **`20260718001000_certificates_schema_catchup.sql`** adds the columns (idempotent) and
-> captures the full table into version control from the live dump. **⚠️ Apply in the SQL Editor.** After it,
-> new retirements/purchases mint proper certificates; existing retirements can be regenerated.
+> captures the full table into version control from the live dump. *(Applied — certs now generate.)*
 >
 > ### 🛠️ 2026-07-11 — DRIFT REPAIR: issuance triggers still wrote the dropped `available_credits`
 > Validating a project failed live with `column "available_credits" of relation "project_credits" does not
