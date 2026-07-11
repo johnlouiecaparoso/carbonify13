@@ -4,6 +4,22 @@
 >
 > **Build ✅ · ESLint 0 ✅ · 313 tests ✅.**
 >
+> ### 🔴 2026-07-11 (latest) — LIVE RLS AUDIT: 3 CREDIT-INTEGRITY HOLES FOUND + CLOSED
+> Merged the 2026-07-11 batch to `main` via **PR #7**, then audited the live `pg_policies` for the money
+> tables. **Good:** the four ledger tables (`credit_ownership`, `wallet_accounts`, `wallet_transactions`,
+> `credit_transactions`) are already client-SELECT-only. **Bad — three live, exploitable write holes:**
+> - `project_credits` had a `USING(true) WITH CHECK(true)` ALL policy → **any user could mint
+>   `credits_available`**.
+> - `credit_listings` had the same → **any user could rewrite any listing's `price_per_credit`**, which
+>   checkout reads to compute the charge (buy real credits for ₱0.01 — defeats server-authoritative pricing).
+> - `credit_retirements` had a client INSERT policy → **forge a retirement + certificate with no burn**.
+>
+> Closed by new migration **`20260718000800_lock_credit_pool_and_listing_writes.sql`** (writes now go only
+> through the SECURITY DEFINER issuance trigger + service_role RPCs, which are RLS-exempt; sellers keep own
+> listings; staff keep all). **⚠️ NOT yet applied — apply in the SQL Editor and immediately verify the
+> validate→list→buy→retire flow; rollback SQL is in the file.** Detail + remaining capture work in
+> [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #13.
+>
 > ### 🔎 2026-07-11 (later) — SENIOR REVIEW + 3 FOLLOW-UP CHANGES ON TOP OF THE 17 FIXES
 > A senior-dev pass over architecture + security, on top of the audit below. **3 concrete changes made
 > (working tree, uncommitted, still part of the same un-applied batch):**
