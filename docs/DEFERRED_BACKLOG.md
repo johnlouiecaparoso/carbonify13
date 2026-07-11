@@ -48,11 +48,19 @@ exist, point all code at it, and drop the stray column. Diagnostic helper: `supa
 
 ### 3. Remove the receipt/certificate FK **fallback crutch** 🟢
 `receiptService.js` and `certificateService.js` still try the join then fall back to separate queries.
-Now that the `credit_transactions`→`profiles` FKs exist, the fallback is dormant and can be removed.
+**Update 2026-07-11:** the fallback was NOT dormant — the embed 400'd live ("Could not find a relationship
+… in the schema cache") because PostgREST's relationship cache was stale, so the fallback fired every time
+(and then 406'd under `profiles` RLS). Migration `20260718001100` re-asserts the FKs + reloads the cache,
+so the embed resolves. The fallback can now genuinely be removed once verified. **Related open item:** a
+counterparty's name still won't show on a receipt (a buyer can't read the seller's `profiles` row) — if
+receipts should display it, add a `SECURITY DEFINER` RPC returning name-only for a transaction the caller is
+party to. Do NOT loosen `profiles` SELECT RLS (hardened against role/KYC escalation, `20260703000300`).
 
 ### 4. VALIDATE the `NOT VALID` foreign keys 🟢
 `credit_transactions_buyer_id_fkey` / `_seller_id_fkey` were added `NOT VALID` for safety. Once the
-orphan check (in `20260606000100_*.sql`) confirms zero orphans, run `VALIDATE CONSTRAINT`.
+orphan check (in `20260606000100_*.sql`) confirms zero orphans, run `VALIDATE CONSTRAINT`. (Not required for
+PostgREST embedding — a stale schema cache was the actual cause of the receipt 400, fixed by
+`20260718001100`; validating is cleanup/integrity only.)
 
 ### 5. Prettier formatting pass — blocked 🟢
 `npm run format` (Prettier) **breaks the build**: it reformats multi-statement inline Vue handlers
@@ -200,3 +208,35 @@ Recorded so they aren't re-discovered each audit:
 - **Error handling is three systems, none on** — `errorStore` + `ErrorBoundary` are commented out in
   `App.vue`; services `console.error` + inconsistently swallow/throw; `main.js` monkeypatches `window.fetch`
   + `console.error` globally (which can eat unrelated errors). Pick one contract and turn the boundary on.
+
+---
+
+## From 2026-07-11 live end-to-end testing (drift, now understood)
+
+### 16. Base tables/functions predate version control → repeated live drift 🟠 (root theme)
+A full live run (validate → buy → retire) hit a chain of drift bugs, each fixed by a migration, all the
+**same root cause**: objects created out-of-band, never in `supabase/migrations/`, that the code assumed a
+newer shape for. Fixed this session:
+- **`available_credits` column drop** broke the issuance triggers that still wrote it — the M6 audit's
+  "maintained by no trigger" was wrong (it read the service layer, not the trigger SQL bodies). Fixed by
+  `20260718000900` (triggers now write only `credits_available`).
+- **`certificates` table** was missing 11 columns the cert service writes → certs failed silently. Fixed +
+  captured into version control by `20260718001000`.
+- **`credit_transactions → profiles` FK** existed but PostgREST's cache was stale → receipt 400. Fixed by
+  `20260718001100` (re-assert FK + reload cache).
+
+**Lesson + close-out:** (a) a drift check must read **trigger/function/policy SQL bodies**, not just the JS
+service layer — that miss is what dropped a still-referenced column; (b) the base tables that predate VC
+(the money tables per #13, and historically `certificates`) should be captured as `create table if not
+exists` migrations from a live dump so fresh envs rebuild faithfully; (c) adopt CLI migration tracking (#7)
+so live can't silently diverge from `supabase/migrations/` again. This item is the umbrella for #7 + #13.
+
+### 17. Live issuance model is issue-on-VALIDATION, not the "decoupled MRV" model the code comments describe 🟡
+`activate_validated_project_trigger` (re-established by `20260626000500`) creates the pool **and** an active
+listing the moment a project is validated — so a validated project goes straight to the marketplace. The
+`20260604010100` "decouple, mint-on-VER" migration was superseded on live. Code comments (e.g.
+`approveProject`) still describe the mint-on-VER model, and `mint_credits_on_ver_approval` also exists — if
+BOTH triggers are active, a project validated **and** later granted VERs is issued twice. **Decide** which
+model is canonical: issue-on-validation (simpler, current live behaviour) or the SRD-faithful mint-on-VER
+(drop the validation trigger). Until decided, don't approve VERs on an already-validated project. Both
+trigger functions were made column-safe in `20260718000900`, so either choice works mechanically.
