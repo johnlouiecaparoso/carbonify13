@@ -819,15 +819,20 @@ watch(
 /* Carbonify wordmark logo */
 .brand-wordmark {
   height: 2.25rem;
-  width: auto;
+  width: 2.25rem;
   display: block;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-green-light, rgba(209, 250, 229, 0.9));
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .brand-wordmark--mobile {
   height: 1.9rem;
-  padding: 0.25rem 0;
+  width: 1.9rem;
+  padding: 0;
 }
 
 .logo-container {
@@ -2315,8 +2320,12 @@ watch(
 
 .m-menu-logo {
   height: 1.9rem;
-  width: auto;
+  width: 1.9rem;
   display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-green-light, rgba(209, 250, 229, 0.9));
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .m-menu-close {

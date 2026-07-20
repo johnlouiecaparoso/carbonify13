@@ -152,14 +152,15 @@ const specialistRoles = [
 
 /* Enhanced Logo Styling */
 .auth-logo-container {
-  height: 4.25rem !important;
-  width: auto !important;
-  max-width: 11rem !important;
-  min-height: 4.25rem !important;
-  max-height: 4.25rem !important;
-  border-radius: 14px !important;
-  border: 1px solid rgba(209, 250, 229, 0.9);
-  padding: 0.55rem 0.9rem;
+  height: 5rem !important;
+  width: 5rem !important;
+  min-width: 5rem !important;
+  max-width: 5rem !important;
+  min-height: 5rem !important;
+  max-height: 5rem !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(209, 250, 229, 0.9);
+  padding: 0;
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   display: inline-flex;
@@ -171,12 +172,11 @@ const specialistRoles = [
 }
 
 .auth-logo-image {
-  height: auto !important;
-  width: auto !important;
-  object-fit: contain !important;
+  height: 100% !important;
+  width: 100% !important;
+  object-fit: cover !important;
   display: block !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  border-radius: 50% !important;
 }
 
 .brand-title {
@@ -389,11 +389,11 @@ const specialistRoles = [
   }
 
   .auth-logo-container {
-    width: auto !important;
+    width: 5rem !important;
     height: 5rem !important;
-    min-width: 0 !important;
+    min-width: 5rem !important;
     min-height: 5rem !important;
-    max-width: 100% !important;
+    max-width: 5rem !important;
     max-height: 5rem !important;
   }
 
@@ -423,11 +423,11 @@ const specialistRoles = [
   }
 
   .auth-logo-container {
-    width: auto !important;
+    width: 4.5rem !important;
     height: 4.5rem !important;
-    min-width: 0 !important;
+    min-width: 4.5rem !important;
     min-height: 4.5rem !important;
-    max-width: 100% !important;
+    max-width: 4.5rem !important;
     max-height: 4.5rem !important;
   }
 

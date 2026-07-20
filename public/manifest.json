@@ -9,8 +9,13 @@
   "icons": [
     {
       "src": "/carbonify-logo.png",
-      "sizes": "32x32",
+      "sizes": "192x192",
       "type": "image/png"
+    },
+    {
+      "src": "/carbonify-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
     }
   ]
 }
