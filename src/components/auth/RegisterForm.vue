@@ -179,15 +179,14 @@ async function handleSubmit() {
     </button>
 
     <div class="role-apply-box">
-      <p class="role-apply-title">Farming, developing, or verifying?</p>
+      <p class="role-apply-title">Farming or developing carbon projects?</p>
       <p class="role-apply-text">
-        A farmer needs only a name and location. Developers and verifiers are asked for business
-        registration or accreditation. All three are reviewed before approval.
+        The account above lets you buy and retire credits right away. A farmer needs only a name and
+        location; developers are asked for business registration. Both are reviewed before approval.
       </p>
       <div class="role-apply-links">
         <router-link to="/register/farmer">Register as a Farmer →</router-link>
         <router-link to="/apply?role=project-developer">Apply as a Project Developer →</router-link>
-        <router-link to="/apply?role=verifier">Apply as a Verifier →</router-link>
       </div>
     </div>
   </div>

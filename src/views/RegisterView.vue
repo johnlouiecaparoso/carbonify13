@@ -2,11 +2,21 @@
 import RegisterForm from '@/components/auth/RegisterForm.vue'
 
 /**
- * Roles that can't simply be self-selected at signup — each is reviewed. Farmer
- * leads because it is the lowest-friction path (no business registration, no
- * accreditation) and the audience least likely to hunt for a link.
+ * Signup paths. The buyer/user path is the default and instant — it just uses
+ * the account form above (no review), so its card scrolls back to that form
+ * rather than opening an application. Farmer and developer are reviewed roles.
+ *
+ * Verifier is intentionally NOT self-selectable here: a verifier approves credit
+ * issuance (a privileged action), so — like LGU — the role is admin-provisioned,
+ * not applied for from the public signup page.
  */
 const specialistRoles = [
+  {
+    action: 'scroll',
+    icon: 'shopping_cart',
+    title: 'I am a buyer / user',
+    description: 'Buy and retire carbon credits. No application needed — sign up above.',
+  },
   {
     to: '/register/farmer',
     icon: 'agriculture',
@@ -19,13 +29,16 @@ const specialistRoles = [
     title: 'I develop carbon projects',
     description: 'Register projects, report monitoring data, and issue credits.',
   },
-  {
-    to: { path: '/apply', query: { role: 'verifier' } },
-    icon: 'verified',
-    title: 'I am a verifier',
-    description: 'Review projects and approve verified emission reductions.',
-  },
 ]
+
+/** Buyer/user needs no application — send them to the account form at the top. */
+function scrollToSignup() {
+  const field = document.getElementById('name')
+  if (field) {
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    field.focus({ preventScroll: true })
+  }
+}
 </script>
 
 <template>
@@ -54,27 +67,43 @@ const specialistRoles = [
       <div class="panel-card">
         <RegisterForm />
 
-        <!-- Roles that need review before approval. Each says plainly what it's
-             for, so nobody applies as a Verifier when they meant Developer. -->
+        <!-- Signup paths. Each says plainly what it's for, so nobody applies as a
+             Developer when they only want to buy credits. The buyer/user card
+             scrolls to the account form (instant); farmer/developer are reviewed. -->
         <div class="apply-specialist">
           <span class="apply-specialist__label">Joining as something specific?</span>
           <div class="role-cards">
-            <router-link
-              v-for="role in specialistRoles"
-              :key="role.to"
-              :to="role.to"
-              class="role-card"
-            >
-              <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
-              <span class="role-card__body">
-                <span class="role-card__title">{{ role.title }}</span>
-                <span class="role-card__desc">{{ role.description }}</span>
-              </span>
-              <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
-            </router-link>
+            <template v-for="role in specialistRoles" :key="role.title">
+              <button
+                v-if="role.action === 'scroll'"
+                type="button"
+                class="role-card"
+                @click="scrollToSignup"
+              >
+                <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
+                <span class="role-card__body">
+                  <span class="role-card__title">{{ role.title }}</span>
+                  <span class="role-card__desc">{{ role.description }}</span>
+                </span>
+                <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
+              </button>
+              <router-link
+                v-else
+                :to="role.to"
+                class="role-card"
+              >
+                <span class="material-symbols-outlined role-card__icon" aria-hidden="true">{{ role.icon }}</span>
+                <span class="role-card__body">
+                  <span class="role-card__title">{{ role.title }}</span>
+                  <span class="role-card__desc">{{ role.description }}</span>
+                </span>
+                <span class="material-symbols-outlined role-card__chevron" aria-hidden="true">chevron_right</span>
+              </router-link>
+            </template>
           </div>
           <p class="apply-specialist__note">
-            These roles are reviewed before approval. You'll create an account first either way.
+            Buyers can start right away. Farmer and developer applications are reviewed before
+            approval — you'll create an account first either way.
           </p>
         </div>
 
@@ -265,6 +294,14 @@ const specialistRoles = [
   border-radius: 10px;
   text-decoration: none;
   color: inherit;
+  /* Shared by <router-link> (anchor) and the buyer/user <button>; reset native
+     button chrome so both render identically. */
+  width: 100%;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
