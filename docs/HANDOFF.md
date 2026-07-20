@@ -48,7 +48,10 @@
 > - ✅ **`000900`** issuance triggers → `credits_available` (validation + auto-listing work). *Applied.*
 > - ✅ **`001000`** certificates schema catch-up (retirement/purchase certs generate). *Applied.*
 > - ⬜ **`001100`** receipt FK cache reload (below). *Pending — or run `notify pgrst, 'reload schema';`.*
-> - ⬜ **`000800`** RLS write-lockdown (the security one). *Pending — apply last, then re-run the flow.*
+> - ✅ **`000800`** RLS write-lockdown (the security one). **VERIFIED APPLIED on live 2026-07-20** —
+>   a read-only `pg_policies` check confirms all three blanket-write holes (project_credits,
+>   credit_listings, credit_retirements) are gone and the `project_credits_owner_or_admin_delete`
+>   marker policy exists. The #1 launch blocker is closed.
 >
 > Confirmed working live after `000900`+`001000`: validate → project auto-lists → purchase → retire →
 > certificate. See per-fix notes below.
@@ -104,8 +107,9 @@
 >
 > Closed by new migration **`20260718000800_lock_credit_pool_and_listing_writes.sql`** (writes now go only
 > through the SECURITY DEFINER issuance trigger + service_role RPCs, which are RLS-exempt; sellers keep own
-> listings; staff keep all). **⚠️ NOT yet applied — apply in the SQL Editor and immediately verify the
-> validate→list→buy→retire flow; rollback SQL is in the file.** Detail + remaining capture work in
+> listings; staff keep all). **✅ VERIFIED APPLIED on live 2026-07-20** (read-only `pg_policies` check:
+> all three blanket-write policies dropped, `project_credits_owner_or_admin_delete` present). Remaining
+> capture work (codify the money-table RLS posture into a versioned migration) tracked in
 > [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #13.
 >
 > ### 🔎 2026-07-11 (later) — SENIOR REVIEW + 3 FOLLOW-UP CHANGES ON TOP OF THE 17 FIXES
