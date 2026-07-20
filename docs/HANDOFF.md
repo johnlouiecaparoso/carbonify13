@@ -1,8 +1,46 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — 2026-07-11
+> ## 📍 Where we are — 2026-07-20
 >
-> **Build ✅ · ESLint 0 ✅ · 313 tests ✅.**
+> **Feature-complete for the current product scope. Money path hardened in code and sandbox, with the remaining work mostly external, operational, or legal.**
+>
+> Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the prioritized remaining work.
+>
+> **Current build state:** build green, lint green, tests green at the last verified checkpoint.
+
+## Current snapshot
+
+- Carbonify is a Philippine carbon-credit registry and marketplace with role-based workflows for developers, verifiers, buyers, admins, and LGUs.
+- The core product flow is in place: register -> validate -> MRV -> issue -> trade -> retire.
+- The money path is designed to be server-authoritative, with settlement controlled by the backend, not the browser.
+- The most important remaining work is launch hardening, external integrations, and operations/legal readiness.
+
+## Implemented now
+
+- Auth, roles, router guards, and MFA/KYC/KYB gates.
+- Project registration, MRV, verifier review, issuance, and QR-verifiable certificates.
+- Marketplace, cart, wallet, retirement, receipts, seller earnings, payouts, and refunds/disputes.
+- Public registry and market views, plus LGU and admin tooling.
+- Developer docs, user guides, testing docs, deployment docs, and security docs.
+
+## Not yet implemented or still external
+
+- Real credit-supplier integration for live registry-retirement fulfillment.
+- Live PSP / EMI / legal-compliance dependencies for real-money operation.
+- Independent penetration test before live payment keys.
+- Any future work that depends on external data vendors, registry partners, or regulatory sign-off.
+- Remaining roadmap items that are intentionally deferred until the current launch gates are cleared.
+
+## Roadmap
+
+1. Keep the overview, handoff, and roadmap docs aligned with the current code.
+2. Finish the launch gates: security review, ops readiness, and external partner dependencies.
+3. Move future feature work only after the current launch gates are satisfied.
+4. Use `docs/dev/` for implementation details and `docs/GO_LIVE_ROADMAP.md` for the active priority order.
+
+> ## Historical notes below
+>
+> The remainder of this file preserves the detailed audit trail and older snapshots for traceability.
 >
 > ### ✅ 2026-07-11 (live testing) — END-TO-END FLOW NOW WORKS; drift fixed migration-by-migration
 > A full live run (developer submits → verifier validates → buy → retire) surfaced a chain of
