@@ -119,12 +119,11 @@ function scrollToSignup() {
 <style scoped>
 /* Enhanced Auth Layout with Modern Styling */
 .auth-layout {
-  height: 100vh;
+  min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   background: #ffffff;
   position: relative;
-  overflow: hidden;
 }
 
 
@@ -144,10 +143,14 @@ function scrollToSignup() {
   padding: 2rem;
   background: var(--primary-color, #069e2d);
   color: white;
-  position: relative;
+  /* Sticky on desktop so the brand panel stays visible while the taller
+     register form scrolls on its own side. */
+  position: sticky;
+  top: 0;
+  align-self: start;
   overflow: hidden;
   z-index: 1;
-  height: 100%;
+  height: 100vh;
 }
 
 .hero-card {
@@ -233,8 +236,8 @@ function scrollToSignup() {
   justify-content: center;
   padding: 2rem 1.5rem;
   background: #ffffff;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: visible;
   position: relative;
   z-index: 1;
 }
@@ -246,13 +249,11 @@ function scrollToSignup() {
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow-y: auto;
   overflow-x: hidden;
   position: relative;
   padding: 2rem;
   display: flex;
   flex-direction: column;
-  max-height: 100%;
   box-sizing: border-box;
 }
 
@@ -390,19 +391,24 @@ function scrollToSignup() {
 @media (max-width: 768px) {
   .auth-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto;
+    min-height: 100vh;
   }
 
   .auth-hero {
     padding: 1.5rem 1rem;
     min-height: auto;
     height: auto;
+    /* stack normally on mobile — no sticky */
+    position: static;
+    align-self: auto;
   }
 
   .auth-panel {
     padding: 1rem;
+    min-height: 0;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .panel-card {

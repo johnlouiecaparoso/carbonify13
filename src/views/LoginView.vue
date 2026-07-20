@@ -54,12 +54,11 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 <style scoped>
 /* Enhanced Auth Layout with Modern Styling */
 .auth-layout {
-  height: 100vh;
+  min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   background: #ffffff;
   position: relative;
-  overflow: hidden;
 }
 
 /* Mobile responsive */
@@ -78,10 +77,14 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   padding: 2rem;
   background: var(--primary-color, #069e2d);
   color: white;
-  position: relative;
+  /* Sticky on desktop so the brand panel stays visible while the form side
+     scrolls if content ever exceeds the viewport. */
+  position: sticky;
+  top: 0;
+  align-self: start;
   overflow: hidden;
   z-index: 1;
-  height: 100%;
+  height: 100vh;
 }
 
 .hero-card {
@@ -167,8 +170,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   justify-content: center;
   padding: 2rem 1.5rem;
   background: #ffffff;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: visible;
   position: relative;
   z-index: 1;
 }
@@ -273,20 +276,24 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 @media (max-width: 768px) {
   .auth-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    height: 100vh;
+    grid-template-rows: auto auto;
+    min-height: 100vh;
   }
 
   .auth-hero {
     padding: 1.5rem 1rem;
     min-height: auto;
     height: auto;
+    /* stack normally on mobile — no sticky */
+    position: static;
+    align-self: auto;
   }
 
   .auth-panel {
     padding: 1rem;
+    min-height: 0;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .panel-card {
