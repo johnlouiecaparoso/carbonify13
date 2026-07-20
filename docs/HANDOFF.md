@@ -56,6 +56,16 @@
 > Confirmed working live after `000900`+`001000`: validate → project auto-lists → purchase → retire →
 > certificate. See per-fix notes below.
 >
+> ### ✅ 2026-07-20 — BOOKS VERIFIED BALANCED (`reconcile_financials()` = 0 on live)
+> Ran the reconciliation against live. It flagged **4 `transaction_unaccounted` rows** — all ₱1.00,
+> all between the owner's own test accounts (`louiecaparoso12` ↔ `johnlouiecaparoso12`), created
+> **2026-06-26 to 2026-07-01**, i.e. pre-cutover client-side writes that never created a payment_intent
+> or ledger group (exactly the legacy residue check #6 was built to surface — not a regression, and
+> impossible to recreate now that the RLS lockdown is verified live). Footprint check showed **zero**
+> dependent certificates / ledger entries / payment intents, so the four rows were **deleted**.
+> `reconcile_financials()` now returns **0 rows** — a clean baseline for the test-key soft launch
+> (see [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1a).
+>
 > ### 🛠️ 2026-07-11 — RECEIPT JOIN 400 (`credit_transactions ↔ profiles` not in PostgREST cache)
 > The receipt embeds `buyer/seller:profiles!credit_transactions_*_id_fkey(...)` and 400'd with "Could not
 > find a relationship … in the schema cache", then the per-profile fallback 406'd under `profiles` RLS — so
