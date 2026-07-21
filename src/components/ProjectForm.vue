@@ -13,6 +13,7 @@ import {
   isKnownMethodology,
 } from '@/constants/projectRegistry'
 import { uploadProjectDocument } from '@/services/storageService'
+import { REQUIRED_PROJECT_DOCS, OPTIONAL_PROJECT_DOCS } from '@/constants/projectDocuments'
 import { PROJECT_TYPES, isValidProjectType } from '@/constants/projectTypes'
 import { SDGS, sdgTag } from '@/constants/sdgs'
 import {
@@ -134,6 +135,8 @@ const isDraggingFiles = ref(false)
 
 // Form state
 const loading = ref(false)
+// Which button is busy, so only that one shows a spinner label.
+const savingDraft = ref(false)
 const errors = ref({})
 const success = ref('')
 
@@ -662,49 +665,67 @@ function onFileZoneClick(event) {
   triggerDocumentsSelect()
 }
 
-// Documents the developer MUST attach on a NEW submission (mirror the "*"
-// markers in the template). Feasibility is intentionally optional.
-const REQUIRED_DOCS = [
-  { field: 'pdd_file', label: 'PDD', key: 'pdd' },
-  { field: 'baseline_file', label: 'Baseline Report', key: 'baseline' },
-  { field: 'additionality_file', label: 'Additionality Justification', key: 'additionality' },
-  { field: 'leakage_file', label: 'Leakage Assessment', key: 'leakage' },
-  { field: 'safeguards_file', label: 'Safeguards Checklist', key: 'safeguards' },
-  { field: 'lgu_endorsement_file', label: 'LGU Endorsement', key: 'lgu_endorsement' },
-  { field: 'land_ownership_file', label: 'Land Ownership / Lease', key: 'land_ownership' },
-  { field: 'ecc_file', label: 'ECC / Permits', key: 'ecc' },
-  { field: 'moa_file', label: 'MOA / Agreements', key: 'moa' },
-]
-
-// MRV reports are produced periodically in the monitoring module; attaching one
-// here is how a *published* report reaches the public registry page, which the
-// registry spec asks for. Optional: a new project has no monitoring history yet.
-const OPTIONAL_DOCS = [
-  { field: 'feasibility_file', label: 'Feasibility Study', key: 'feasibility' },
-  { field: 'mrv_report_file', label: 'MRV Report', key: 'mrv_report' },
-]
+// The required/optional document lists moved to @/constants/projectDocuments so
+// that submitting a DRAFT for review later enforces the same rule — the check
+// used to exist only here, at first submission.
+const REQUIRED_DOCS = REQUIRED_PROJECT_DOCS
+const OPTIONAL_DOCS = OPTIONAL_PROJECT_DOCS
 
 // How many required docs are still missing (drives the submit-button hint).
 const missingRequiredDocs = computed(() =>
   REQUIRED_DOCS.filter((d) => !formData.value[d.field]).map((d) => d.label),
 )
 
-async function handleSubmit() {
+/**
+ * Draft saving is offered for a NEW project or one that is already a draft.
+ *
+ * Never for a project that has been submitted: `status` is an editable column,
+ * so saving a pending or needs_revision project "as a draft" would quietly pull
+ * it out of the verifier's queue and out of the revision loop, with nobody
+ * told. Those projects already have a non-destructive save — the Update button,
+ * which preserves whatever status they hold.
+ */
+const canSaveAsDraft = computed(
+  () => !isEditMode.value || props.project?.status === 'draft',
+)
+
+/**
+ * @param {Object} [opts]
+ * @param {boolean} [opts.asDraft=false] - save without entering the review
+ *   queue. A draft skips the required-document check and every field validation
+ *   except a title (a untitled draft is unfindable in the dashboard list). The
+ *   full rules are re-applied when the draft is submitted for review.
+ */
+async function handleSubmit({ asDraft = false } = {}) {
   clearErrors()
 
-  if (!validateForm() || !isFormValid.value) {
+  if (asDraft) {
+    // Mirrors canSaveAsDraft. Demoting a submitted project back to a draft would
+    // remove it from the review queue without telling anyone.
+    if (!canSaveAsDraft.value) {
+      errors.value.general = 'This project has already been submitted and cannot be saved as a draft.'
+      return
+    }
+    if (!String(formData.value.title || '').trim()) {
+      errors.value.title = 'Give your draft a title so you can find it later.'
+      errors.value.general = 'A title is required, even for a draft.'
+      return
+    }
+  } else if (!validateForm() || !isFormValid.value) {
     errors.value.general =
       errors.value.general || 'Please complete the required fields highlighted above.'
     return
   }
 
   // Require the compliance documents on a NEW submission — without them a
-  // verifier has nothing to review. (Edits preserve previously-uploaded docs.)
-  if (!isEditMode.value && missingRequiredDocs.value.length) {
+  // verifier has nothing to review. (Edits preserve previously-uploaded docs;
+  // drafts are checked at submit-for-review time instead.)
+  if (!asDraft && !isEditMode.value && missingRequiredDocs.value.length) {
     errors.value.general = `Please attach all required documents before submitting. Missing: ${missingRequiredDocs.value.join(', ')}.`
     return
   }
 
+  savingDraft.value = asDraft
   loading.value = true
 
   try {
@@ -741,7 +762,15 @@ async function handleSubmit() {
         permanence_years: formData.value.permanence_years,
         reversal_risk: formData.value.reversal_risk,
       }),
-      status: isEditMode.value ? (props.project && props.project.status ? props.project.status : 'draft') : 'submitted',
+      // Saving as a draft always parks the project in 'draft', including when a
+      // draft is edited. Otherwise an edit keeps whatever status it already had
+      // (so editing a needs_revision project does not silently re-queue it) and
+      // a brand-new submission goes to the review queue.
+      status: asDraft
+        ? 'draft'
+        : isEditMode.value
+          ? props.project?.status || 'draft'
+          : 'submitted',
       documents: [],
     }
 
@@ -965,11 +994,14 @@ async function handleSubmit() {
       // client insert can't create notifications for other users under RLS).
     }
 
-    // Emit success event
+    // Emit success event. projectData.status tells the parent whether this was
+    // a draft save (go back to the dashboard) or a real submission (show the
+    // "what happens next" card).
     emit('success', projectData)
 
-    // Reset form if creating new project
-    if (!isEditMode.value) {
+    // Reset form if creating new project. Not for a draft: the parent navigates
+    // to the dashboard, and blanking the fields first just flashes an empty form.
+    if (!isEditMode.value && !asDraft) {
       resetForm()
     }
   } catch (error) {
@@ -994,6 +1026,7 @@ async function handleSubmit() {
     }
   } finally {
     loading.value = false
+    savingDraft.value = false
   }
 }
 
@@ -1066,7 +1099,9 @@ onMounted(() => {
       <p v-else>Update your project details below.</p>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="form">
+    <!-- Explicit call: the native submit event would otherwise be destructured
+         as the options object. -->
+    <form @submit.prevent="handleSubmit()" class="form">
       <!-- General Error Message -->
       <div v-if="errors.general" class="error-message">
         {{ errors.general }}
@@ -1720,6 +1755,18 @@ onMounted(() => {
       <div class="form-actions">
         <UiButton type="button" variant="outline" @click="handleCancel" :disabled="loading">
           Cancel
+        </UiButton>
+        <!-- Save as draft asks for nothing but a title, so it is NOT gated on
+             isFormValid. Nine required documents in one sitting was the single
+             biggest reason a submission never got finished. -->
+        <UiButton
+          v-if="canSaveAsDraft"
+          type="button"
+          variant="outline"
+          :disabled="loading"
+          @click="handleSubmit({ asDraft: true })"
+        >
+          {{ savingDraft ? 'Saving…' : 'Save as draft' }}
         </UiButton>
         <UiButton type="submit" :disabled="loading || !isFormValid">
           {{ submitButtonText }}

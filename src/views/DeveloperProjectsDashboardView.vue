@@ -208,10 +208,41 @@
               <p>{{ project.verification_notes }}</p>
             </div>
 
-            <!-- Edit / delete for submissions still pending review (the
-                 needs_revision card has its own action row above). -->
+            <!-- A draft has not been submitted to anyone yet, so it gets its own
+                 explanation and the action that moves it into the queue. -->
+            <div v-if="project.status === 'draft'" class="notes-box draft-note">
+              <h4>Not submitted yet</h4>
+              <p>
+                This draft is visible only to you. Submitting it sends it to a verifier
+                for review — all required documents must be attached first.
+              </p>
+              <div class="revision-actions">
+                <button class="resubmit-btn" type="button" @click="goToEdit(project)">
+                  Continue editing
+                </button>
+                <button
+                  class="resubmit-btn primary"
+                  type="button"
+                  :disabled="submittingId === project.id"
+                  @click="submitDraft(project)"
+                >
+                  {{ submittingId === project.id ? 'Submitting…' : 'Submit for review' }}
+                </button>
+                <button
+                  class="resubmit-btn danger"
+                  type="button"
+                  :disabled="deletingId === project.id"
+                  @click="removeProject(project)"
+                >
+                  {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Edit / delete for submissions still pending review (draft and
+                 needs_revision cards have their own action rows above). -->
             <div
-              v-if="canManage(project) && project.status !== 'needs_revision'"
+              v-if="canManage(project) && !['needs_revision', 'draft'].includes(project.status)"
               class="project-actions"
             >
               <button class="action-link" type="button" @click="goToEdit(project)">
@@ -297,6 +328,7 @@ const actionError = ref('')
 const projects = ref([])
 const activeFilter = ref('all')
 const resubmittingId = ref(null)
+const submittingId = ref(null)
 const deletingId = ref(null)
 
 // Best-effort context. Any of these may fail without breaking the page.
@@ -472,6 +504,23 @@ async function removeProject(project) {
     actionError.value = error.message || 'Failed to delete project.'
   } finally {
     deletingId.value = null
+  }
+}
+
+async function submitDraft(project) {
+  if (submittingId.value) return
+  submittingId.value = project.id
+  actionError.value = ''
+  try {
+    await projectApprovalService.submitDraftForReview(project.id)
+    await loadProjects()
+  } catch (error) {
+    console.error('Draft submission failed:', error)
+    // The missing-documents message names exactly what to attach, so surface it
+    // verbatim rather than a generic failure.
+    actionError.value = error.message || 'Failed to submit this draft for review.'
+  } finally {
+    submittingId.value = null
   }
 }
 
@@ -940,6 +989,12 @@ onMounted(async () => {
 .revision-note {
   background: #fffbeb;
   border: 1px solid #fde68a;
+}
+
+/* Neutral, not a warning: an unfinished draft is a normal state, not a problem. */
+.draft-note {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .revision-actions {

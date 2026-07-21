@@ -174,6 +174,13 @@ const loadError = ref('')
 
 const handleProjectSuccess = (projectData) => {
   console.log('Project saved successfully:', projectData)
+  // A draft has not entered the review queue, so the "what happens next" card
+  // would be misleading — send them to the dashboard, where the draft is listed
+  // with its Submit-for-review action.
+  if (projectData?.status === 'draft') {
+    router.push('/developer/projects')
+    return
+  }
   // Edits go straight back to the dashboard (the developer then resubmits there);
   // new submissions show the success card with next steps.
   if (isEdit.value) {

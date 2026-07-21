@@ -1,6 +1,7 @@
 import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
 import { notifyProjectSubmitted } from '@/services/emailService'
+import { missingRequiredDocLabels } from '@/constants/projectDocuments'
 
 const PROJECT_WORKFLOW_STATUS = {
   DRAFT: 'draft',
@@ -217,6 +218,67 @@ export class ProjectApprovalService {
 
     // Verifiers are notified by the notify_project_submitted DB trigger (RLS
     // blocks a developer from inserting notifications for other users).
+    return data
+  }
+
+  /**
+   * Move the caller's own draft into the review queue.
+   *
+   * The required-document check that ProjectForm applies at first submission
+   * has to run again here — a draft is deliberately saved without it, so this
+   * is the point where the rule is actually enforced. Mirrors resubmitProject:
+   * ownership and source status are proven before the write, and the
+   * notify_project_submitted DB trigger raises the verifier notification.
+   *
+   * @param {string} projectId
+   * @returns {Promise<Object>} the updated project row
+   */
+  async submitDraftForReview(projectId) {
+    if (!this.supabase) {
+      throw new Error('Supabase client not available')
+    }
+    const userId = await getCurrentUserId()
+    if (!userId) {
+      throw new Error('User not authenticated')
+    }
+
+    const { data: project, error: fetchError } = await this.supabase
+      .from('projects')
+      .select('id, user_id, status, supporting_documents')
+      .eq('id', projectId)
+      .single()
+
+    if (fetchError || !project) {
+      throw new Error('Project not found')
+    }
+    if (project.user_id !== userId) {
+      throw new Error('You can only submit your own projects.')
+    }
+    if (normalizeProjectWorkflowStatus(project.status) !== PROJECT_WORKFLOW_STATUS.DRAFT) {
+      throw new Error('Only a draft can be submitted for review.')
+    }
+
+    const missing = missingRequiredDocLabels(project.supporting_documents)
+    if (missing.length) {
+      throw new Error(
+        `Attach all required documents before submitting. Missing: ${missing.join(', ')}.`,
+      )
+    }
+
+    const { data, error } = await this.supabase
+      .from('projects')
+      .update({
+        status: PROJECT_WORKFLOW_STATUS.SUBMITTED,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', projectId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message || 'Failed to submit project for review')
+    }
+
     return data
   }
 
@@ -646,10 +708,15 @@ export class ProjectApprovalService {
 
     try {
       // Fetch all projects from Supabase - this gets fresh data from the database
-      // Deleted projects will NOT appear here because they are physically removed
+      // Deleted projects will NOT appear here because they are physically removed.
+      //
+      // Drafts are excluded: a draft is the developer's private workspace, not a
+      // submission. Without this filter every half-written draft would surface in
+      // the verifier console's "All" tab the moment save-as-draft shipped.
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .neq('status', 'draft')
         .order('created_at', { ascending: false })
 
       if (error) {
