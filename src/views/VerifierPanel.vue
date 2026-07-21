@@ -32,20 +32,37 @@
           <p class="hint-text">Please contact an administrator if you believe this is an error.</p>
         </div>
 
-        <!-- Verifier Dashboard -->
+        <!-- Verifier Dashboard.
+             These three used to render simultaneously — ~2,750 lines of
+             component and three independent data loads on every visit, as one
+             long scroll. They are separate jobs, so they are now separate tabs
+             and each mounts only when opened. -->
         <div v-else class="verifier-dashboard">
-          <!-- Project Approval Panel -->
+          <div class="workbench-tabs" role="tablist" aria-label="Verifier workbench">
+            <button
+              v-for="tab in tabs"
+              :key="tab.value"
+              type="button"
+              role="tab"
+              :aria-selected="activeTab === tab.value"
+              :class="['workbench-tab', { active: activeTab === tab.value }]"
+              @click="activeTab = tab.value"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">{{ tab.icon }}</span>
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <!-- Deliberately NOT wrapped in <KeepAlive>. Two of these panels use
+               useModernPrompt, whose promptState is a module-level singleton,
+               and ModernPrompt teleports to body — so keeping both alive would
+               put two dialogs in the document bound to the same state. Plain
+               v-if means exactly one is mounted, which is also what makes
+               re-entering a tab show a freshly loaded queue. -->
           <div class="approval-section">
-            <ProjectApprovalPanel />
-          </div>
-
-          <!-- MRV Report Verification -->
-          <div class="approval-section role-review-section">
-            <MrvReviewDashboard />
-          </div>
-
-          <div class="approval-section role-review-section">
-            <DeveloperApplicationsDashboard />
+            <ProjectApprovalPanel v-if="activeTab === 'projects'" />
+            <MrvReviewDashboard v-else-if="activeTab === 'mrv'" />
+            <DeveloperApplicationsDashboard v-else-if="activeTab === 'applications'" />
           </div>
         </div>
       </div>
@@ -54,12 +71,22 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useUserStore } from '@/store/userStore'
 import ProjectApprovalPanel from '@/components/admin/ProjectApprovalPanel.vue'
 import DeveloperApplicationsDashboard from '@/components/verifier/DeveloperApplicationsDashboard.vue'
 import MrvReviewDashboard from '@/components/verifier/MrvReviewDashboard.vue'
 
 const store = useUserStore()
+
+const tabs = [
+  { value: 'projects', label: 'Project Reviews', icon: 'fact_check' },
+  { value: 'mrv', label: 'MRV Reports', icon: 'query_stats' },
+  { value: 'applications', label: 'Developer Applications', icon: 'how_to_reg' },
+]
+
+// Project validation is the queue a verifier opens the panel for.
+const activeTab = ref('projects')
 </script>
 
 <style scoped>
@@ -166,8 +193,42 @@ const store = useUserStore()
   box-shadow: none;
 }
 
-.role-review-section {
-  margin-top: 2rem;
+.workbench-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.workbench-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.05rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.workbench-tab .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.workbench-tab.active {
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
+  background: #ecfdf5;
+}
+
+@media (max-width: 640px) {
+  .workbench-tab {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 768px) {

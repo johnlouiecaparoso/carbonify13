@@ -164,12 +164,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Same confirmation component the project review panel uses. -->
+    <ModernPrompt
+      :is-open="promptState.isOpen"
+      :type="promptState.type"
+      :title="promptState.title"
+      :message="promptState.message"
+      :confirm-text="promptState.confirmText"
+      :cancel-text="promptState.cancelText"
+      :show-cancel="promptState.showCancel"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="handleClose"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { REPORT_STATUS_META, REDUCTION_TYPES, suggestedReductionType } from '@/constants/mrv'
+import { useModernPrompt } from '@/composables/useModernPrompt'
+import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 import {
   getReviewQueue,
   getReport,
@@ -179,6 +195,14 @@ import {
   getMethodologyFactors,
   buildVerCalculation,
 } from '@/services/monitoringService'
+
+const {
+  promptState,
+  confirm: confirmPrompt,
+  handleConfirm,
+  handleCancel,
+  handleClose,
+} = useModernPrompt()
 
 const queue = ref([])
 const loading = ref(false)
@@ -283,7 +307,15 @@ async function doStartReview() {
 }
 
 async function doApprove() {
-  if (!confirm('Approve this report and issue credits to the project? This cannot be undone.')) return
+  // Approving mints credits and lists them for sale. That deserves the same
+  // styled, readable confirmation the project panel uses — this was a native
+  // blocking confirm() on the highest-stakes action in the product.
+  const ok = await confirmPrompt({
+    title: 'Issue credits?',
+    message: `Approve this report and issue ${Number(approvedQuantity.value || 0).toLocaleString()} tCO₂e to "${selectedProjectTitle.value}"? Credits are minted and listed on the marketplace. This cannot be undone.`,
+    confirmText: 'Approve & issue',
+  })
+  if (!ok) return
   working.value = true
   setMessage('')
   try {
@@ -311,7 +343,12 @@ async function doReject() {
     setMessage('Please add a brief reason (min 5 characters) before rejecting.', true)
     return
   }
-  if (!confirm('Reject this MRV report? The developer will be notified with your reason.')) return
+  const ok = await confirmPrompt({
+    title: 'Reject this report?',
+    message: 'The developer will be notified with your reason and will need to resubmit.',
+    confirmText: 'Reject report',
+  })
+  if (!ok) return
   working.value = true
   setMessage('')
   try {
