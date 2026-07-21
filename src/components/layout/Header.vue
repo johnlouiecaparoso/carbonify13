@@ -384,11 +384,16 @@ const navItems = computed(() => {
   }
 
   if (userStore.isProjectDeveloper) {
-    items.push({ path: '/submit-project', label: 'Submit Project' })
-    items.push({ path: '/developer/projects', label: 'My Project Dashboard' })
+    // "My Projects" matches the label used in the profile dropdown — the same
+    // route was previously called "My Project Dashboard" here and "My Projects"
+    // there, which read as two different destinations.
+    items.push({ path: '/developer/projects', label: 'My Projects' })
     items.push({ path: '/developer/ledger', label: 'Carbon Assets' })
     items.push({ path: '/sales', label: 'Seller Earnings' })
-    // Project Map + Monitoring (MRV) live in the profile dropdown (accountLinks).
+    // Submit Project is an action, not a destination: it is the primary button
+    // on the projects dashboard and its empty state, and it stays in the profile
+    // dropdown's Workspace group. Keeping it here too made this the longest top
+    // nav of any role. Project Map + MRV also live in the dropdown.
   }
 
   if (userStore.isVerifier) {
@@ -491,8 +496,12 @@ const profileSections = computed(() => {
         title: 'Project Tools',
         items: [
           { path: '/map', label: 'Project Map', icon: 'map' },
-          { path: '/developer/mrv-dashboard', label: 'MRV Dashboard', icon: 'query_stats' },
-          { path: '/monitoring', label: 'Monitoring (MRV)', icon: 'monitoring' },
+          // One entry, not two. "MRV Dashboard" and "Monitoring (MRV)" sat here
+          // as siblings with near-identical names, but /monitoring is the report
+          // editor *inside* the dashboard — which already links to it ("Open
+          // report editor"), as do the projects dashboard's per-project action
+          // and its MRV reminder banner.
+          { path: '/developer/mrv-dashboard', label: 'MRV & Monitoring', icon: 'query_stats' },
         ],
       },
       {
