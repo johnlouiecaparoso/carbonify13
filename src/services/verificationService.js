@@ -68,3 +68,76 @@ export function isOverdue(project, slaDays, now = new Date()) {
   const open = ['submitted', 'pending', 'in_review'].includes(project?.status)
   return open && projectAgeDays(project, now) > Number(slaDays || 0)
 }
+
+// ── Queue assignment ────────────────────────────────────────────────────────
+
+/**
+ * Verifiers available to take a review ({ id, display_name }).
+ *
+ * Comes from the list_verifiers RPC rather than a profiles select: this repo
+ * has no tracked SELECT policy on profiles, and a dropdown is not a good reason
+ * to depend on one. Degrades to [] so the queue still renders.
+ */
+export async function listVerifiers() {
+  const supabase = getSupabase()
+  if (!supabase) return []
+  const { data, error } = await supabase.rpc('list_verifiers')
+  if (error) {
+    console.warn('[verification] verifier directory unavailable:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Assign a project to a verifier, or clear the assignment with a null id.
+ *
+ * Assignment records who is expected to review, not who is permitted to —
+ * every verifier can still open any project. See the migration header.
+ */
+export async function assignProject(projectId, verifierId) {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!projectId) throw new Error('Project is required')
+
+  const { error } = await supabase
+    .from('projects')
+    .update({
+      assigned_verifier_id: verifierId || null,
+      assigned_at: verifierId ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', projectId)
+
+  if (error) {
+    throw new Error(
+      error.code === '42501' || /policy/i.test(error.message)
+        ? 'Only verifiers can assign reviews.'
+        : error.message || 'Failed to assign this review',
+    )
+  }
+  return true
+}
+
+/**
+ * Free-text filter over the review queue.
+ *
+ * Matches title, category, location and project id so a verifier can paste an
+ * id straight from a support thread. Pure — exported for unit testing.
+ *
+ * @param {Array<Object>} projects
+ * @param {string} query
+ * @returns {Array<Object>}
+ */
+export function searchProjects(projects = [], query = '') {
+  const q = String(query || '').trim().toLowerCase()
+  if (!q) return projects || []
+  return (projects || []).filter((p) => {
+    const haystack = [p?.title, p?.category, p?.location, p?.id]
+      .map((v) => String(v || '').toLowerCase())
+      .join(' ')
+    // Every whitespace-separated term must appear somewhere, so "solar cebu"
+    // narrows rather than widening the way an OR match would.
+    return q.split(/\s+/).every((term) => haystack.includes(term))
+  })
+}

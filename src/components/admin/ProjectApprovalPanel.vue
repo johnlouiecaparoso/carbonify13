@@ -41,6 +41,24 @@
           Rejected ({{ tabCounts.rejected }})
         </button>
       </div>
+
+      <!-- Queue controls. A queue longer than one screen was previously
+           navigable only by scrolling it. -->
+      <div class="queue-controls">
+        <label class="queue-search">
+          <span class="material-symbols-outlined" aria-hidden="true">search</span>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search title, category, location or id"
+            aria-label="Search the review queue"
+          />
+        </label>
+        <label class="queue-toggle">
+          <input v-model="mineOnly" type="checkbox" />
+          <span>Assigned to me ({{ myOpenCount }})</span>
+        </label>
+      </div>
     </div>
 
     <div v-if="decisionCard" :class="['decision-card', `decision-card--${decisionCard.tone}`]">
@@ -100,6 +118,14 @@
             >
               {{ ageDays(project) }}d · overdue
             </span>
+            <span
+              v-if="project.assigned_verifier_id"
+              class="assignee-badge"
+              :class="{ mine: project.assigned_verifier_id === currentUserId }"
+              :title="`Assigned to ${verifierName(project.assigned_verifier_id)}`"
+            >
+              {{ verifierName(project.assigned_verifier_id) }}
+            </span>
           </span>
         </button>
       </aside>
@@ -135,6 +161,33 @@
               <span v-if="projectOverdue(activeProject)" class="sla-badge overdue">
                 Over {{ slaDays }}-day SLA
               </span>
+            </div>
+            <!-- Assignment says who is EXPECTED to review, not who is permitted
+                 to — any verifier can still decide any project. -->
+            <div class="meta-item">
+              <span class="material-symbols-outlined" aria-hidden="true">assignment_ind</span>
+              <label class="assign-label" for="assignee-select">Assigned to</label>
+              <select
+                id="assignee-select"
+                class="assign-select"
+                :value="activeProject.assigned_verifier_id || ''"
+                :disabled="assigningId === activeProject.id"
+                @change="setAssignee(activeProject, $event.target.value || null)"
+              >
+                <option value="">Unassigned</option>
+                <option v-for="v in verifiers" :key="v.id" :value="v.id">
+                  {{ v.id === currentUserId ? `${v.display_name} (you)` : v.display_name }}
+                </option>
+              </select>
+              <button
+                v-if="activeProject.assigned_verifier_id !== currentUserId"
+                type="button"
+                class="assign-me"
+                :disabled="assigningId === activeProject.id"
+                @click="setAssignee(activeProject, currentUserId)"
+              >
+                Take it
+              </button>
             </div>
           </div>
 
@@ -412,7 +465,14 @@ import ProjectAssessmentPanel from '@/components/verifier/ProjectAssessmentPanel
 import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 import { addProjectComment } from '@/services/projectCommentService'
 import ValidationChecklist from '@/components/verifier/ValidationChecklist.vue'
-import { getSlaDays, projectAgeDays, isOverdue } from '@/services/verificationService'
+import {
+  getSlaDays,
+  projectAgeDays,
+  isOverdue,
+  listVerifiers,
+  assignProject,
+  searchProjects,
+} from '@/services/verificationService'
 import { resolveDocumentUrls } from '@/services/storageService'
 
 const { promptState, confirm, success, error: showErrorPrompt, handleConfirm, handleCancel, handleClose } = useModernPrompt()
@@ -458,13 +518,64 @@ function inBucket(project, bucket) {
   return (TAB_STATUSES[bucket] || [bucket]).includes(project.status)
 }
 
+// Queue controls: free-text search plus a "mine only" toggle. A queue with more
+// than one screen of work was previously navigable only by scrolling.
+const searchQuery = ref('')
+const mineOnly = ref(false)
+const verifiers = ref([])
+const assigningId = ref(null)
+
+const currentUserId = computed(() => userStore.session?.user?.id || userStore.profile?.id || null)
+
+function verifierName(id) {
+  if (!id) return null
+  if (id === currentUserId.value) return 'You'
+  return verifiers.value.find((v) => v.id === id)?.display_name || 'A verifier'
+}
+
 // Computed property for displayed projects based on filter
 const displayedProjects = computed(() => {
-  if (statusFilter.value === 'all') {
-    return allProjects.value
-  }
-  return allProjects.value.filter((p) => inBucket(p, statusFilter.value))
+  const byStatus =
+    statusFilter.value === 'all'
+      ? allProjects.value
+      : allProjects.value.filter((p) => inBucket(p, statusFilter.value))
+
+  const byOwner = mineOnly.value
+    ? byStatus.filter((p) => p.assigned_verifier_id && p.assigned_verifier_id === currentUserId.value)
+    : byStatus
+
+  return searchProjects(byOwner, searchQuery.value)
 })
+
+/** How many open reviews are assigned to the signed-in verifier. */
+const myOpenCount = computed(
+  () =>
+    allProjects.value.filter(
+      (p) =>
+        p.assigned_verifier_id === currentUserId.value &&
+        ['submitted', 'pending', 'in_review'].includes(p.status),
+    ).length,
+)
+
+async function setAssignee(project, verifierId) {
+  assigningId.value = project.id
+  try {
+    await assignProject(project.id, verifierId)
+    // Patch in place: reloading the whole queue would lose the open project.
+    const row = allProjects.value.find((p) => p.id === project.id)
+    if (row) {
+      row.assigned_verifier_id = verifierId || null
+      row.assigned_at = verifierId ? new Date().toISOString() : null
+    }
+  } catch (err) {
+    await showErrorPrompt({
+      title: 'Assignment failed',
+      message: err.message || 'Could not assign this review.',
+    })
+  } finally {
+    assigningId.value = null
+  }
+}
 
 /**
  * Tab counts, computed once per change instead of five inline
@@ -519,6 +630,11 @@ onMounted(() => {
   loadPendingProjects()
   getSlaDays().then((d) => {
     slaDays.value = d
+  })
+  // Populates the assignment picker. Best-effort: the queue works without it,
+  // assignment just falls back to showing ids-free labels.
+  listVerifiers().then((list) => {
+    verifiers.value = list
   })
 })
 
@@ -979,6 +1095,106 @@ async function openVerificationModal(project, newStatus) {
   gap: 0.5rem;
   margin-top: 1.25rem;
   flex-wrap: wrap;
+}
+
+/* Queue controls ---------------------------------------------------------- */
+.queue-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.queue-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 260px;
+  max-width: 420px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+}
+
+.queue-search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  color: #0f172a;
+  background: transparent;
+}
+
+.queue-search:focus-within {
+  border-color: var(--primary-color, #069e2d);
+  box-shadow: 0 0 0 3px rgba(6, 158, 45, 0.12);
+}
+
+.queue-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Assignment -------------------------------------------------------------- */
+.assign-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.assign-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.85rem;
+  color: #0f172a;
+  max-width: 220px;
+}
+
+.assign-me {
+  border: 1px solid var(--primary-color, #069e2d);
+  background: #fff;
+  color: var(--primary-color, #069e2d);
+  border-radius: 8px;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.assign-me:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.assignee-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 700;
+  max-width: 10ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Your own queue should be findable at a glance in a long list. */
+.assignee-badge.mine {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .filter-tab {
