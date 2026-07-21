@@ -119,6 +119,116 @@ export async function assignProject(projectId, verifierId) {
   return true
 }
 
+// ── Verification timeline ───────────────────────────────────────────────────
+
+/** Human wording for the audit actions this timeline shows. */
+const TIMELINE_LABELS = {
+  project_submitted: 'Submitted for review',
+  project_validated: 'Validated',
+  project_rejected: 'Rejected',
+  project_needs_revision: 'Revision requested',
+  project_in_review: 'Marked under review',
+  project_assigned: 'Assigned',
+  project_unassigned: 'Assignment cleared',
+  report_approved: 'MRV report approved',
+  report_rejected: 'MRV report rejected',
+}
+
+/**
+ * Merge a project's own milestones with its audit rows into one ordered story.
+ *
+ * The project row is included because audit logging for project decisions only
+ * started with 20260722000300 — every project that existed before it would
+ * otherwise show a completely blank timeline. `created_at` and `verified_at`
+ * are always there, so the spine of the history survives regardless.
+ *
+ * Pure — exported for unit testing.
+ *
+ * @param {Object} input
+ * @param {Object} input.project
+ * @param {Array<Object>} [input.auditRows]
+ * @returns {Array<{at:string, label:string, actor:string|null, detail:string|null, source:string}>}
+ */
+export function buildProjectTimeline({ project, auditRows = [] } = {}) {
+  const events = []
+
+  if (project?.created_at) {
+    events.push({
+      at: project.created_at,
+      label: 'Submitted for review',
+      actor: null,
+      detail: null,
+      source: 'project',
+    })
+  }
+
+  // A decided project always has verified_at, even with no audit row behind it.
+  if (project?.verified_at) {
+    const decided = { validated: 'Validated', approved: 'Validated', rejected: 'Rejected' }[
+      project.status
+    ]
+    if (decided) {
+      events.push({
+        at: project.verified_at,
+        label: decided,
+        actor: null,
+        detail: project.verification_notes || null,
+        source: 'project',
+      })
+    }
+  }
+
+  for (const row of auditRows || []) {
+    if (!row?.created_at) continue
+    events.push({
+      at: row.created_at,
+      label: TIMELINE_LABELS[row.action] || String(row.action || 'Activity').replace(/_/g, ' '),
+      actor: row.profiles?.full_name || null,
+      detail: row.metadata?.note || row.metadata?.notes || null,
+      source: 'audit',
+    })
+  }
+
+  // Newest first, and drop a project-derived event that an audit row already
+  // describes at the same moment — otherwise a decision shows up twice.
+  events.sort((a, b) => new Date(b.at) - new Date(a.at))
+  return events.filter((event, i) => {
+    if (event.source !== 'project') return true
+    return !events.some(
+      (other, j) =>
+        j !== i &&
+        other.source === 'audit' &&
+        other.label === event.label &&
+        Math.abs(new Date(other.at) - new Date(event.at)) < 60000,
+    )
+  })
+}
+
+/**
+ * Audit rows for one project, newest first.
+ *
+ * Readable by verifiers only for project-scoped rows (20260722000300).
+ * Degrades to [] so a missing policy hides the timeline rather than breaking
+ * the review screen.
+ */
+export async function getProjectAuditTrail(projectId) {
+  const supabase = getSupabase()
+  if (!supabase || !projectId) return []
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, action, created_at, metadata, user_id, profiles!audit_logs_user_id_fkey(full_name)')
+    .eq('resource_type', 'projects')
+    .eq('resource_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (error) {
+    console.warn('[verification] audit trail unavailable:', error.message)
+    return []
+  }
+  return data || []
+}
+
 /**
  * Free-text filter over the review queue.
  *

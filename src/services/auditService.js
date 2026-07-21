@@ -133,9 +133,9 @@ export async function getAuditLogs(entityType, entityId, limit = 50) {
         profiles!audit_logs_user_id_fkey(full_name, email)
       `,
       )
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .order('timestamp', { ascending: false })
+      .eq('resource_type', entityType)
+      .eq('resource_id', entityId)
+      .order('created_at', { ascending: false })
       .limit(limit)
 
     if (error) {
@@ -161,7 +161,7 @@ export async function getUserActivityLogs(userId, limit = 100) {
       .from('audit_logs')
       .select('*')
       .eq('user_id', userId)
-      .order('timestamp', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(limit)
 
     if (error) {
@@ -191,7 +191,7 @@ export async function getSystemAuditLogs(filters = {}, limit = 100) {
         profiles!audit_logs_user_id_fkey(full_name, email)
       `,
       )
-      .order('timestamp', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(limit)
 
     // Apply filters
@@ -200,7 +200,7 @@ export async function getSystemAuditLogs(filters = {}, limit = 100) {
     }
 
     if (filters.entityType) {
-      query = query.eq('entity_type', filters.entityType)
+      query = query.eq('resource_type', filters.entityType)
     }
 
     if (filters.userId) {
@@ -208,11 +208,11 @@ export async function getSystemAuditLogs(filters = {}, limit = 100) {
     }
 
     if (filters.startDate) {
-      query = query.gte('timestamp', filters.startDate)
+      query = query.gte('created_at', filters.startDate)
     }
 
     if (filters.endDate) {
-      query = query.lte('timestamp', filters.endDate)
+      query = query.lte('created_at', filters.endDate)
     }
 
     const { data, error } = await query

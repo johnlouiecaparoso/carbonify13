@@ -243,6 +243,28 @@
           </div>
         </div>
 
+          <!-- Verification history: every recorded action, who and when. The
+               audit rows existed but were admin-only to read and were never
+               written for project decisions, so this was invisible. -->
+          <div class="detail-section">
+            <h4>
+              <span class="material-symbols-outlined" aria-hidden="true">history</span>
+              <span>Verification Timeline</span>
+            </h4>
+            <ol v-if="timeline.length" class="timeline">
+              <li v-for="(event, i) in timeline" :key="i" class="timeline-item">
+                <div class="timeline-dot" aria-hidden="true"></div>
+                <div class="timeline-body">
+                  <span class="timeline-label">{{ event.label }}</span>
+                  <span class="timeline-when">{{ formatDate(event.at) }}</span>
+                  <span v-if="event.actor" class="timeline-actor">by {{ event.actor }}</span>
+                  <p v-if="event.detail" class="timeline-detail">{{ event.detail }}</p>
+                </div>
+              </li>
+            </ol>
+            <p v-else class="muted-note">No recorded activity yet.</p>
+          </div>
+
         <ProjectAssessmentPanel :project="activeProject" />
 
         <ValidationChecklist
@@ -472,6 +494,8 @@ import {
   listVerifiers,
   assignProject,
   searchProjects,
+  getProjectAuditTrail,
+  buildProjectTimeline,
 } from '@/services/verificationService'
 import { resolveDocumentUrls } from '@/services/storageService'
 
@@ -602,8 +626,17 @@ watch(
     resolvedDocuments.value = proj?.supporting_documents
       ? await resolveDocumentUrls(proj.supporting_documents)
       : []
+    auditRows.value = proj?.id ? await getProjectAuditTrail(proj.id) : []
   },
   { immediate: true },
+)
+
+// Verification history for the open project. Audit rows only became readable to
+// verifiers in 20260722000300; buildProjectTimeline folds in the project's own
+// created_at/verified_at so pre-existing projects still show their spine.
+const auditRows = ref([])
+const timeline = computed(() =>
+  activeProject.value ? buildProjectTimeline({ project: activeProject.value, auditRows: auditRows.value }) : [],
 )
 
 const slaDays = ref(5)
@@ -1095,6 +1128,67 @@ async function openVerificationModal(project, newStatus) {
   gap: 0.5rem;
   margin-top: 1.25rem;
   flex-wrap: wrap;
+}
+
+/* Verification timeline --------------------------------------------------- */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.4rem;
+}
+
+.timeline-item {
+  position: relative;
+  padding: 0 0 0.9rem 1.25rem;
+  border-left: 2px solid #e5e7eb;
+}
+
+.timeline-item:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -5px;
+  top: 0.3rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color, #069e2d);
+}
+
+.timeline-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+}
+
+.timeline-label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.timeline-when,
+.timeline-actor {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.timeline-detail {
+  flex-basis: 100%;
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.muted-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
 }
 
 /* Queue controls ---------------------------------------------------------- */

@@ -2,6 +2,25 @@ import { getSupabase, getSupabaseAsync } from '@/services/supabaseClient'
 import { getCurrentUserId } from '@/utils/authHelper'
 import { notifyProjectSubmitted } from '@/services/emailService'
 import { missingRequiredDocLabels } from '@/constants/projectDocuments'
+import { logUserAction } from '@/services/auditService'
+
+/**
+ * Record a verification decision on the project's audit trail.
+ *
+ * These decisions produced NO audit rows at all until now, despite the role
+ * documentation listing time-stamped audit logs as a verifier feature. Writing
+ * one is best-effort: an audit failure must never roll back a decision that has
+ * already been persisted.
+ */
+async function recordProjectAudit(action, projectId, userId, metadata = {}) {
+  try {
+    // logUserAction is (action, entityType, userId, entityId, metadata) — the
+    // user comes BEFORE the resource id.
+    await logUserAction(action, 'projects', userId, projectId, metadata)
+  } catch (err) {
+    console.warn('[audit] failed to record', action, err?.message)
+  }
+}
 
 const PROJECT_WORKFLOW_STATUS = {
   DRAFT: 'draft',
@@ -106,6 +125,8 @@ export class ProjectApprovalService {
       
       console.log('✅ Project validated successfully')
 
+      await recordProjectAudit('project_validated', projectId, userId, { note: notes || null })
+
       // NOTE: Credits are intentionally NOT issued at validation time.
       // Under the decoupled MRV model, carbon credits are minted only when a
       // verifier approves a monitoring report's Verified Emission Reductions
@@ -175,6 +196,10 @@ export class ProjectApprovalService {
       if (error) {
         throw new Error(error.message || 'Failed to update project status')
       }
+
+      await recordProjectAudit(`project_${normalizedStatus}`, projectId, userId, {
+        note: notes || null,
+      })
 
       return data
     } catch (error) {
