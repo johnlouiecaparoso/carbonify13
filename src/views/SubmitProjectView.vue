@@ -253,7 +253,10 @@ onMounted(async () => {
 .page-header {
   padding: 2rem 0;
   border-bottom: none;
-  background: var(--primary-color, #10b981);
+  /* Matches the developer dashboard header. The old fallback (#10b981) was also
+     a third green that appears nowhere in the palette. White-on-brand-green is
+     3.5:1; --primary-dark is 5.7:1 and passes AA for the subtitle. */
+  background: var(--primary-dark, #04773b);
 }
 
 .page-title {
