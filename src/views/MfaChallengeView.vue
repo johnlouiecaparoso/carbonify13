@@ -37,6 +37,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { isMfaRequired, challengeAndVerify } from '@/services/mfaService'
 import { signOut } from '@/services/authService'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 
 const router = useRouter()
 const route = useRoute()
@@ -50,7 +51,8 @@ const error = ref('')
 
 function destination() {
   const returnTo = route.query.returnTo
-  return returnTo ? decodeURIComponent(String(returnTo)) : '/'
+  if (returnTo) return decodeURIComponent(String(returnTo))
+  return getRoleDefaultRoute(store.role || store.profile?.role)
 }
 
 onMounted(async () => {

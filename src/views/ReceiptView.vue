@@ -189,11 +189,30 @@
                 <button class="btn btn-outline btn-sm" @click="viewReceiptDetails(receipt)">
                   View Details
                 </button>
+                <button class="btn btn-ghost btn-sm" @click="reportProblem(receipt)">
+                  Report a problem
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Buyer-raised dispute on a specific purchase -->
+    <DisputeModal
+      v-if="disputeReceipt"
+      :transaction-id="String(disputeReceipt.transaction_id || disputeReceipt.id || '')"
+      :project-title="getProjectTitle(disputeReceipt) || 'Purchase'"
+      :amount-label="formatCurrency(getTotalAmount(disputeReceipt), getCurrency(disputeReceipt))"
+      @close="disputeReceipt = null"
+      @opened="handleDisputeOpened"
+    />
+
+    <div v-if="disputeConfirmation" class="dispute-toast" role="status">
+      <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+      <span>{{ disputeConfirmation }}</span>
+      <router-link to="/disputes" class="dispute-toast__link">Track it</router-link>
     </div>
   </div>
 </template>
@@ -204,6 +223,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getUserReceipts, downloadReceipt as downloadReceiptFile } from '@/services/receiptService'
 import { downloadVatInvoice } from '@/services/vatInvoiceService'
+import DisputeModal from '@/components/account/DisputeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -214,6 +234,21 @@ const loading = ref(false)
 const error = ref('')
 const selectedReceipt = ref(null)
 const invoicingId = ref(null)
+const disputeReceipt = ref(null)
+const disputeConfirmation = ref('')
+
+function reportProblem(receipt) {
+  disputeConfirmation.value = ''
+  disputeReceipt.value = receipt
+}
+
+function handleDisputeOpened() {
+  disputeReceipt.value = null
+  disputeConfirmation.value = 'Report submitted — our team will review it.'
+  setTimeout(() => {
+    disputeConfirmation.value = ''
+  }, 8000)
+}
 
 async function downloadInvoice(receipt) {
   const txId = receipt.transaction_id || receipt.id
@@ -755,6 +790,29 @@ onMounted(() => {
 .btn-sm {
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
+}
+
+.dispute-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #064e3b;
+  color: #fff;
+  padding: 0.75rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 1100;
+}
+
+.dispute-toast__link {
+  color: #a7f3d0;
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {

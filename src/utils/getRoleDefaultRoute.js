@@ -30,6 +30,7 @@ export function getRoleDefaultRoute(role) {
     case 'general_user':
     case 'user':
     default:
-      return '/home'
+      // Buyers get a workspace like every other role, not the public homepage.
+      return '/dashboard'
   }
 }

@@ -258,7 +258,11 @@ const creditsToBuy = computed(() => {
 })
 
 function goToMarketplace() {
-  router.push('/marketplace')
+  // Carry the computed tonnage across so the marketplace can pre-fill the
+  // purchase quantity — otherwise the buyer has to remember the number and
+  // retype it, which is the whole point of calculating it here.
+  const credits = creditsToBuy.value
+  router.push(credits > 0 ? { path: '/marketplace', query: { credits } } : '/marketplace')
 }
 
 function reset() {

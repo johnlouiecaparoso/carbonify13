@@ -18,9 +18,17 @@
           </button>
         </div>
 
-        <!-- Center Section: Empty for cleaner look -->
+        <!-- Center Section: cart badge only (search lives in the hamburger menu) -->
         <div class="mobile-center-section">
-          <!-- Search moved to hamburger menu -->
+          <router-link
+            v-if="userStore.isAuthenticated && showCartIcon && cartStore.count > 0"
+            to="/cart"
+            class="cart-button mobile-cart"
+            :aria-label="`Cart, ${cartStore.count} credits`"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
+            <span class="cart-badge">{{ cartStore.count > 99 ? '99+' : cartStore.count }}</span>
+          </router-link>
         </div>
 
         <!-- Right Section: Logo -->
@@ -60,6 +68,21 @@
 
         <!-- Desktop Actions -->
         <div class="desktop-actions">
+        <!-- Cart lives next to the bell so buyers have an ambient reminder that
+             they have items pending; it used to be text buried in the profile
+             dropdown, which meant a filled cart was effectively invisible. -->
+        <router-link
+          v-if="userStore.isAuthenticated && showCartIcon"
+          to="/cart"
+          class="cart-button"
+          :aria-label="cartStore.count > 0 ? `Cart, ${cartStore.count} credits` : 'Cart'"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
+          <span v-if="cartStore.count > 0" class="cart-badge">
+            {{ cartStore.count > 99 ? '99+' : cartStore.count }}
+          </span>
+        </router-link>
+
         <div v-if="userStore.isAuthenticated" class="notifications-menu">
           <button class="notifications-button" @click="toggleNotificationMenu" type="button">
             <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
@@ -282,6 +305,12 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const isKycVerified = computed(() => Number(userStore.profile?.kyc_level) >= 2)
 
+// Roles that never buy (they're blocked from /cart by the router anyway) don't
+// need a cart icon taking up header space.
+const showCartIcon = computed(
+  () => !(userStore.isAdmin || userStore.isVerifier || userStore.isProjectDeveloper),
+)
+
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
 const showNotificationMenu = ref(false)
@@ -316,6 +345,20 @@ const navItems = computed(() => {
   // so drop it from the top nav here. Guests (handled above) keep it in the nav.
   const aboutIndex = items.findIndex((item) => item.path === '/about')
   if (aboutIndex !== -1) items.splice(aboutIndex, 1)
+
+  // Buyers get a workspace, so "Home" (the public marketing page) becomes
+  // "Dashboard". Roles with their own dashboard elsewhere keep Home as-is.
+  const buyerHasDashboard = !(
+    userStore.isAdmin ||
+    userStore.isVerifier ||
+    userStore.isProjectDeveloper ||
+    userStore.isLguUser ||
+    userStore.isFarmer
+  )
+  if (buyerHasDashboard) {
+    const homeIndex = items.findIndex((item) => item.path === '/')
+    if (homeIndex !== -1) items.splice(homeIndex, 1, { path: '/dashboard', label: 'Dashboard' })
+  }
 
   // Project developers access the map from their profile dropdown instead.
   if (!userStore.isProjectDeveloper) {
@@ -411,6 +454,16 @@ const profileSections = computed(() => {
   if (userStore.isLguUser) {
     workspace.push({ path: '/lgu', label: 'LGU Tools', icon: 'apartment' })
   }
+  // Buyers/general users: their workspace is the buyer dashboard.
+  if (
+    !userStore.isAdmin &&
+    !userStore.isVerifier &&
+    !userStore.isProjectDeveloper &&
+    !userStore.isLguUser &&
+    !userStore.isFarmer
+  ) {
+    workspace.push({ path: '/dashboard', label: 'Dashboard', icon: 'space_dashboard' })
+  }
   if (userStore.isFarmer) {
     workspace.push(
       { path: '/farmer', label: 'Farmer Portal', icon: 'agriculture' },
@@ -498,8 +551,10 @@ const profileSections = computed(() => {
       {
         title: 'Records',
         items: [
+          { path: '/orders', label: 'Orders', icon: 'shopping_bag' },
           { path: '/receipts', label: 'Receipts', icon: 'receipt_long' },
           { path: '/certificates', label: 'Certificates', icon: 'verified' },
+          { path: '/disputes', label: 'Reported problems', icon: 'gavel' },
         ],
       },
       {
@@ -1067,6 +1122,40 @@ watch(
   position: relative;
 }
 
+.cart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+}
+
+.cart-button .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.35rem;
+  min-width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: #069e2d;
+  color: #fff;
+  font-size: 0.6rem;
+  line-height: 1rem;
+  padding: 0 0.2rem;
+  font-weight: 700;
+}
+
 .notifications-button {
   display: inline-flex;
   align-items: center;
@@ -1604,6 +1693,14 @@ watch(
 /* Mobile center section - empty for cleaner header */
 .mobile-center-section {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-cart {
+  width: 2rem;
+  height: 2rem;
 }
 
 .mobile-right-section {

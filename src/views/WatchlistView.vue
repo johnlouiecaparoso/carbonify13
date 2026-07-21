@@ -30,6 +30,29 @@
                 <span class="price">{{ formatCurrency(item.listing.price_per_credit, item.listing.currency) }}</span>
                 <span class="qty">{{ formatNumber(item.listing.available_quantity) }} left</span>
               </div>
+
+              <!-- Movement since the buyer saved it — the reason to keep a watchlist -->
+              <p v-if="item.change" class="watch-change" :class="item.change.direction">
+                {{ item.change.direction === 'down' ? '▼' : '▲' }}
+                {{ Math.abs(item.change.percent) }}% since you saved it
+                <span class="watch-change-base">
+                  (was {{ formatCurrency(item.price_at_save, item.listing.currency) }})
+                </span>
+              </p>
+              <p v-else-if="!item.price_at_save" class="watch-nobase">
+                Saved before price tracking — re-save to watch for drops.
+              </p>
+
+              <label class="alert-toggle">
+                <input
+                  type="checkbox"
+                  :checked="item.notify_on_drop !== false"
+                  :disabled="!item.price_at_save || togglingId === item.listing_id"
+                  @change="toggleAlert(item, $event.target.checked)"
+                />
+                <span>Alert me if the price drops</span>
+              </label>
+
               <div class="watch-actions">
                 <router-link :to="`/projects/${item.project_id}`" class="ghost-btn">Details</router-link>
                 <router-link to="/marketplace" class="primary-btn">Buy on marketplace</router-link>
@@ -54,12 +77,42 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMyWatchlist, removeFromWatchlist } from '@/services/watchlistService'
+import {
+  getMyWatchlist,
+  removeFromWatchlist,
+  setWatchlistAlert,
+} from '@/services/watchlistService'
 import { getMarketplaceListings } from '@/services/marketplaceService'
 
 const loading = ref(true)
 const error = ref('')
 const items = ref([])
+const togglingId = ref('')
+
+/**
+ * Price movement since the buyer saved the listing. Null when there's no
+ * baseline (saved before price tracking) or nothing has moved.
+ */
+function priceChange(savedPrice, currentPrice) {
+  const base = Number(savedPrice)
+  const now = Number(currentPrice)
+  if (!(base > 0) || !(now > 0) || base === now) return null
+  const percent = Math.round(((now - base) / base) * 100)
+  if (percent === 0) return null
+  return { percent, direction: percent < 0 ? 'down' : 'up' }
+}
+
+async function toggleAlert(item, enabled) {
+  togglingId.value = item.listing_id
+  try {
+    await setWatchlistAlert(item.listing_id, enabled)
+    item.notify_on_drop = enabled
+  } catch (err) {
+    console.error('Failed to update alert preference:', err)
+  } finally {
+    togglingId.value = ''
+  }
+}
 
 function formatCurrency(value, currency = 'PHP') {
   const sym = currency === 'PHP' ? '₱' : `${currency} `
@@ -81,6 +134,7 @@ async function load() {
         ...r,
         listing,
         title: listing?.project_title || 'Saved listing',
+        change: listing ? priceChange(r.price_at_save, listing.price_per_credit) : null,
       }
     })
   } catch (err) {
@@ -219,6 +273,38 @@ onMounted(load)
 .qty {
   color: #6b7280;
   font-size: 0.8rem;
+}
+.watch-change {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+.watch-change.down {
+  color: #059669;
+}
+.watch-change.up {
+  color: #dc2626;
+}
+.watch-change-base {
+  font-weight: 400;
+  color: #9ca3af;
+}
+.watch-nobase {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0 0 0.5rem;
+}
+.alert-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 0.85rem;
+  cursor: pointer;
+}
+.alert-toggle input:disabled + span {
+  opacity: 0.5;
 }
 .watch-unavailable {
   color: #9ca3af;

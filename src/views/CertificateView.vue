@@ -227,6 +227,9 @@
                   <button class="btn btn-outline btn-sm" @click="openVerification(selectedCertificate)">
                     Verify
                   </button>
+                  <button class="btn btn-outline btn-sm" @click="shareCertificate(selectedCertificate)">
+                    {{ sharedCertificate === selectedCertificate.certificate_number ? 'Link copied' : 'Share proof' }}
+                  </button>
                 </div>
               </div>
 
@@ -411,6 +414,9 @@
                   <button class="btn btn-outline btn-sm" @click="openVerification(selectedCertificate)">
                     Verify
                   </button>
+                  <button class="btn btn-outline btn-sm" @click="shareCertificate(selectedCertificate)">
+                    {{ sharedCertificate === selectedCertificate.certificate_number ? 'Link copied' : 'Share proof' }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -437,6 +443,8 @@ const certificates = ref([])
 const loading = ref(false)
 const error = ref('')
 const selectedCertificate = ref(null)
+/** Certificate number whose link was just copied — drives the button's confirmation. */
+const sharedCertificate = ref('')
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 const mobileDetailOpen = ref(false)
 
@@ -601,6 +609,52 @@ function openVerification(certificate) {
   // Open the public verification page in a new tab
   const url = router.resolve(`/verify/${encodeURIComponent(number)}`).href
   window.open(url, '_blank', 'noopener')
+}
+
+/** Absolute, publicly-resolvable URL for a certificate's verification page. */
+function verificationUrl(number) {
+  const path = router.resolve(`/verify/${encodeURIComponent(number)}`).href
+  return new URL(path, window.location.origin).toString()
+}
+
+/**
+ * Share the public proof of an offset. This is the one artifact an ESG buyer
+ * actually wants to show other people, and until now the verification URL was
+ * built internally but never handed to them.
+ *
+ * Uses the native share sheet where available (mobile), otherwise copies the
+ * link — both end with the buyer holding a shareable URL.
+ */
+async function shareCertificate(certificate) {
+  const number = certificate?.certificate_number
+  if (!number) {
+    alert('This certificate does not have a verification number yet.')
+    return
+  }
+
+  const url = verificationUrl(number)
+  const shareData = {
+    title: 'Verified carbon offset',
+    text: `Carbon credit retirement certificate ${number}, verifiable on Carbonify.`,
+    url,
+  }
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData)
+      return
+    }
+    await navigator.clipboard.writeText(url)
+    sharedCertificate.value = number
+    setTimeout(() => {
+      if (sharedCertificate.value === number) sharedCertificate.value = ''
+    }, 3000)
+  } catch (err) {
+    // AbortError = the user dismissed the share sheet; not a failure.
+    if (err?.name === 'AbortError') return
+    console.error('Failed to share certificate:', err)
+    window.prompt('Copy this verification link:', url)
+  }
 }
 
 async function downloadCertificate(certificate) {

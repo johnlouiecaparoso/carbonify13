@@ -139,10 +139,14 @@ const router = createRouter({
       component: () => import('@/views/MobileTestView.vue'),
     },
 
-    // Redirect old dashboard routes to homepage
     {
+      // Buyer / general-user workspace. Every other role has a dashboard to land
+      // on; before this, buyers landed on the public marketing homepage. Roles
+      // that never buy are bounced to their own default route by the guard.
       path: '/dashboard',
-      redirect: '/',
+      name: 'buyer-dashboard',
+      component: () => import('@/views/BuyerDashboardView.vue'),
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/profile',
@@ -429,6 +433,22 @@ const router = createRouter({
       path: '/receipts',
       name: 'receipts',
       component: () => import('@/views/ReceiptView.vue'),
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
+    },
+    {
+      // Every checkout the buyer started, including pending/failed ones that
+      // never produced a receipt.
+      path: '/orders',
+      name: 'orders',
+      component: () => import('@/views/OrdersView.vue'),
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
+    },
+    {
+      // Buyer-facing side of the dispute flow (admins resolve them at
+      // /admin/refunds). Raised from a receipt via DisputeModal.
+      path: '/disputes',
+      name: 'my-disputes',
+      component: () => import('@/views/MyDisputesView.vue'),
       meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
 

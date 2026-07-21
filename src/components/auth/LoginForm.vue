@@ -11,6 +11,7 @@ import {
   verifyPhoneOtp,
 } from '@/services/authService'
 import { isMfaRequired, challengeAndVerify } from '@/services/mfaService'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 import { getTestAccountByEmail } from '@/utils/testAccounts'
 import UiInput from '@/components/ui/Input.vue'
 import UiButton from '@/components/ui/Button.vue'
@@ -106,7 +107,9 @@ async function finishLogin() {
   if (returnTo) {
     router.replace(decodeURIComponent(returnTo))
   } else {
-    router.replace({ name: 'home' })
+    // Land on the role's own workspace (buyers included) rather than the
+    // public marketing homepage.
+    router.replace(getRoleDefaultRoute(store.role || store.profile?.role))
   }
 }
 
@@ -195,13 +198,14 @@ async function handleSubmit() {
         store.role = testAccount.role
         console.log(`[DEV] Logged in as test ${testAccount.role}:`, testAccount.name)
 
-        // Redirect based on priority: returnTo or Home
+        // Redirect based on priority: returnTo, else the role's own workspace.
         const returnTo = route.query.returnTo
         if (returnTo) {
           router.replace(decodeURIComponent(returnTo))
         } else {
-          console.log(`[DEV] Test login as ${testAccount.role}, redirecting to Home`)
-          router.replace({ name: 'home' })
+          const target = getRoleDefaultRoute(testAccount.role)
+          console.log(`[DEV] Test login as ${testAccount.role}, redirecting to ${target}`)
+          router.replace(target)
         }
         return
       }

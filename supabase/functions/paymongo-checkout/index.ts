@@ -178,6 +178,19 @@ async function createMarketplaceCheckout(body: any, verifiedUserId: string | nul
   const amount = (unitCentavos * quantity) / 100 // server-computed total, matches the charge
   const currency = listing.currency || 'PHP'
 
+  // KYC gate — the card path previously had none, so an unverified buyer could
+  // check out via the cart while the marketplace modal blocked them. Enforced
+  // HERE (before a PayMongo session exists) for the same reason as the velocity
+  // cap below: rejecting after payment would orphan the charge.
+  const { error: kycErr } = await supabase.rpc('assert_can_trade', { p_user_id: userId })
+  if (kycErr) {
+    throw new Error(
+      /identity verification required/i.test(kycErr.message || '')
+        ? 'Identity verification is required before buying credits. Please complete KYC verification on your account.'
+        : 'Purchase could not be authorized. Please try again later.',
+    )
+  }
+
   // Velocity cap (per KYC tier) — enforced HERE, before a PayMongo session
   // exists, so a rejection never happens after the customer has paid. The wallet
   // path enforces the same limit inside process_wallet_purchase.

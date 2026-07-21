@@ -95,6 +95,18 @@
     <!-- Main Content -->
     <div class="marketplace-content">
       <div class="container">
+        <!-- KYC gate surfaced before the buyer invests effort in a purchase -->
+        <KycGateBanner />
+
+        <!-- Carried over from the carbon calculator -->
+        <div v-if="offsetTarget > 0" class="offset-target-banner">
+          <span class="material-symbols-outlined" aria-hidden="true">calculate</span>
+          <span>
+            Offsetting <strong>{{ formatNumber(offsetTarget) }} tCO₂e</strong> — purchase quantities
+            are pre-filled to match. Split across projects if one listing isn't enough.
+          </span>
+        </div>
+
         <div class="content-layout">
           <!-- Projects Content -->
           <div class="projects-content">
@@ -573,7 +585,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getMarketplaceListings, getMarketplaceStats } from '@/services/marketplaceService'
 import { SDG_TAGS } from '@/constants/sdgs'
@@ -582,6 +594,7 @@ import {
   getMyWatchlistIds,
   addToWatchlist,
   removeFromWatchlist,
+  checkWatchlistPriceAlerts,
 } from '@/services/watchlistService'
 import WatchButton from '@/components/ui/WatchButton.vue'
 import {
@@ -597,6 +610,8 @@ import UiButton from '@/components/ui/Button.vue'
 import Pagination from '@/components/ui/Pagination.vue'
 import AccessibleModal from '@/components/ui/AccessibleModal.vue'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
+import KycGateBanner from '@/components/ui/KycGateBanner.vue'
+import { useTradeEligibility } from '@/composables/useTradeEligibility'
 
 const {
   promptState,
@@ -610,7 +625,43 @@ const {
 } = useModernPrompt()
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
+
+/**
+ * Credits the buyer needs, handed over by the carbon calculator via ?credits=.
+ * Used to pre-fill the purchase quantity and to show a reminder banner, so the
+ * "know your footprint → offset it" path doesn't lose the number in transit.
+ */
+const offsetTarget = computed(() => {
+  const raw = Number(route.query.credits)
+  return Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 0
+})
+
+// KYC eligibility, resolved once for the page (see useTradeEligibility).
+const { needsKyc, requiredLevelLabel, currentLevelLabel, ensureLoaded: ensureKycLoaded } =
+  useTradeEligibility()
+
+/**
+ * Stop an unverified buyer at the door with an actionable prompt, instead of
+ * letting them configure a whole purchase and hit a raw error string on submit.
+ * Returns true if the caller should abort.
+ */
+async function blockedByKyc() {
+  await ensureKycLoaded()
+  if (!needsKyc.value) return false
+
+  const goToKyc = await confirm({
+    title: 'Identity verification required',
+    message:
+      `Your account is ${currentLevelLabel.value}. Buying carbon credits requires ` +
+      `${requiredLevelLabel.value} verification or higher. It usually takes one business day.`,
+    confirmText: 'Verify identity',
+    cancelText: 'Not now',
+  })
+  if (goToKyc) router.push('/kyc')
+  return true
+}
 
 // Computed property to ensure admin check is reactive
 const isUserAdmin = computed(() => {
@@ -871,6 +922,10 @@ async function loadMarketplaceData(background = false, forceRefresh = background
       checkSavedSearchAlerts(listings.value).catch((err) =>
         console.warn('Saved-search alert check failed:', err?.message),
       )
+      // Same deal for watched listings whose price has fallen since they saved it.
+      checkWatchlistPriceAlerts(listings.value).catch((err) =>
+        console.warn('Price-drop alert check failed:', err?.message),
+      )
     }
   } catch (err) {
     console.error('Error loading marketplace data:', err)
@@ -996,13 +1051,25 @@ async function showPurchaseModalFor(listing) {
 
   // Require login only when listing has credits to purchase
   if (!isSoldOut(listing) && !userStore.isAuthenticated) {
-    alert('Please log in to purchase credits')
+    await warning({
+      title: 'Sign in to continue',
+      message: 'Please log in to purchase credits.',
+      confirmText: 'Go to login',
+      showCancel: false,
+    })
     router.push({ name: 'login', query: { returnTo: '/marketplace' } })
     return
   }
 
+  // Verified identity is required to buy — say so now, not after checkout config.
+  if (!isSoldOut(listing) && (await blockedByKyc())) return
+
   selectedListing.value = listing
-  purchaseQuantity.value = 1
+  // Pre-fill from ?credits= when the buyer arrived from the carbon calculator,
+  // clamped to what this listing actually has.
+  purchaseQuantity.value = offsetTarget.value
+    ? Math.max(1, Math.min(offsetTarget.value, listing.available_quantity || 1))
+    : 1
   showPurchaseModal.value = true
 
   // Load wallet balance
@@ -1312,7 +1379,12 @@ async function toggleWatch(listing) {
     } else {
       next.add(id)
       watchedIds.value = next
-      await addToWatchlist({ listingId: id, projectId: listing.project_id })
+      // Record today's price as the baseline for future price-drop alerts.
+      await addToWatchlist({
+        listingId: id,
+        projectId: listing.project_id,
+        pricePerCredit: listing.price_per_credit,
+      })
     }
   } catch (err) {
     console.error('Watchlist toggle failed:', err?.message)
@@ -1531,6 +1603,24 @@ onUnmounted(() => {
 
 .marketplace-content {
   padding: 2rem 0;
+}
+
+.offset-target-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  color: #166534;
+  font-size: 0.9rem;
+}
+
+.offset-target-banner .material-symbols-outlined {
+  font-size: 1.4rem;
+  flex-shrink: 0;
 }
 
 .projects-content {

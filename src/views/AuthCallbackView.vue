@@ -15,6 +15,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 import { getSession, ensureUserProfile } from '@/services/authService'
 import { isMfaRequired } from '@/services/mfaService'
+import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 
 const router = useRouter()
 const route = useRoute()
@@ -53,7 +54,11 @@ onMounted(async () => {
     }
 
     const returnTo = route.query.returnTo
-    router.replace(returnTo ? decodeURIComponent(String(returnTo)) : { name: 'home' })
+    router.replace(
+      returnTo
+        ? decodeURIComponent(String(returnTo))
+        : getRoleDefaultRoute(store.role || store.profile?.role),
+    )
   } catch (err) {
     console.error('Auth callback error:', err)
     error.value = err?.message || 'Authentication failed. Please try again.'
