@@ -8,37 +8,37 @@
           :class="['filter-tab', { active: statusFilter === 'all' }]"
           @click="statusFilter = 'all'"
         >
-          All Projects ({{ allProjects.length }})
+          All Projects ({{ tabCounts.all }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'submitted' }]"
           @click="statusFilter = 'submitted'"
         >
-          Submitted ({{ allProjects.filter(p => p.status === 'submitted').length }})
+          Submitted ({{ tabCounts.submitted }})
         </button>
         <button
           :class="['filter-tab', { active: statusFilter === 'in_review' }]"
           @click="statusFilter = 'in_review'"
         >
-          In Review ({{ allProjects.filter(p => p.status === 'in_review').length }})
+          In Review ({{ tabCounts.in_review }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'needs_revision' }]"
           @click="statusFilter = 'needs_revision'"
         >
-          Needs Revision ({{ allProjects.filter(p => p.status === 'needs_revision').length }})
+          Needs Revision ({{ tabCounts.needs_revision }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'validated' }]"
           @click="statusFilter = 'validated'"
         >
-          Validated ({{ allProjects.filter(p => p.status === 'validated').length }})
+          Validated ({{ tabCounts.validated }})
         </button>
         <button 
           :class="['filter-tab', { active: statusFilter === 'rejected' }]"
           @click="statusFilter = 'rejected'"
         >
-          Rejected ({{ allProjects.filter(p => p.status === 'rejected').length }})
+          Rejected ({{ tabCounts.rejected }})
         </button>
       </div>
     </div>
@@ -436,12 +436,46 @@ const rejectPromptState = ref({
   resolve: null,
 })
 
+/**
+ * Which raw DB statuses belong in each queue tab.
+ *
+ * The tabs used to compare `p.status === statusFilter` exactly, but the create
+ * paths write 'pending' — so every first-time submission was missing from the
+ * Submitted tab and its count, visible only under "All". The legacy aliases
+ * 'approved' and 'under_review' were dropped the same way. The decision buttons
+ * on this very panel already treat ['submitted','pending','in_review'] as one
+ * group; the tabs simply hadn't caught up.
+ */
+const TAB_STATUSES = {
+  submitted: ['submitted', 'pending'],
+  in_review: ['in_review', 'under_review'],
+  needs_revision: ['needs_revision'],
+  validated: ['validated', 'approved'],
+  rejected: ['rejected'],
+}
+
+function inBucket(project, bucket) {
+  return (TAB_STATUSES[bucket] || [bucket]).includes(project.status)
+}
+
 // Computed property for displayed projects based on filter
 const displayedProjects = computed(() => {
   if (statusFilter.value === 'all') {
     return allProjects.value
   }
-  return allProjects.value.filter(p => p.status === statusFilter.value)
+  return allProjects.value.filter((p) => inBucket(p, statusFilter.value))
+})
+
+/**
+ * Tab counts, computed once per change instead of five inline
+ * `allProjects.filter(...)` scans re-run on every render.
+ */
+const tabCounts = computed(() => {
+  const counts = { all: allProjects.value.length }
+  for (const bucket of Object.keys(TAB_STATUSES)) {
+    counts[bucket] = allProjects.value.filter((p) => inBucket(p, bucket)).length
+  }
+  return counts
 })
 
 const activeProject = computed(() =>
