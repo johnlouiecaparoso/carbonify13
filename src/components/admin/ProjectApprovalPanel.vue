@@ -251,6 +251,27 @@
               <span class="material-symbols-outlined" aria-hidden="true">history</span>
               <span>Verification Timeline</span>
             </h4>
+            <div class="timeline-actions">
+              <button
+                type="button"
+                class="export-btn"
+                :disabled="exporting"
+                @click="exportReport('pdf')"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                {{ exporting === 'pdf' ? 'Preparing…' : 'Export report (PDF)' }}
+              </button>
+              <button
+                type="button"
+                class="export-btn"
+                :disabled="exporting"
+                @click="exportReport('csv')"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">table_view</span>
+                {{ exporting === 'csv' ? 'Preparing…' : 'CSV' }}
+              </button>
+            </div>
+
             <ol v-if="timeline.length" class="timeline">
               <li v-for="(event, i) in timeline" :key="i" class="timeline-item">
                 <div class="timeline-dot" aria-hidden="true"></div>
@@ -638,6 +659,28 @@ const auditRows = ref([])
 const timeline = computed(() =>
   activeProject.value ? buildProjectTimeline({ project: activeProject.value, auditRows: auditRows.value }) : [],
 )
+
+// Which export is running ('pdf' | 'csv' | null), so only that button shows it.
+const exporting = ref(null)
+
+async function exportReport(format) {
+  if (!activeProject.value || exporting.value) return
+  exporting.value = format
+  try {
+    const { exportVerificationReportPdf, exportVerificationReportCsv } = await import(
+      '@/services/verificationReportService'
+    )
+    const run = format === 'pdf' ? exportVerificationReportPdf : exportVerificationReportCsv
+    await run(activeProject.value)
+  } catch (err) {
+    await showErrorPrompt({
+      title: 'Export failed',
+      message: err.message || 'Could not generate the verification report.',
+    })
+  } finally {
+    exporting.value = null
+  }
+}
 
 const slaDays = ref(5)
 const verifierPrice = ref('')
@@ -1131,6 +1174,41 @@ async function openVerificationModal(project, newStatus) {
 }
 
 /* Verification timeline --------------------------------------------------- */
+.timeline-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.export-btn .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.export-btn:hover:not(:disabled) {
+  border-color: var(--primary-color, #069e2d);
+  color: var(--primary-color, #069e2d);
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .timeline {
   list-style: none;
   margin: 0;
