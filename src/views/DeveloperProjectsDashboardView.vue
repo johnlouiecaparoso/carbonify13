@@ -2,37 +2,70 @@
   <div class="developer-projects-page">
     <div class="page-header">
       <div class="container">
-        <h1 class="page-title">My Project Submissions</h1>
+        <h1 class="page-title">Project Workspace</h1>
         <p class="page-description">
-          Track all submitted projects and review verifier decisions.
+          Your projects, credits, and reporting deadlines in one place.
         </p>
       </div>
     </div>
 
     <div class="page-content">
       <div class="container">
-        <div class="summary-grid">
-          <div class="summary-card">
-            <p class="summary-label">Total</p>
-            <p class="summary-value">{{ stats.total }}</p>
-          </div>
-          <div class="summary-card pending">
-            <p class="summary-label">Pending</p>
-            <p class="summary-value">{{ stats.pending }}</p>
-          </div>
-          <div class="summary-card revision">
-            <p class="summary-label">Needs Revision</p>
-            <p class="summary-value">{{ stats.needsRevision }}</p>
-          </div>
-          <div class="summary-card approved">
-            <p class="summary-label">Approved</p>
-            <p class="summary-value">{{ stats.approved }}</p>
-          </div>
-          <div class="summary-card rejected">
-            <p class="summary-label">Rejected</p>
-            <p class="summary-value">{{ stats.rejected }}</p>
-          </div>
+        <!-- Action failures (delete/resubmit/listing) get their own dismissible
+             banner. They must never replace the project list the way a load
+             failure does — a failed delete used to blank the whole page. -->
+        <div v-if="actionError" class="banner banner--error" role="alert">
+          <span class="material-symbols-outlined" aria-hidden="true">error</span>
+          <p>{{ actionError }}</p>
+          <button class="banner__dismiss" type="button" aria-label="Dismiss" @click="actionError = ''">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
         </div>
+
+        <!-- MRV deadlines surfaced where developers actually land. Previously
+             these only ever rendered on /monitoring — the page they were
+             reminding you to open. -->
+        <router-link
+          v-if="!loading && reminders.length"
+          to="/monitoring"
+          class="banner banner--warn banner--link"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">event_busy</span>
+          <p>
+            <strong>{{ reminderHeadline }}</strong>
+            {{ reminderDetail }}
+          </p>
+          <span class="material-symbols-outlined banner__chevron" aria-hidden="true">chevron_right</span>
+        </router-link>
+
+        <!-- Portfolio summary. The per-status counts that used to live here are
+             already on the filter tabs below, so these tiles carry what the tabs
+             cannot: credits, inventory, money, and deadlines. -->
+        <section v-if="showSummary" class="summary-grid" aria-label="Portfolio summary">
+          <router-link to="/developer/ledger" class="summary-card">
+            <p class="summary-label">Credits issued</p>
+            <p class="summary-value">{{ num(ledgerTotals.issued) }}</p>
+            <p class="summary-hint">across {{ num(ledgerTotals.projects) }} project(s)</p>
+          </router-link>
+
+          <router-link to="/developer/ledger" class="summary-card">
+            <p class="summary-label">Available to sell</p>
+            <p class="summary-value">{{ num(ledgerTotals.inventory) }}</p>
+            <p class="summary-hint">{{ peso(ledgerTotals.inventoryValue) }} at listed price</p>
+          </router-link>
+
+          <router-link to="/sales" class="summary-card">
+            <p class="summary-label">Available to withdraw</p>
+            <p class="summary-value">{{ peso(balance.available) }}</p>
+            <p class="summary-hint">{{ peso(balance.held) }} held in escrow</p>
+          </router-link>
+
+          <router-link to="/monitoring" class="summary-card" :class="{ urgent: overdueCount > 0 }">
+            <p class="summary-label">Monitoring due</p>
+            <p class="summary-value">{{ num(reminders.length) }}</p>
+            <p class="summary-hint">{{ mrvHint }}</p>
+          </router-link>
+        </section>
 
         <div class="toolbar">
           <div class="status-tabs">
@@ -54,7 +87,10 @@
         </div>
 
         <div v-if="loading" class="state-card">Loading your projects...</div>
-        <div v-else-if="errorMessage" class="state-card error">{{ errorMessage }}</div>
+        <div v-else-if="loadError" class="state-card error">
+          {{ loadError }}
+          <div><button class="retry-btn" type="button" @click="reload">Try again</button></div>
+        </div>
         <!-- First-run: developer has no projects at all -->
         <div v-else-if="stats.total === 0" class="empty-hero">
           <span class="material-symbols-outlined empty-hero__icon" aria-hidden="true">forest</span>
@@ -86,9 +122,47 @@
               </span>
             </div>
 
-            <ProjectProgressTracker :project="project" />
+            <!-- The tracker was previously given no issuance/trading signal, so
+                 it froze at "Verification" forever. Feed it the real ledger and
+                 listing state. -->
+            <ProjectProgressTracker
+              :project="project"
+              :credits-issued="hasIssuedCredits(project.id)"
+              :listed="hasActiveListing(project.id)"
+            />
 
             <p class="project-description">{{ project.description || 'No description provided.' }}</p>
+
+            <!-- Credits, once a project is live. Previously a developer had to
+                 leave the dashboard entirely to learn any of this. -->
+            <dl v-if="ledgerFor(project.id)" class="credit-strip">
+              <div>
+                <dt>Issued</dt>
+                <dd>{{ num(ledgerFor(project.id).issued) }}</dd>
+              </div>
+              <div>
+                <dt>Available</dt>
+                <dd>{{ num(ledgerFor(project.id).inventory) }}</dd>
+              </div>
+              <div>
+                <dt>Sold</dt>
+                <dd>{{ num(ledgerFor(project.id).sold) }}</dd>
+              </div>
+              <div>
+                <dt>Earned</dt>
+                <dd>{{ peso(ledgerFor(project.id).soldValue) }}</dd>
+              </div>
+              <div v-if="listingFor(project.id)">
+                <dt>Listed at</dt>
+                <dd>
+                  {{ peso(listingFor(project.id).pricePerCredit) }}
+                  <span
+                    class="listing-pill"
+                    :class="listingFor(project.id).status"
+                  >{{ listingFor(project.id).status === 'active' ? 'On sale' : 'Paused' }}</span>
+                </dd>
+              </div>
+            </dl>
 
             <div class="project-dates">
               <span>Submitted: {{ formatDate(project.created_at) }}</span>
@@ -153,13 +227,49 @@
               </button>
             </div>
 
-            <!-- Conversation with the verifier (always available so threads persist
-                 across the needs_revision → resubmit → re-review cycle). -->
-            <ProjectCommentThread :project-id="project.id" :allow-internal="false" />
+            <!-- A live project used to be a dead end: no way to price it, report
+                 on it, or even see its public page from here. -->
+            <div v-if="isLive(project)" class="project-actions">
+              <button
+                v-if="listingFor(project.id)"
+                class="action-link"
+                type="button"
+                @click="manageListing(project)"
+              >
+                Manage listing
+              </button>
+              <router-link class="action-link" to="/monitoring">
+                Submit monitoring report
+              </router-link>
+              <router-link class="action-link" :to="`/projects/${project.id}`">
+                View public page
+              </router-link>
+            </div>
+
+            <!-- Conversation with the verifier. This used to render expanded on
+                 every card, so a developer with a dozen projects paid a dozen
+                 round trips on load and scrolled past a dozen open threads.
+                 Note the v-if is load-bearing: <details> hides its content but
+                 still mounts it, so collapsing alone would not stop the query. -->
+            <details class="thread-toggle" @toggle="onThreadToggle(project.id, $event)">
+              <summary>Conversation with the verifier</summary>
+              <ProjectCommentThread
+                v-if="openThreads.has(project.id)"
+                :project-id="project.id"
+                :allow-internal="false"
+              />
+            </details>
           </article>
         </div>
       </div>
     </div>
+
+    <ListingManagerModal
+      v-if="listingUnderEdit"
+      :listing="listingUnderEdit"
+      @close="listingUnderEdit = null"
+      @saved="onListingSaved"
+    />
   </div>
 </template>
 
@@ -168,17 +278,42 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { projectService } from '@/services/projectService'
 import { projectApprovalService } from '@/services/projectApprovalService'
+import { getMyAssetLedger } from '@/services/assetLedgerService'
+import { getMyListings, indexListingsByProject } from '@/services/sellerListingService'
+import { getSellerBalance } from '@/services/payoutService'
+import { computeMrvReminders, syncMrvReminderNotifications } from '@/services/mrvReminderService'
 import ProjectProgressTracker from '@/components/ProjectProgressTracker.vue'
 import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
+import ListingManagerModal from '@/components/developer/ListingManagerModal.vue'
 
 const router = useRouter()
 
 const loading = ref(true)
-const errorMessage = ref('')
+// Two error channels on purpose: `loadError` means "there is nothing to show"
+// and replaces the list; `actionError` is a failed action on a list that is
+// still perfectly valid, so it must sit above the list, not instead of it.
+const loadError = ref('')
+const actionError = ref('')
 const projects = ref([])
 const activeFilter = ref('all')
 const resubmittingId = ref(null)
 const deletingId = ref(null)
+
+// Best-effort context. Any of these may fail without breaking the page.
+const ledgerRows = ref([])
+const ledgerTotals = ref({ projects: 0, issued: 0, inventory: 0, inventoryValue: 0 })
+const listingsByProject = ref({})
+const balance = ref({ available: 0, held: 0, currency: 'PHP' })
+const reminders = ref([])
+const listingUnderEdit = ref(null)
+// Project ids whose comment thread has been opened at least once. Threads mount
+// (and fetch) lazily; once opened they stay mounted so reopening is instant.
+const openThreads = ref(new Set())
+
+function onThreadToggle(projectId, event) {
+  if (!event?.target?.open || openThreads.value.has(projectId)) return
+  openThreads.value = new Set(openThreads.value).add(projectId)
+}
 
 const has = (project, ...statuses) => statuses.includes(project.status)
 
@@ -186,26 +321,75 @@ const has = (project, ...statuses) => statuses.includes(project.status)
 // projects RLS policies and OWNER_EDITABLE_STATUSES in projectService.
 const OWNER_EDITABLE_STATUSES = ['draft', 'pending', 'submitted', 'needs_revision']
 const canManage = (project) => OWNER_EDITABLE_STATUSES.includes(project.status)
+const isLive = (project) => has(project, 'approved', 'validated')
+
+const num = (n) => Number(n || 0).toLocaleString('en-PH')
+const peso = (n) =>
+  `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+const ledgerByProject = computed(() =>
+  Object.fromEntries(ledgerRows.value.map((row) => [row.projectId, row])),
+)
+// Only worth showing once something has actually been issued — an all-zero strip
+// on a pending submission is noise.
+const ledgerFor = (projectId) => {
+  const row = ledgerByProject.value[projectId]
+  return row && (row.issued > 0 || row.sold > 0) ? row : null
+}
+const listingFor = (projectId) => listingsByProject.value[projectId] || null
+const hasIssuedCredits = (projectId) => (ledgerByProject.value[projectId]?.issued || 0) > 0
+const hasActiveListing = (projectId) => listingFor(projectId)?.status === 'active'
+
+const overdueCount = computed(() => reminders.value.filter((r) => r.status === 'overdue').length)
+const showSummary = computed(() => !loading.value && !loadError.value && projects.value.length > 0)
+
+const mrvHint = computed(() => {
+  if (!reminders.value.length) return 'Nothing due in the next 30 days'
+  if (overdueCount.value) return `${num(overdueCount.value)} overdue`
+  return 'Due soon'
+})
+const reminderHeadline = computed(() =>
+  overdueCount.value
+    ? `${num(overdueCount.value)} monitoring report(s) overdue.`
+    : `${num(reminders.value.length)} monitoring report(s) due soon.`,
+)
+const reminderDetail = computed(() => {
+  const next = reminders.value[0]
+  if (!next) return ''
+  return next.status === 'overdue'
+    ? `"${next.title}" is ${Math.abs(next.daysUntil)} day(s) past due.`
+    : `"${next.title}" is due in ${next.daysUntil} day(s).`
+})
 
 const stats = computed(() => ({
   total: projects.value.length,
-  pending: projects.value.filter((p) => has(p, 'pending', 'submitted', 'in_review')).length,
+  draft: projects.value.filter((p) => has(p, 'draft')).length,
+  pending: projects.value.filter((p) => has(p, 'pending', 'submitted', 'in_review', 'under_review'))
+    .length,
   needsRevision: projects.value.filter((p) => has(p, 'needs_revision')).length,
   approved: projects.value.filter((p) => has(p, 'approved', 'validated')).length,
   rejected: projects.value.filter((p) => has(p, 'rejected')).length,
 }))
 
-const tabs = computed(() => [
-  { value: 'all', label: 'All', count: stats.value.total },
-  { value: 'pending', label: 'Pending', count: stats.value.pending },
-  { value: 'needs_revision', label: 'Needs Revision', count: stats.value.needsRevision },
-  { value: 'approved', label: 'Approved', count: stats.value.approved },
-  { value: 'rejected', label: 'Rejected', count: stats.value.rejected },
-])
+const tabs = computed(() => {
+  const list = [
+    { value: 'all', label: 'All', count: stats.value.total },
+    // Drafts have no writer today, but the status is valid per the projects
+    // CHECK constraint. Without this the tab counts silently fail to sum to All.
+    { value: 'draft', label: 'Draft', count: stats.value.draft },
+    { value: 'pending', label: 'Pending', count: stats.value.pending },
+    { value: 'needs_revision', label: 'Needs Revision', count: stats.value.needsRevision },
+    { value: 'approved', label: 'Approved', count: stats.value.approved },
+    { value: 'rejected', label: 'Rejected', count: stats.value.rejected },
+  ]
+  // Keep the toolbar clean: hide a bucket nobody is in (except All).
+  return list.filter((tab) => tab.value === 'all' || tab.count > 0)
+})
 
 // Map legacy and canonical status values onto the tab buckets.
 const TAB_STATUSES = {
-  pending: ['pending', 'submitted', 'in_review'],
+  draft: ['draft'],
+  pending: ['pending', 'submitted', 'in_review', 'under_review'],
   needs_revision: ['needs_revision'],
   approved: ['approved', 'validated'],
   rejected: ['rejected'],
@@ -224,6 +408,7 @@ function formatDate(value) {
 
 function statusLabel(status) {
   const labels = {
+    draft: 'Draft',
     pending: 'Pending',
     submitted: 'Pending',
     in_review: 'Under Review',
@@ -236,11 +421,16 @@ function statusLabel(status) {
   return labels[status] || status || 'Unknown'
 }
 
+// Statuses that have a `.status-badge.<name>` rule in this file's styles.
+const BADGE_STYLES = ['draft', 'pending', 'needs_revision', 'approved', 'rejected']
+
 function statusClass(status) {
   // Collapse canonical aliases onto the existing badge styles.
   if (['submitted', 'in_review', 'under_review'].includes(status)) return 'pending'
   if (status === 'validated') return 'approved'
-  return status || 'unknown'
+  // Anything unmapped falls back to a real style rather than a class with no
+  // rule behind it, which rendered as an unstyled, invisible badge.
+  return BADGE_STYLES.includes(status) ? status : 'unknown'
 }
 
 function goToSubmitProject() {
@@ -253,6 +443,18 @@ function goToEdit(project) {
   router.push({ path: '/submit-project', query: { id: project.id } })
 }
 
+function manageListing(project) {
+  const listing = listingFor(project.id)
+  if (listing) listingUnderEdit.value = listing
+}
+
+async function onListingSaved() {
+  listingUnderEdit.value = null
+  // Price/inventory feed both the tiles and the per-card strip, so refresh the
+  // context — but not the project list, which hasn't changed.
+  await loadContext()
+}
+
 async function removeProject(project) {
   if (deletingId.value) return
   const confirmed = window.confirm(
@@ -261,13 +463,13 @@ async function removeProject(project) {
   if (!confirmed) return
 
   deletingId.value = project.id
-  errorMessage.value = ''
+  actionError.value = ''
   try {
     await projectService.deleteProject(project.id)
     projects.value = projects.value.filter((p) => p.id !== project.id)
   } catch (error) {
     console.error('Delete failed:', error)
-    errorMessage.value = error.message || 'Failed to delete project.'
+    actionError.value = error.message || 'Failed to delete project.'
   } finally {
     deletingId.value = null
   }
@@ -275,12 +477,14 @@ async function removeProject(project) {
 
 async function resubmit(project) {
   resubmittingId.value = project.id
+  // A stale error from an earlier failure used to survive a successful resubmit.
+  actionError.value = ''
   try {
     await projectApprovalService.resubmitProject(project.id)
     await loadProjects()
   } catch (error) {
     console.error('Resubmit failed:', error)
-    errorMessage.value = error.message || 'Failed to resubmit project.'
+    actionError.value = error.message || 'Failed to resubmit project.'
   } finally {
     resubmittingId.value = null
   }
@@ -288,22 +492,60 @@ async function resubmit(project) {
 
 async function loadProjects() {
   loading.value = true
-  errorMessage.value = ''
+  loadError.value = ''
 
   try {
     const data = await projectService.getUserProjects()
     projects.value = (data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   } catch (error) {
     console.error('Error loading developer projects:', error)
-    errorMessage.value = error.message || 'Failed to load project submissions.'
+    loadError.value = error.message || 'Failed to load project submissions.'
     projects.value = []
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  loadProjects()
+/**
+ * Ledger, listings, balance and MRV deadlines. Every one of these is
+ * supplementary: a failure hides a tile, it never blocks the project list, so
+ * they settle independently.
+ */
+async function loadContext() {
+  const [ledger, listings, sellerBalance, mrv] = await Promise.allSettled([
+    getMyAssetLedger(),
+    getMyListings(),
+    getSellerBalance(),
+    computeMrvReminders(),
+  ])
+
+  if (ledger.status === 'fulfilled') {
+    ledgerRows.value = ledger.value.rows || []
+    ledgerTotals.value = ledger.value.totals || ledgerTotals.value
+  }
+  if (listings.status === 'fulfilled') {
+    listingsByProject.value = indexListingsByProject(listings.value)
+  }
+  if (sellerBalance.status === 'fulfilled') {
+    balance.value = sellerBalance.value
+  }
+  if (mrv.status === 'fulfilled') {
+    reminders.value = mrv.value || []
+  }
+}
+
+async function reload() {
+  await loadProjects()
+  await loadContext()
+}
+
+onMounted(async () => {
+  await loadProjects()
+  await loadContext()
+  // Raise the deduped bell notification for anything overdue. This used to run
+  // only inside /monitoring, so a developer who never opened that page was
+  // never told they were late for it.
+  syncMrvReminderNotifications().catch(() => {})
 })
 </script>
 
@@ -321,7 +563,10 @@ onMounted(() => {
 
 .page-header {
   padding: 2rem 0;
-  background: var(--primary-color, #069e2d);
+  /* Brand green (#069e2d) gives white body text only 3.5:1 — fine for the large
+     title, a WCAG AA failure for the description under it. --primary-dark is the
+     same hue at 5.7:1, so both pass without leaving the palette. */
+  background: var(--primary-dark, #04773b);
 }
 
 .page-title {
@@ -340,18 +585,83 @@ onMounted(() => {
   padding: 2rem 0 3rem;
 }
 
+/* Banners ---------------------------------------------------------------- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  text-decoration: none;
+}
+
+.banner p {
+  margin: 0;
+  flex: 1;
+  font-size: 0.92rem;
+}
+
+.banner--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.banner--warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.banner--link:hover {
+  border-color: #f59e0b;
+}
+
+.banner__dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  padding: 0.15rem;
+  border-radius: 6px;
+}
+
+.banner__dismiss:hover {
+  background: rgba(185, 28, 28, 0.1);
+}
+
+.banner__chevron {
+  opacity: 0.7;
+}
+
+/* Summary tiles ---------------------------------------------------------- */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .summary-card {
+  display: block;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 1rem;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.summary-card:hover {
+  border-color: var(--primary-color, #069e2d);
+  transform: translateY(-1px);
+}
+
+.summary-card.urgent {
+  border-color: #fbbf24;
+  background: #fffbeb;
 }
 
 .summary-label {
@@ -365,6 +675,14 @@ onMounted(() => {
   font-size: 1.8rem;
   font-weight: 700;
   color: #0f172a;
+}
+
+.summary-hint {
+  margin: 0.2rem 0 0;
+  /* #64748b clears 4.5:1 on white; the lighter #94a3b8 slate this started as
+     measures 2.6:1 and fails AA at this size. */
+  color: #64748b;
+  font-size: 0.78rem;
 }
 
 .toolbar {
@@ -421,6 +739,17 @@ onMounted(() => {
   color: #b91c1c;
 }
 
+.retry-btn {
+  margin-top: 0.75rem;
+  border: 1px solid currentColor;
+  background: none;
+  color: inherit;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
 .project-list {
   display: grid;
   gap: 1rem;
@@ -457,6 +786,58 @@ onMounted(() => {
   color: #334155;
 }
 
+/* Per-project credit summary -------------------------------------------- */
+.credit-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0 0 0.9rem;
+  padding: 0.75rem 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+}
+
+.credit-strip div {
+  min-width: 0;
+}
+
+.credit-strip dt {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  /* Small uppercase text needs the full 4.5:1, not a decorative grey. */
+  color: #64748b;
+}
+
+.credit-strip dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.listing-pill {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.listing-pill.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.listing-pill.paused {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 .project-dates {
   display: flex;
   gap: 1rem;
@@ -470,6 +851,8 @@ onMounted(() => {
   font-size: 0.75rem;
   font-weight: 700;
   padding: 0.3rem 0.65rem;
+  white-space: nowrap;
+  height: fit-content;
 }
 
 .status-badge.pending {
@@ -487,28 +870,19 @@ onMounted(() => {
   color: #991b1b;
 }
 
-.status-badge.under_review {
-  background: #e0f2fe;
-  color: #075985;
-}
-
 .status-badge.needs_revision {
   background: #fef3c7;
   color: #92400e;
 }
 
-.status-badge.submitted,
-.status-badge.in_review {
-  background: #e0f2fe;
-  color: #075985;
-}
-
-.status-badge.validated {
-  background: #dcfce7;
-  color: #166534;
-}
-
 .status-badge.draft {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Fallback for any status the map doesn't know — previously this class had no
+   rule at all, so an unmapped status rendered as an unstyled badge. */
+.status-badge.unknown {
   background: #f1f5f9;
   color: #475569;
 }
@@ -607,6 +981,7 @@ onMounted(() => {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
 }
 
 .action-link {
@@ -617,6 +992,7 @@ onMounted(() => {
   font-size: 0.85rem;
   color: #069e2d;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .action-link.danger {
@@ -626,5 +1002,44 @@ onMounted(() => {
 .action-link:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Verifier conversation, collapsed ---------------------------------------- */
+.thread-toggle {
+  margin-top: 0.9rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.75rem;
+}
+
+.thread-toggle > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #475569;
+  list-style: none;
+}
+
+.thread-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.thread-toggle > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.4rem;
+  transition: transform 0.15s ease;
+}
+
+.thread-toggle[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0 1rem;
+  }
+  .credit-strip {
+    gap: 1rem;
+  }
 }
 </style>
