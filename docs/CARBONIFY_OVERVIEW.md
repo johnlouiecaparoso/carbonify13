@@ -59,5 +59,6 @@ Carbonify is heading toward a fuller carbon-market operating system:
 ## Read next
 
 - [docs/HANDOFF.md](HANDOFF.md) for the current state, implemented vs not implemented, and the next steps.
-- [docs/GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the remaining launch blockers.
+- [docs/SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) for the active next step — the closed beta on PayMongo test keys.
+- [docs/GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the remaining real-money launch blockers.
 - [docs/dev/README.md](dev/README.md) for setup, architecture, database, deployment, testing, and security.

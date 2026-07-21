@@ -4,6 +4,11 @@ Items intentionally deferred during the phased implementation (`IMPLEMENTATION_R
 Each is safe to defer but should be closed out before "production-credible" sign-off.
 Come back to this list after the phases are implemented.
 
+> **Status pass 2026-07-21.** Two entries are **must-close before live payment keys**, not merely
+> deferred: **#13c** (money-table RLS posture not in version control) and **#14** (no escrow /
+> chargeback hold window). Both are surfaced in [HANDOFF.md](HANDOFF.md) and the
+> [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) go/no-go gate. P1 and P2 below are now closed.
+
 ---
 
 ## From Phase 0 (Stabilize & Clean Up)
@@ -80,19 +85,24 @@ Migrations are applied by hand → live schema drifts from `supabase/migrations/
 
 ## From Phase 1 (Money Foundation) — gated / follow-up
 
-### P1. Financial-table RLS lockdown (cutover) 🔴
-`supabase/cutover/lockdown_financial_writes.sql` makes `credit_transactions`,
-`credit_ownership`, `wallet_accounts`, `wallet_transactions` **server-write-only**.
-**Gated:** run ONLY after the marketplace/wallet UI is switched to the
-server-authoritative flow (`createMarketplaceCheckout` → webhook →
-`process_marketplace_purchase`) and no longer writes those tables from the
-browser. Running early breaks live purchases.
+### P1. Financial-table RLS lockdown (cutover) ✅ EFFECTIVELY DONE ON LIVE (verified 2026-07-20)
+**Status:** the live audit found the four tables this script targets (`credit_transactions`,
+`credit_ownership`, `wallet_accounts`, `wallet_transactions`) **already client-SELECT-only** — the
+lockdown's job is done on live, and the script also does *not* cover the three tables that actually had
+holes (see #13). The remaining work is **capturing** the posture into version control (#13c) and then
+retiring this out-of-band script; the script itself no longer needs running.
 
-### P2. Client cutover to server-authoritative purchase 🔴
-Switch the marketplace "Buy" UI from the legacy client-amount checkout to
-`createMarketplaceCheckout({ listingId, quantity })`, and remove client-side
-inserts into `credit_transactions` / `credit_ownership` (the webhook RPC now owns
-those). Precondition for P1.
+*Original note:* `supabase/cutover/lockdown_financial_writes.sql` makes those four tables
+**server-write-only**. **Gated:** run ONLY after the marketplace/wallet UI is switched to the
+server-authoritative flow (`createMarketplaceCheckout` → webhook → `process_marketplace_purchase`) and no
+longer writes those tables from the browser. Running early breaks live purchases.
+
+### P2. Client cutover to server-authoritative purchase ✅ DONE
+Purchases run through `createMarketplaceCheckout({ listingId, quantity })` → signed webhook →
+`process_marketplace_purchase`; the browser no longer inserts `credit_transactions` /
+`credit_ownership`, and the last dead client-side money writers were deleted 2026-07-11
+(`addCreditsToPortfolio` / `removeCreditsFromPortfolio`). Confirmed by the live end-to-end run and
+`reconcile_financials()` = 0.
 
 ### P3. Derive `payment_intents.user_id` from the verified JWT 🟠
 The checkout Edge Function currently takes `user_id` from the request body; it
@@ -178,11 +188,23 @@ only write-lockdown lives in the **gated, out-of-band** `supabase/cutover/lockdo
   3. `credit_retirements` client INSERT policy — **forge a retirement + certificate with no burn**. Dropped;
      `retire_credits_atomic` (SECURITY DEFINER) is the only writer.
 
-**Still open:** (a) apply `…000800` and verify the full validate→list→buy→retire flow (rollback SQL is in
-the file); (b) confirm `marketplaceIntegrationService` credit-pool/listing inserts are dead (they appear so)
-— if any live non-staff caller writes these tables, it will surface on verification; (c) capture the
-remaining **SELECT** policies + the four already-locked tables into a declarative migration so a fresh env
-rebuilds the *complete* posture, and retire the gated cutover script.
+**Update 2026-07-20:** (a) and (b) are **closed**. `…000800` is **verified applied on live** (read-only
+`pg_policies` check: all three blanket-write policies gone, `project_credits_owner_or_admin_delete`
+present), and the full validate→list→buy→retire flow ran end-to-end with `reconcile_financials()` = 0 —
+so no live non-staff caller is writing those tables.
+
+**Still open — (c) only, and it is a P0-adjacent gap:** capture the remaining **SELECT** policies + the
+four already-locked tables into a declarative migration so a fresh env (staging/DR/local) rebuilds the
+*complete* posture, then retire the gated cutover script. Until this lands, **the repo cannot prove the
+money tables are locked down** — only the live database can, and only by inspection. Dump with:
+
+```sql
+select tablename, policyname, cmd, roles, qual, with_check from pg_policies
+ where schemaname='public'
+   and tablename in ('credit_ownership','wallet_accounts','wallet_transactions',
+                     'credit_transactions','project_credits','credit_listings','credit_retirements')
+ order by tablename, policyname;
+```
 
 ### 14. Escrow was silently reverted — sellers withdrawable with no hold window 🟠 (business + fraud)
 `20260606000600_escrow_and_seller_balance.sql` routed seller net into `escrow_holds` + an `escrow_held`

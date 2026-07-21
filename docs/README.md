@@ -1,29 +1,39 @@
 # Carbonify — Documentation Index
 
-## Start here
-
-| Doc | What it answers |
-|---|---|
-| [HANDOFF.md](HANDOFF.md) | Where we are right now, one screen. |
-| [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md) | The seven expansion features, scored bullet-by-bullet **against the code**. |
-| [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md) | 🔴 The click-through that proves any of it actually works. |
-| [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md) | Why a farmer's tCO₂e is calculated the way it is. |
-| [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md) | Whole-codebase audit: 4 bugs fixed, the rest ranked. Read the HIGH one. |
-| [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | What blocks real money (pentest, email confirmation). |
-
-
-Start here. This folder mixes **current** docs with **historical** planning notes kept for
-traceability. Use the current set below; anything under "Historical" carries a superseded banner.
+> **Updated 2026-07-21.** This folder mixes **current** docs with **historical** planning notes kept for
+> traceability. Use the current set below; anything under "Historical" carries a superseded banner.
 
 ## 🟢 Start here (current, authoritative)
 
-| Doc | What it's for |
+Read them in this order — the first two answer "where are we" and "what do I do next".
+
+| Doc | What it answers |
 |---|---|
-| [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Plain-language "what is this system" — product, roles, credit lifecycle, money model |
-| [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | **Implemented vs not, by priority, + what to do now** — the current plan with a go/no-go gate |
-| [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) | **Security close-out status + the step-by-step TEST RUNBOOK** (what's done vs pending deploy/test) |
-| [HANDOFF.md](HANDOFF.md) | Current state / handoff — where things stand and the next steps |
+| [HANDOFF.md](HANDOFF.md) | **Where we are right now, one screen** — implemented vs not, and the ordered next steps |
+| [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) | 🔴 **The active next step** — pre-flight checks, the closed-beta click-through, daily monitoring, abort criteria |
+| [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) | Per-role tick-box test scripts to hand to pilot users |
+| [TESTING_PLAN.md](TESTING_PLAN.md) | The layered what-to-test map: regression, integration, e2e, security, beta, load |
+| [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) | **The real-money gate** — what blocks live payment keys, with a go/no-go checklist |
+| [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) | The plain-language system map — what it is, who uses it, tech stack |
+| [ABOUT_CARBONIFY.md](ABOUT_CARBONIFY.md) | Product, roles, credit lifecycle, money model in plain language |
+| [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) | Everything knowingly postponed, with reasoning — **#13c and #14 must close before live keys** |
+
+## 🔎 Audits & feature status
+
+| Doc | What it answers |
+|---|---|
+| [CODE_AUDIT_2026-07-11.md](CODE_AUDIT_2026-07-11.md) | Latest whole-codebase audit — 17 fixes (5 HIGH), all applied |
+| [CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md) | Earlier pass, kept for traceability |
+| [EXPANSION_FEATURE_AUDIT.md](EXPANSION_FEATURE_AUDIT.md) | The seven expansion features, scored bullet-by-bullet **against the code** |
+| [FARMER_CARBON_ATTRIBUTION.md](FARMER_CARBON_ATTRIBUTION.md) | Why a farmer's tCO₂e is calculated the way it is |
+| [SECURITY_CLOSEOUT_CHECKLIST.md](SECURITY_CLOSEOUT_CHECKLIST.md) | Security close-out status + step-by-step test runbook |
+| [RUNTIME_VERIFICATION_RUNBOOK.md](RUNTIME_VERIFICATION_RUNBOOK.md) | The original live click-through; breadth is now covered by the soft-launch runbook |
 | [RELEASE_NOTES.md](RELEASE_NOTES.md) | Release summary for the 2026-07-03 server-authoritative money cutover |
+
+## 💼 Commercial
+
+- [SYSTEM_COST_MODEL.md](SYSTEM_COST_MODEL.md) — what running Carbonify costs
+- [COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md](COMMERCIAL_FEATURE_IMPLEMENTATION_PLAN.md) · [CARBONIFY_PRESENTATION.md](CARBONIFY_PRESENTATION.md)
 
 ## 📖 Use the app
 
@@ -53,7 +63,7 @@ traceability. Use the current set below; anything under "Historical" carries a s
 - [REAL_WORLD_GOLIVE_PLAYBOOK.md](REAL_WORLD_GOLIVE_PLAYBOOK.md) — path to real credits + real money
 - [VENDOR_SCORECARD_AND_TECH_DESIGN.md](VENDOR_SCORECARD_AND_TECH_DESIGN.md) — vendor evaluation + provider-agnostic design
 - [role-needs/](role-needs/README.md) — per-role needs & gaps
-- [AUTH_PROVIDER_SETUP.md](AUTH_PROVIDER_SETUP.md) · [POLICY_AND_USER_AGREEMENT.md](POLICY_AND_USER_AGREEMENT.md) · [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) · [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md)
+- [AUTH_PROVIDER_SETUP.md](AUTH_PROVIDER_SETUP.md) · [POLICY_AND_USER_AGREEMENT.md](POLICY_AND_USER_AGREEMENT.md) · [ROADMAP_SIMPLE.md](ROADMAP_SIMPLE.md)
 
 ## 🗄️ Historical / superseded (kept for traceability — each carries a banner)
 

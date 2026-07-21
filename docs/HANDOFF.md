@@ -1,19 +1,24 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — 2026-07-20
+> ## 📍 Where we are — verified 2026-07-20 · doc reconciliation 2026-07-21
 >
-> **Feature-complete for the current product scope. Money path hardened in code and sandbox, with the remaining work mostly external, operational, or legal.**
+> **Feature-complete for the current product scope. The money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
-> Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the prioritized remaining work.
+> **The next step is the closed beta on PayMongo test keys** — see [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) (execution), [TESTING_PLAN.md](TESTING_PLAN.md) (what to test), and [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) (per-role scripts to hand to pilot users).
 >
-> **Current build state:** build green, lint green, tests green at the last verified checkpoint.
+> Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
+>
+> **Current build state:** build green, lint green, ~313 tests green at the last verified checkpoint.
+>
+> *2026-07-21 was a documentation-reconciliation pass only — no code, DB, or deploy change. It corrected stale "do this next" instructions that later entries in this same file had already superseded.*
 
 ## Current snapshot
 
 - Carbonify is a Philippine carbon-credit registry and marketplace with role-based workflows for developers, verifiers, buyers, admins, and LGUs.
-- The core product flow is in place: register -> validate -> MRV -> issue -> trade -> retire.
-- The money path is designed to be server-authoritative, with settlement controlled by the backend, not the browser.
-- The most important remaining work is launch hardening, external integrations, and operations/legal readiness.
+- The core product flow is in place: register -> validate -> MRV -> issue -> trade -> retire, and it has been run end-to-end against the live DB.
+- The money path is server-authoritative: settlement is controlled by the backend, not the browser, and the financial tables are RLS-locked against client writes (**verified on live 2026-07-20**).
+- `reconcile_financials()` returns **0 rows** on live — a clean baseline for the pilot.
+- The most important remaining work is the pilot itself, then launch hardening, external integrations, and operations/legal readiness.
 
 ## Implemented now
 
@@ -21,22 +26,65 @@
 - Project registration, MRV, verifier review, issuance, and QR-verifiable certificates.
 - Marketplace, cart, wallet, retirement, receipts, seller earnings, payouts, and refunds/disputes.
 - Public registry and market views, plus LGU and admin tooling.
+- The seven expansion features (registry fields, carbon asset ledger, biomass marketplace, MRV dashboard, investor portal + data room, farmer portal); the AI assistant is interface-only.
 - Developer docs, user guides, testing docs, deployment docs, and security docs.
 
 ## Not yet implemented or still external
 
-- Real credit-supplier integration for live registry-retirement fulfillment.
-- Live PSP / EMI / legal-compliance dependencies for real-money operation.
-- Independent penetration test before live payment keys.
-- Any future work that depends on external data vendors, registry partners, or regulatory sign-off.
-- Remaining roadmap items that are intentionally deferred until the current launch gates are cleared.
+**Gates before real money** (detail in [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) §5):
+- **Independent penetration test** — the last P0 before live payment keys.
+- **Email confirmation is OFF by choice** — anyone can sign up with an address they do not control. Needs an owned domain (~₱600–900/yr) verified in Resend.
+- **Legal entity / licensed PSP / BIR-accredited receipts / AML-DPO program** — business track, runs in parallel.
+- **Real credit-supplier integration** for live registry-retirement fulfillment (Carbonmark/Cloverly/Patch). Today a retirement produces a Carbonify certificate, not a Verra/Gold Standard registry receipt.
 
-## Roadmap
+**Open engineering items that do not block the pilot but must be settled before live keys:**
+- **Escrow was silently reverted** ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #14) — sellers are immediately withdrawable with no dispute/chargeback hold window. Decide instant-payout-by-design vs. restore the hold.
+- **The money-table RLS posture is not in version control** ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #13c) — the live policies are correct and verified, but a fresh env (staging/DR/local) rebuilds from migrations that never create them. The repo cannot yet *prove* the money tables are locked down.
+- **Migration `20260718001100`** (receipt FK schema-cache reload) — still pending on live. Non-fatal; clears a console 400/406 on receipts.
+- **Testing gaps** ([TESTING_PLAN.md](TESTING_PLAN.md)) — no automated RPC/RLS integration tests, Playwright e2e not required in CI and not run on a seeded backend, no load test, accessibility pass partial.
+- **Externally-blocked feature work** — MRV satellite/IoT feeds (#4), AI assistant backend (#7, needs an API key + running cost), farmer training content (#6e).
 
-1. Keep the overview, handoff, and roadmap docs aligned with the current code.
-2. Finish the launch gates: security review, ops readiness, and external partner dependencies.
-3. Move future feature work only after the current launch gates are satisfied.
-4. Use `docs/dev/` for implementation details and `docs/GO_LIVE_ROADMAP.md` for the active priority order.
+## 🔜 Do these next, in order
+
+1. **Run the pilot pre-flight** — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed).
+2. **Decide the beta database** — [TESTING_PLAN.md](TESTING_PLAN.md) §3. Recommendation: reuse the current live project now that reconcile is clean, but purge or clearly label leftover test projects/listings first.
+3. **Confirm the `20260718000000`–`000700` batch is fully applied on live** — see the apply-status note below. One query settles it.
+4. **Run the closed beta** — invite ~8–15 users covering every role, disclose the runbook §2 limitations, hand out [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md), and check `reconcile_financials()` = 0 daily.
+5. **In parallel, close the two code-side items above** — capture the live money-table RLS into a versioned migration (#13c) and make the escrow call (#14). Both are required before live keys regardless of pilot outcome.
+6. **Then start the real-money gate** — email confirmation on, independent penetration test, legal/PSP track.
+
+### ⚠️ Apply-status note (2026-07-21) — `20260718000000`–`000700`
+
+The 2026-07-11 entries below say this seven-migration batch was written but **NOT applied**. Later
+entries in this same file contradict that: validation failed live with
+`column "available_credits" of relation "project_credits" does not exist`, which is only possible if
+**`000700` (the column drop) had already landed**. So the batch was at least partly applied, and the
+historical "apply these 7 next" instruction is stale — do not follow it blindly.
+
+Settle it with one read-only query before the pilot rather than re-running migrations:
+
+```sql
+-- expect: no 'available_credits' row (000600/000700 landed)
+select column_name, is_nullable from information_schema.columns
+ where table_schema='public' and table_name='project_credits';
+
+-- expect: the 4-arg signature only (000000 landed)
+select p.proname, pg_get_function_identity_arguments(p.oid) as args
+  from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+ where n.nspname='public' and p.proname='retire_credits_atomic';
+```
+
+Status of the later migrations is not ambiguous: **`000800` verified applied on live 2026-07-20**;
+**`000900` + `001000` applied 2026-07-11**; **`001100` still pending**.
+
+## Doc map
+
+- [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) — the active next step: pre-flight, pilot click-through, daily monitoring, abort criteria.
+- [TESTING_PLAN.md](TESTING_PLAN.md) — the layered what-to-test map and the beta plan.
+- [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md) — per-role, tick-box test scripts for pilot users.
+- [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) — the real-money gate and priority tiers.
+- [DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) — everything knowingly postponed, with the reasoning.
+- `docs/dev/` — setup, architecture, database/RPCs, deployment, testing, security.
 
 > ## Historical notes below
 >
@@ -199,11 +247,17 @@
 > - **[CODE_AUDIT_2026-07-09.md](CODE_AUDIT_2026-07-09.md)** — earlier pass (empty /analytics charts ·
 >   the 15s marketplace refresh wiping the grid · a load race · one unpriced listing reporting ₱0).
 >
-> ### 🔴 Do these next, in order
+> ### 🔴 Do these next, in order *(SUPERSEDED 2026-07-21 — kept for history)*
+>
+> **⚠️ This list is stale. The current next steps are in "🔜 Do these next, in order" at the top of this
+> file.** Items 1 and 2 below are contradicted or overtaken by later entries: the migration batch was at
+> least partly applied (see the apply-status note at the top), `000800` was verified applied on live
+> 2026-07-20, and the runtime verification in item 3 was exercised end-to-end on 2026-07-11.
+>
 > 1. **Apply the 2026-07-11 fixes to the live DB** — 7 new migrations + 4 edge-fn redeploys, written but
 >    not yet applied. Order + pairing rules in the "2026-07-11 deploy runbook" note below. The
 >    `20260718000000` H1 migration already carries the `auth.uid()` correction (above) — no extra step,
->    just apply the current file.
+>    just apply the current file. *(Stale — confirm with the query at the top instead.)*
 > 2. **Capture the live financial-table RLS into a versioned migration** (backlog P1). Dump
 >    `select * from pg_policies where tablename in ('credit_ownership','wallet_accounts','wallet_transactions','credit_transactions')`
 >    and codify it, so the migration chain — not an out-of-band cutover script — *is* the security posture.
