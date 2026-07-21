@@ -93,7 +93,10 @@ onMounted(load)
       <section class="panel">
         <h2>Assets by project</h2>
         <div class="table-scroll">
-          <table class="data-table">
+          <!-- data-label on every cell drives the under-640px card layout
+               (src/styles/responsive-table.css); ten columns is the worst
+               horizontal scroll in the app. -->
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr>
                 <th>Project</th>
@@ -110,33 +113,33 @@ onMounted(load)
             </thead>
             <tbody>
               <tr v-for="row in rows" :key="row.projectId">
-                <td>
+                <td data-label="Project">
                   <router-link :to="`/projects/${row.projectId}`" class="proj-link">
                     {{ row.projectTitle }}
                   </router-link>
                 </td>
-                <td><span class="badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
-                <td class="num">{{ num(row.estimated) }}</td>
-                <td class="num">{{ num(row.issued) }}</td>
-                <td class="num">{{ num(row.pending) }}</td>
-                <td class="num">{{ num(row.sold) }}</td>
-                <td class="num">{{ num(row.retired) }}</td>
-                <td class="num">{{ num(row.inventory) }}</td>
-                <td class="num">{{ peso(row.inventoryValue) }}</td>
-                <td class="num">{{ peso(row.soldValue) }}</td>
+                <td data-label="Status"><span class="badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
+                <td class="num" data-label="Estimated">{{ num(row.estimated) }}</td>
+                <td class="num" data-label="Issued">{{ num(row.issued) }}</td>
+                <td class="num" data-label="Pending">{{ num(row.pending) }}</td>
+                <td class="num" data-label="Sold">{{ num(row.sold) }}</td>
+                <td class="num" data-label="Retired">{{ num(row.retired) }}</td>
+                <td class="num" data-label="Available">{{ num(row.inventory) }}</td>
+                <td class="num" data-label="Inventory value">{{ peso(row.inventoryValue) }}</td>
+                <td class="num" data-label="Sold value">{{ peso(row.soldValue) }}</td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
                 <td colspan="2"><strong>Total</strong></td>
-                <td class="num"><strong>{{ num(totals.estimated) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.issued) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.pending) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.sold) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.retired) }}</strong></td>
-                <td class="num"><strong>{{ num(totals.inventory) }}</strong></td>
-                <td class="num"><strong>{{ peso(totals.inventoryValue) }}</strong></td>
-                <td class="num"><strong>{{ peso(totals.soldValue) }}</strong></td>
+                <td class="num" data-label="Estimated"><strong>{{ num(totals.estimated) }}</strong></td>
+                <td class="num" data-label="Issued"><strong>{{ num(totals.issued) }}</strong></td>
+                <td class="num" data-label="Pending"><strong>{{ num(totals.pending) }}</strong></td>
+                <td class="num" data-label="Sold"><strong>{{ num(totals.sold) }}</strong></td>
+                <td class="num" data-label="Retired"><strong>{{ num(totals.retired) }}</strong></td>
+                <td class="num" data-label="Available"><strong>{{ num(totals.inventory) }}</strong></td>
+                <td class="num" data-label="Inventory value"><strong>{{ peso(totals.inventoryValue) }}</strong></td>
+                <td class="num" data-label="Sold value"><strong>{{ peso(totals.soldValue) }}</strong></td>
               </tr>
             </tfoot>
           </table>
@@ -169,7 +172,7 @@ onMounted(load)
             <span class="muted small">{{ num(row.buyerCount) }} buyer(s) · {{ num(row.sold) }} credits</span>
           </div>
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table stack-on-mobile">
               <thead>
                 <tr>
                   <th>Buyer</th>
@@ -181,14 +184,14 @@ onMounted(load)
               </thead>
               <tbody>
                 <tr v-for="buyer in row.buyers" :key="buyer.buyerId || 'unknown'">
-                  <td>
+                  <td data-label="Buyer">
                     {{ buyer.name }}
                     <span v-if="!buyer.buyerId" class="muted small">(unattributed)</span>
                   </td>
-                  <td class="num">{{ num(buyer.quantity) }}</td>
-                  <td class="num">{{ peso(buyer.value) }}</td>
-                  <td class="num">{{ num(buyer.purchases) }}</td>
-                  <td class="num">{{ shortDate(buyer.lastPurchaseAt) }}</td>
+                  <td class="num" data-label="Credits">{{ num(buyer.quantity) }}</td>
+                  <td class="num" data-label="Value">{{ peso(buyer.value) }}</td>
+                  <td class="num" data-label="Purchases">{{ num(buyer.purchases) }}</td>
+                  <td class="num" data-label="Last purchase">{{ shortDate(buyer.lastPurchaseAt) }}</td>
                 </tr>
               </tbody>
             </table>

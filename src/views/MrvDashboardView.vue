@@ -227,7 +227,9 @@ onMounted(load)
       <section class="panel">
         <h2>Projects &amp; reporting status</h2>
         <div class="table-scroll">
-          <table class="data-table">
+          <!-- data-label drives the under-640px card layout; see
+               src/styles/responsive-table.css -->
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr>
                 <th>Project</th>
@@ -240,18 +242,18 @@ onMounted(load)
             </thead>
             <tbody>
               <tr v-for="p in data.perProject" :key="p.projectId">
-                <td>
+                <td data-label="Project">
                   <router-link :to="`/projects/${p.projectId}`" class="proj-link">{{ p.title }}</router-link>
                   <div v-if="p.category" class="muted small">{{ p.category }}</div>
                 </td>
-                <td class="num">{{ num(p.reportsCount) }}</td>
-                <td>
+                <td class="num" data-label="Reports">{{ num(p.reportsCount) }}</td>
+                <td data-label="Latest report">
                   <span v-if="p.latestStatus" class="badge" :class="p.latestStatus">{{ statusLabel(p.latestStatus) }}</span>
                   <span v-else class="muted small">None yet</span>
                 </td>
-                <td>{{ shortDate(p.lastPeriodEnd) }}</td>
-                <td class="num">{{ num(p.verifiedVers) }}</td>
-                <td>
+                <td data-label="Last period">{{ shortDate(p.lastPeriodEnd) }}</td>
+                <td class="num" data-label="Verified">{{ num(p.verifiedVers) }}</td>
+                <td data-label="Reporting">
                   <span class="badge" :class="p.compliance.state">
                     {{ complianceLabel(p.compliance.state, p.compliance.daysUntil) }}
                   </span>

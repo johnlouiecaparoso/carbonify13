@@ -154,17 +154,19 @@ onMounted(load)
       <section class="panel">
         <h2>Earnings by project</h2>
         <div v-if="salesByProject.length" class="table-scroll">
-          <table class="data-table">
+          <!-- data-label drives the under-640px card layout; see
+               src/styles/responsive-table.css -->
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr><th>Project</th><th>Sales</th><th>Credits sold</th><th>Gross earned</th><th>Last sale</th></tr>
             </thead>
             <tbody>
               <tr v-for="row in salesByProject" :key="row.projectId">
-                <td>{{ row.projectTitle }}</td>
-                <td>{{ row.salesCount }}</td>
-                <td>{{ row.creditsSold }}</td>
-                <td>{{ peso(row.grossEarnings) }}</td>
-                <td>{{ shortDate(row.lastSaleDate) }}</td>
+                <td data-label="Project">{{ row.projectTitle }}</td>
+                <td data-label="Sales">{{ row.salesCount }}</td>
+                <td data-label="Credits sold">{{ row.creditsSold }}</td>
+                <td data-label="Gross earned">{{ peso(row.grossEarnings) }}</td>
+                <td data-label="Last sale">{{ shortDate(row.lastSaleDate) }}</td>
               </tr>
             </tbody>
           </table>
@@ -176,17 +178,17 @@ onMounted(load)
       <section class="panel">
         <h2>Recent sales</h2>
         <div v-if="sales.length" class="table-scroll">
-          <table class="data-table">
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr><th>Date</th><th>Credits</th><th>Unit</th><th>Total</th><th>Status</th></tr>
             </thead>
             <tbody>
               <tr v-for="s in sales" :key="s.id">
-                <td>{{ shortDate(s.created_at) }}</td>
-                <td>{{ s.quantity }}</td>
-                <td>{{ peso(s.price_per_credit) }}</td>
-                <td>{{ peso(s.total_amount) }}</td>
-                <td><span class="badge" :class="s.status">{{ s.status }}</span></td>
+                <td data-label="Date">{{ shortDate(s.created_at) }}</td>
+                <td data-label="Credits">{{ s.quantity }}</td>
+                <td data-label="Unit">{{ peso(s.price_per_credit) }}</td>
+                <td data-label="Total">{{ peso(s.total_amount) }}</td>
+                <td data-label="Status"><span class="badge" :class="s.status">{{ s.status }}</span></td>
               </tr>
             </tbody>
           </table>
@@ -198,16 +200,16 @@ onMounted(load)
       <section class="panel">
         <h2>Withdrawals</h2>
         <div v-if="payouts.length" class="table-scroll">
-          <table class="data-table">
+          <table class="data-table stack-on-mobile">
             <thead>
               <tr><th>Date</th><th>Amount</th><th>Status</th><th>Note</th></tr>
             </thead>
             <tbody>
               <tr v-for="p in payouts" :key="p.id">
-                <td>{{ shortDate(p.created_at) }}</td>
-                <td>{{ peso(p.amount) }}</td>
-                <td><span class="badge" :class="p.status">{{ p.status }}</span></td>
-                <td class="muted small">{{ p.failure_reason || '—' }}</td>
+                <td data-label="Date">{{ shortDate(p.created_at) }}</td>
+                <td data-label="Amount">{{ peso(p.amount) }}</td>
+                <td data-label="Status"><span class="badge" :class="p.status">{{ p.status }}</span></td>
+                <td class="muted small" data-label="Note">{{ p.failure_reason || '—' }}</td>
               </tr>
             </tbody>
           </table>
