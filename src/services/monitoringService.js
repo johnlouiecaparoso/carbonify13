@@ -76,7 +76,89 @@ export async function getReport(reportId) {
     .eq('report_id', reportId)
     .order('created_at', { ascending: true })
 
-  return { ...report, activity: activity || [], evidence: evidence || [] }
+  // The project rides along the way it does on the review-queue rows. Without
+  // it the reviewer had no category, so the reduction-type suggestion always
+  // received '' — and the emission factors (keyed by project_type) could not be
+  // looked up at all. `user_id` is the owner, used for the self-review guard.
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id, title, category, location, user_id')
+    .eq('id', report.project_id)
+    .maybeSingle()
+
+  return { ...report, project: project || null, activity: activity || [], evidence: evidence || [] }
+}
+
+/**
+ * Emission factors for a project type, keyed by metric.
+ *
+ * Same source the server-side calculate_report_vers() joins against, so a
+ * breakdown built from these reproduces the stored proposed_vers exactly.
+ * Readable by any authenticated user; degrades to [] so the review screen still
+ * renders without the breakdown.
+ */
+export async function getMethodologyFactors(projectType) {
+  const supabase = client()
+  if (!projectType) return []
+  const { data, error } = await supabase
+    .from('methodology_factors')
+    .select('metric_key, label, unit, factor, description')
+    .eq('project_type', projectType)
+  if (error) {
+    console.warn('[mrv] methodology factors unavailable:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Reproduce the platform's VER arithmetic, line by line, for verifier review.
+ *
+ * Mirrors calculate_report_vers() (20260604010000):
+ *   sum(activity.value * factor.factor) for factors matching the project type.
+ *
+ * That is an INNER JOIN server-side, so an activity metric with no factor for
+ * this project type contributes NOTHING to the total and simply disappears.
+ * Those lines are returned with `matched: false` and a zero subtotal, because a
+ * metric silently worth nothing is exactly the kind of thing a verifier is
+ * accountable for noticing.
+ *
+ * Pure — exported for unit testing.
+ *
+ * @param {Object} input
+ * @param {Array<{metric_key:string, value:number, unit?:string}>} input.activity
+ * @param {Array<{metric_key:string, label?:string, unit?:string, factor:number}>} input.factors
+ * @returns {{lines:Array<Object>, total:number, unmatched:number}}
+ */
+export function buildVerCalculation({ activity = [], factors = [] } = {}) {
+  const factorByKey = new Map(
+    (factors || []).filter((f) => f?.metric_key).map((f) => [f.metric_key, f]),
+  )
+
+  const lines = (activity || []).map((row) => {
+    const factorRow = factorByKey.get(row?.metric_key)
+    const value = Number(row?.value) || 0
+    const factor = factorRow ? Number(factorRow.factor) || 0 : null
+    const matched = !!factorRow
+    return {
+      metricKey: row?.metric_key || '',
+      label: factorRow?.label || row?.metric_key || 'Unknown metric',
+      value,
+      unit: row?.unit || factorRow?.unit || '',
+      factor,
+      // Unmatched metrics contribute 0 — the server-side join drops them.
+      subtotal: matched ? value * factor : 0,
+      matched,
+    }
+  })
+
+  const total = lines.reduce((sum, line) => sum + line.subtotal, 0)
+  return {
+    lines,
+    // Round the way a tCO2e figure is reported; the per-line values stay exact.
+    total: Math.round(total * 1e6) / 1e6,
+    unmatched: lines.filter((line) => !line.matched).length,
+  }
 }
 
 /**
@@ -286,6 +368,38 @@ export async function approveReport(
   }
   if (reductionType && !['removal', 'avoidance'].includes(reductionType)) {
     throw new Error('Reduction type must be either removal or avoidance')
+  }
+
+  // Independence: approving a VER mints credits against the project, so the
+  // owner may not be the approver. Enforced by trg_guard_ver_self_approval
+  // (20260722000100); checked here for a readable message.
+  if (projectId && uid) {
+    const { data: owned } = await supabase
+      .from('projects')
+      .select('user_id')
+      .eq('id', projectId)
+      .maybeSingle()
+    if (owned?.user_id && owned.user_id === uid) {
+      throw new Error(
+        'You cannot approve emission reductions for your own project. Verification must be carried out by someone who does not own the project.',
+      )
+    }
+  }
+
+  // Approving mints credits, so departing from the platform's own calculation
+  // has to be justified on the record. Read the stored figure rather than
+  // trusting one passed in alongside the amount being overridden.
+  const { data: reportRow } = await supabase
+    .from('monitoring_reports')
+    .select('proposed_vers')
+    .eq('id', reportId)
+    .maybeSingle()
+
+  const proposed = Number(reportRow?.proposed_vers ?? qty)
+  if (Math.abs(qty - proposed) > 0.000001 && String(notes || '').trim().length < 5) {
+    throw new Error(
+      `You are approving ${qty} tCO₂e against a calculated ${proposed}. Add a note (at least 5 characters) explaining the adjustment.`,
+    )
   }
 
   const nowIso = new Date().toISOString()

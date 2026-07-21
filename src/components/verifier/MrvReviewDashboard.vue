@@ -39,20 +39,56 @@
             <span v-if="selected.period_start">· {{ selected.period_start }} → {{ selected.period_end || '—' }}</span>
           </div>
 
-          <h4 class="block-title">Activity Data</h4>
-          <table class="data-table" v-if="selected.activity?.length">
+          <!-- Activity data AND the arithmetic applied to it. The reviewer is
+               accountable for the issued number, so showing the total without
+               the factor that produced it asked them to certify a figure they
+               could not audit. Reproduces calculate_report_vers() exactly. -->
+          <h4 class="block-title">Activity Data &amp; Calculation</h4>
+          <table class="data-table" v-if="calculation.lines.length">
             <thead>
-              <tr><th>Metric</th><th>Value</th><th>Unit</th></tr>
+              <tr>
+                <th>Metric</th>
+                <th class="num">Value</th>
+                <th>Unit</th>
+                <th class="num">Factor</th>
+                <th class="num">tCO₂e</th>
+              </tr>
             </thead>
             <tbody>
-              <tr v-for="a in selected.activity" :key="a.id">
-                <td>{{ a.metric_key }}</td>
-                <td>{{ Number(a.value).toLocaleString() }}</td>
-                <td>{{ a.unit }}</td>
+              <tr v-for="(line, i) in calculation.lines" :key="i" :class="{ unmatched: !line.matched }">
+                <td>
+                  {{ line.label }}
+                  <span v-if="!line.matched" class="no-factor" title="No emission factor is defined for this metric on this project type, so it contributes nothing to the total.">
+                    no factor
+                  </span>
+                </td>
+                <td class="num">{{ Number(line.value).toLocaleString() }}</td>
+                <td>{{ line.unit || '—' }}</td>
+                <td class="num">{{ line.matched ? `× ${line.factor}` : '—' }}</td>
+                <td class="num">{{ line.matched ? line.subtotal.toLocaleString() : '0' }}</td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4"><strong>Total</strong></td>
+                <td class="num"><strong>{{ calculation.total.toLocaleString() }}</strong></td>
+              </tr>
+            </tfoot>
           </table>
           <p v-else class="muted">No activity data submitted.</p>
+
+          <p v-if="calculation.unmatched" class="calc-warning">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            {{ calculation.unmatched }} metric(s) have no emission factor for
+            "{{ selected.project?.category || 'this project type' }}" and contribute nothing to the
+            total. Confirm the developer used the right metric before approving.
+          </p>
+          <p v-else-if="calculation.mismatch" class="calc-warning">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            This breakdown totals {{ calculation.total.toLocaleString() }} tCO₂e but the report
+            stores {{ Number(selected.proposed_vers || 0).toLocaleString() }}. The factors may have
+            changed since submission — re-check before approving.
+          </p>
 
           <h4 class="block-title">Evidence</h4>
           <div v-if="selected.evidence?.length" class="evidence-grid">
@@ -140,6 +176,8 @@ import {
   startReview,
   approveReport,
   rejectReport,
+  getMethodologyFactors,
+  buildVerCalculation,
 } from '@/services/monitoringService'
 
 const queue = ref([])
@@ -157,7 +195,27 @@ const notes = ref('')
 
 const selectedProjectTitle = computed(() => {
   const match = queue.value.find((r) => r.id === selected.value?.id)
-  return match?.project?.title || 'Project'
+  return match?.project?.title || selected.value?.project?.title || 'Project'
+})
+
+// Emission factors for the selected report's project type.
+const factors = ref([])
+
+/**
+ * The platform's arithmetic, line by line. `mismatch` flags a breakdown that no
+ * longer reproduces the stored proposed_vers — which happens when an admin
+ * edits methodology_factors after a report was submitted.
+ */
+const calculation = computed(() => {
+  const result = buildVerCalculation({
+    activity: selected.value?.activity || [],
+    factors: factors.value,
+  })
+  const stored = Number(selected.value?.proposed_vers || 0)
+  return {
+    ...result,
+    mismatch: result.lines.length > 0 && Math.abs(result.total - stored) > 0.000001,
+  }
 })
 
 function statusMeta(status) {
@@ -197,10 +255,13 @@ async function select(reportId) {
         new Date().getFullYear(),
     )
     // A suggestion from the project category, not a classification — the verifier
-    // confirms or overrides it before the credits are minted.
-    reductionType.value = suggestedReductionType(
-      selected.value.project?.category || selected.value.category || '',
-    )
+    // confirms or overrides it before the credits are minted. getReport now
+    // attaches the project, so this actually receives a category; it used to be
+    // handed '' on every report because monitoring_reports has no category column.
+    const category = selected.value.project?.category || ''
+    reductionType.value = suggestedReductionType(category)
+    // Same factors the server-side calculation joins against.
+    factors.value = await getMethodologyFactors(category)
     notes.value = ''
   } catch (err) {
     setMessage(err.message || 'Failed to load report', true)
@@ -400,6 +461,56 @@ loadQueue()
   text-align: left;
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border-light, #e8f5e8);
+}
+
+.data-table th.num,
+.data-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tfoot td {
+  border-top: 2px solid #e5e7eb;
+  border-bottom: none;
+}
+
+/* A metric with no factor contributes nothing — say so rather than showing a
+   silent zero the verifier has to notice on their own. */
+.data-table tr.unmatched td {
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.no-factor {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.calc-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  color: #92400e;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.calc-warning .material-symbols-outlined {
+  font-size: 1.05rem;
+  flex: 0 0 auto;
 }
 
 .muted {

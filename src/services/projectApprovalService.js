@@ -66,9 +66,26 @@ export class ProjectApprovalService {
         throw new Error('User not authenticated')
       }
 
+      // Independence: nobody validates their own project. Validating mints a
+      // credit pool and an active listing, so this is self-issuance of a
+      // sellable asset. Enforced for real by trg_guard_project_self_validation
+      // (20260722000100); checked here so the verifier gets a sentence instead
+      // of a raw Postgres exception.
+      const { data: owned } = await this.supabase
+        .from('projects')
+        .select('user_id')
+        .eq('id', projectId)
+        .maybeSingle()
+
+      if (owned?.user_id && owned.user_id === userId) {
+        throw new Error(
+          'You cannot validate your own project. Verification must be carried out by someone who does not own the project.',
+        )
+      }
+
       // Update project status to validated
       console.log('🔄 Validating project:', { projectId, userId })
-      
+
       const { data: updatedProject, error: updateError } = await this.supabase
         .from('projects')
         .update({
