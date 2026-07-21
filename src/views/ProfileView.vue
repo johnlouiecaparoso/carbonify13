@@ -1847,19 +1847,24 @@ export default {
   color: var(--primary-color);
 }
 
+/* These deliberately do NOT use the --warning/--info/--error tokens. Those are
+   solid signal colours (--warning-color is #ffc107); as badge text on a pale
+   background they measure ~1.5:1. The literals below are tuned light-bg/dark-text
+   pairs at 4.5:1+. They previously read from --color-* names that no stylesheet
+   ever defined, so the fallbacks were doing all the work — now made explicit. */
 .status-badge.pending {
-  background: var(--color-warning-light, #fef3c7);
-  color: var(--color-warning, #b45309);
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .status-badge.in-progress {
-  background: var(--color-info-light, #dbeafe);
-  color: var(--color-info, #1d4ed8);
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-badge.failed {
-  background: var(--color-error-light, #fee2e2);
-  color: var(--color-error, #b91c1c);
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 /* Notification Settings */

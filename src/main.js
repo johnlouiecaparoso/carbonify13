@@ -1,6 +1,9 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
+// Design tokens first, so every component style resolves against them.
+import '@/styles/tokens.css'
+
 import App from './App.vue'
 import router from './router'
 import { analytics } from '@/utils/analytics'

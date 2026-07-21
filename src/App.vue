@@ -424,89 +424,9 @@ onMounted(async () => {
   }
 }
 
-:root {
-  /* Core Green Colors */
-  --primary-color: #069e2d;
-  --primary-hover: #058e3f;
-  --primary-dark: #04773b;
-  --primary-light: #e8f5e8;
-  --primary-lighter: #f0f9f0;
-  --primary-lightest: #f8fdf8;
-
-  /* Text Colors */
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a5568;
-  --text-muted: #718096;
-  --text-light: #ffffff;
-  --text-green: #04773b;
-
-  /* Background Colors - White & Green Theme */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fdf8;
-  --bg-tertiary: #f0f9f0;
-  --bg-muted: #e8f5e8;
-  --bg-accent: #d4edda;
-  --bg-green: #069e2d;
-  --bg-green-light: #e8f5e8;
-  --bg-green-dark: #04773b;
-
-  /* Border Colors */
-  --border-color: #d1e7dd;
-  --border-light: #e8f5e8;
-  --border-green: #069e2d;
-  --border-green-light: #d4edda;
-
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-
-  /* Border Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.625rem;
-  --radius-xl: 0.75rem;
-
-  /* Shadows with Green Tints */
-  --shadow-sm: 0 1px 2px rgba(6, 158, 45, 0.1);
-  --shadow-md: 0 4px 6px rgba(6, 158, 45, 0.15);
-  --shadow-lg: 0 10px 15px rgba(6, 158, 45, 0.2);
-  --shadow-xl: 0 20px 25px rgba(6, 158, 45, 0.25);
-  --shadow-green: 0 4px 12px rgba(6, 158, 45, 0.3);
-  --shadow-green-lg: 0 8px 24px rgba(6, 158, 45, 0.4);
-
-  /* Status Colors */
-  --success-color: #069e2d;
-  --success-light: #d4edda;
-  --warning-color: #ffc107;
-  --warning-light: #fff3cd;
-  --error-color: #dc3545;
-  --error-light: #f8d7da;
-  --info-color: #17a2b8;
-  --info-light: #d1ecf1;
-
-  /* Typography */
-  --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 1.875rem;
-  --font-size-4xl: 2.25rem;
-  --font-size-6xl: 3.75rem;
-
-  /* Transitions */
-  --transition: all 0.15s ease-in-out;
-
-  /* Mobile breakpoints */
-  --mobile-sm: 480px;
-  --mobile-md: 768px;
-  --tablet: 1024px;
-}
+/* Design tokens (:root) now live in src/styles/tokens.css, imported by
+   main.js. They were here, inside a component, while src/styles/ held a
+   never-imported decoy stylesheet. */
 
 html,
 body,
