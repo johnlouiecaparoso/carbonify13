@@ -203,7 +203,7 @@ onMounted(load)
             </div>
           </div>
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table stack-on-mobile">
               <thead>
                 <tr>
                   <th>Project</th>
@@ -219,7 +219,7 @@ onMounted(load)
               </thead>
               <tbody>
                 <tr v-for="p in filtered" :key="p.id">
-                  <td>
+                  <td data-label="Project">
                     <router-link :to="`/projects/${p.id}`" class="proj-link">{{ p.title }}</router-link>
                     <div class="muted small">
                       {{ p.category }}<span v-if="p.location"> · {{ p.location }}</span>
@@ -229,13 +229,13 @@ onMounted(load)
                       {{ developmentStatusLabel(p.development_status) }}
                     </span>
                   </td>
-                  <td class="num">{{ num(p.estimated_credits) }}</td>
-                  <td class="num">{{ p.credit_price ? peso(p.credit_price) : '—' }}</td>
-                  <td class="num">
+                  <td class="num" data-label="Credits">{{ num(p.estimated_credits) }}</td>
+                  <td class="num" data-label="Price">{{ p.credit_price ? peso(p.credit_price) : '—' }}</td>
+                  <td class="num" data-label="Projected value">
                     {{ peso(p.financials.totalRevenue) }}
                     <div v-if="p.financials.revenueBasis === 'blended'" class="muted small">blended</div>
                   </td>
-                  <td class="num">
+                  <td class="num" data-label="Contracted">
                     <template v-if="p.financials.agreementCount > 0">
                       <span class="contracted">{{ pct(p.financials.contractedShare) }}</span>
                       <div class="muted small">{{ peso(p.financials.contractedRevenue) }}</div>
@@ -245,7 +245,7 @@ onMounted(load)
                     </template>
                     <span v-else class="muted" title="No offtake agreement — all revenue is speculative">—</span>
                   </td>
-                  <td class="num">
+                  <td class="num" data-label="IRR">
                     <span v-if="p.financials.irr != null" class="irr">{{ pct(p.financials.irr) }}</span>
                     <span v-else class="muted">—</span>
                     <div v-if="p.financials.agreementCount > 0" class="muted small">
@@ -257,8 +257,8 @@ onMounted(load)
                       </template>
                     </div>
                   </td>
-                  <td class="num">{{ p.financials.fundingGap != null ? peso(p.financials.fundingGap) : '—' }}</td>
-                  <td class="num">
+                  <td class="num" data-label="Funding gap">{{ p.financials.fundingGap != null ? peso(p.financials.fundingGap) : '—' }}</td>
+                  <td class="num" data-label="Docs">
                     <button
                       v-if="documentCount(p)"
                       class="link-btn"
@@ -268,7 +268,7 @@ onMounted(load)
                     </button>
                     <span v-else class="muted">—</span>
                   </td>
-                  <td class="num">
+                  <td class="num" data-label="Financials">
                     <button class="link-btn" @click="detail = p">Financials</button>
                   </td>
                 </tr>
