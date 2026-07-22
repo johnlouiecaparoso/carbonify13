@@ -242,6 +242,32 @@
                             placeholder="Office address"
                           />
                         </div>
+                        <!-- Jurisdiction. For an LGU this is not decoration: it
+                             scopes which projects they see and may endorse. -->
+                        <div class="form-group">
+                          <label class="form-label">Municipality / City</label>
+                          <input
+                            v-model="editForm.municipality"
+                            type="text"
+                            class="form-input"
+                            :disabled="!isEditing"
+                            placeholder="e.g., Cabanatuan City"
+                          />
+                          <small class="field-hint">
+                            LGU accounts: this is your jurisdiction. It determines which projects
+                            appear in your dashboard and which you are allowed to endorse.
+                          </small>
+                        </div>
+                        <div class="form-group">
+                          <label class="form-label">Province</label>
+                          <input
+                            v-model="editForm.province"
+                            type="text"
+                            class="form-input"
+                            :disabled="!isEditing"
+                            placeholder="e.g., Nueva Ecija"
+                          />
+                        </div>
                       </template>
                     </div>
 
@@ -429,6 +455,9 @@ export default {
         organization_name: '',
         organization_type: '',
         organization_address: '',
+        // LGU jurisdiction — scopes which projects they see and may endorse.
+        municipality: '',
+        province: '',
       },
       organizationTypes: [
         'Municipal LGU',
@@ -971,6 +1000,8 @@ export default {
         organization_name: profile.organization_name || '',
         organization_type: profile.organization_type || '',
         organization_address: profile.organization_address || '',
+        municipality: profile.municipality || '',
+        province: profile.province || '',
       }
     },
 
