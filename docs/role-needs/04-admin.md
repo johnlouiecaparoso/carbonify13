@@ -40,30 +40,35 @@
 | 8 | "**Broadcast announcements** / system notifications to users." | 🟡 | Communicate outages, policy changes. | Add **admin broadcast** + banner. | 🟢 | S |
 | 9 | "Better **audit log**: search, filter, export, and money/security events." | ✅ | Investigations + audits. | Search and filters existed; **CSV export added**, exporting the filtered set rather than the whole table. Project verification decisions were also writing **no audit rows at all** until `20260722000300` — fixed there. | — | — |
 | 10 | "**Feature flags / maintenance mode** and visibility into **backups/DR**." | ❌ | Safe operations at scale. | Add **feature flags + maintenance mode**; surface backup/DR status. | 🟢 | M |
-| 11 | "**Granular permissions / segregation of duties** (don't make every admin all‑powerful)." | 🟡 | Security best practice; multi‑admin teams. | Verifier independence shipped (`20260722000100`) with no admin exemption. Admins themselves remain all‑powerful: self role‑assignment, self KYC approval and refunds all carry no second signature. | 🟠 | M |
+| 11 | "**Granular permissions / segregation of duties** (don't make every admin all‑powerful)." | 🟡 | Security best practice; multi‑admin teams. | **Self‑dealing closed** (`20260722000900`): an admin cannot set their own KYC level or role, cannot self‑verify KYB (which gates seller payouts), cannot refund a transaction they are a party to, and cannot suspend themselves. Still missing: **maker‑checker** — a second admin is not required to approve a refund or a role grant. | 🟠 | M |
 | 12 | "**Content/project oversight** beyond the verifier (takedowns, flags)." | ❌ | Final accountability for what's listed. | Add **admin project moderation** (flag/suspend a listing). | 🟢 | S |
 
 ---
 
 ## 🎯 What's left (2026-07-22)
 
-Seven of twelve items are done. What remains, in the order I would take it:
+Seven of twelve items are done, and #11 is materially advanced. What remains:
 
-1. **Segregation of duties** (#11, 🟠) — the sharpest remaining risk. Verifier
-   independence is enforced by trigger, and an admin can no longer suspend
-   themselves, but an admin can still assign themselves any role, approve their
-   own KYC and issue refunds with no second signature anywhere on the money path.
+1. **AML screening** (the other half of #6, 🔴) — KYC/KYB capture identity but
+   nothing screens against sanctions or PEP lists. The last 🔴 on this page.
 2. **Fraud / risk signals** (#5, 🟠) — velocity caps and oversell guards already
    fire server-side; nothing surfaces them as alerts for a human to look at.
-3. **AML screening** (the other half of #6, 🔴) — KYC/KYB capture identity but
-   nothing screens against sanctions or PEP lists.
+3. **Maker-checker** (the rest of #11, 🟠) — self-dealing is now blocked, but a
+   single admin can still act alone on a refund or a role grant. Needs proposal
+   and approval records, plus a decision about what a **single-admin deployment**
+   does: a two-person rule that cannot be satisfied is an outage, not a control.
 4. **Report builder** (the rest of #3, 🟠) — CSV export exists; date-ranged
    issuance/retirement roll-ups do not.
 5. **Impersonation + bulk role ops** (the rest of #4), **broadcast** (#8),
    **feature flags / maintenance mode** (#10) and **project moderation** (#12).
 
-**Still unverified at runtime.** `20260722000700` (DPA admin RPC) and
-`20260722000800` (suspension) have not been exercised against a live database.
-Suspension in particular has eight listed checks in its migration header — the
-one most worth running is that a suspended user can still download a retirement
-certificate, since that is the whole design.
+**Still unverified at runtime.** `20260722000700` (DPA admin RPC),
+`20260722000800` (suspension) and `20260722000900` (segregation of duties) have
+not been exercised against a live database.
+
+Two checks matter most:
+* a suspended user can still download a retirement certificate — that separation
+  is the entire design of suspension;
+* an admin editing their own **display name** still succeeds. The SoD guard
+  compares against current values precisely so that keeps working, and it is the
+  case most likely to be broken by a careless change to it.
