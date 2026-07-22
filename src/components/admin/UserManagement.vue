@@ -104,13 +104,18 @@
         <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
           <div class="modal-content" @click.stop>
             <h3>Edit User</h3>
+            <p v-if="editingSelf" class="self-edit-note">
+              This is your own account. You can change your name, but not your own role,
+              KYC level or business verification — KYB gates seller payouts, so those
+              need a different administrator.
+            </p>
             <div v-if="selectedUser" class="form-group">
               <label for="um-full-name">Full Name</label>
               <input id="um-full-name" v-model="selectedUser.full_name" type="text" />
             </div>
             <div v-if="selectedUser" class="form-group">
               <label for="um-role">Role</label>
-              <select id="um-role" v-model="selectedUser.role">
+              <select id="um-role" v-model="selectedUser.role" :disabled="editingSelf">
                 <option value="general_user">General User</option>
                 <option value="buyer_investor">Buyer/Investor</option>
                 <option value="project_developer">Project Developer</option>
@@ -121,7 +126,7 @@
             </div>
             <div v-if="selectedUser" class="form-group">
               <label for="um-kyc">KYC Level</label>
-              <select id="um-kyc" v-model.number="selectedUser.kyc_level">
+              <select id="um-kyc" v-model.number="selectedUser.kyc_level" :disabled="editingSelf">
                 <option v-for="t in KYC_LEVELS" :key="t.level" :value="t.level">
                   {{ t.level }} — {{ t.label }}
                 </option>
@@ -134,7 +139,12 @@
             <div v-if="selectedUser" class="form-group">
               <span class="field-caption">Business Verification (KYB)</span>
               <label class="kyb-toggle">
-                <input v-model="selectedUser.kyb_verified" type="checkbox" class="kyb-switch-input" />
+                <input
+                  v-model="selectedUser.kyb_verified"
+                  type="checkbox"
+                  class="kyb-switch-input"
+                  :disabled="editingSelf && !selectedUser.kyb_verified"
+                />
                 <span class="kyb-switch" aria-hidden="true"></span>
                 <span class="kyb-toggle-text">
                   {{ selectedUser.kyb_verified ? 'Verified' : 'Not verified' }}
@@ -216,6 +226,7 @@ import { getSupabase } from '@/services/supabaseClient'
 import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
 import { adminSetKybVerified } from '@/services/kybService'
 import { setUserSuspended, isSuspendedProfile } from '@/services/roleService'
+import { useUserStore } from '@/store/userStore'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 
@@ -255,6 +266,19 @@ const filteredUsers = computed(() => {
 
   return filtered
 })
+
+const userStore = useUserStore()
+const currentUserId = computed(() => userStore.session?.user?.id || userStore.profile?.id || null)
+/**
+ * True when the row being edited is the signed-in admin.
+ *
+ * Segregation of duties (20260722000900): an admin may not grant themselves
+ * privilege. The database refuses it; disabling the fields here means they see
+ * why before trying rather than after.
+ */
+const editingSelf = computed(
+  () => !!selectedUser.value && selectedUser.value.id === currentUserId.value,
+)
 
 const showSuspendModal = ref(false)
 const suspendTarget = ref(null)
@@ -790,5 +814,16 @@ th {
 .btn-danger:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.self-edit-note {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 </style>
