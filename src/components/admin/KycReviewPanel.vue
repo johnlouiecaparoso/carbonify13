@@ -53,6 +53,25 @@
               <div v-if="app.review_notes" class="review-notes">Notes: {{ app.review_notes }}</div>
             </div>
 
+            <!-- AML screening at the point of review. Approving identity without
+                 ever checking a sanctions list is the gap this closes, and the
+                 recorded 'clear' is the evidence an examiner asks for. -->
+            <div v-if="app.status === 'pending'" class="aml-row">
+              <button
+                class="btn btn-sm btn-outline"
+                :disabled="screeningId === app.id"
+                @click="runScreening(app)"
+              >
+                {{ screeningId === app.id ? 'Screening…' : 'Run AML screening' }}
+              </button>
+              <span v-if="screeningResult[app.id]" class="aml-result" :class="screeningResult[app.id].status">
+                {{ amlLabel(screeningResult[app.id]) }}
+              </span>
+              <router-link v-if="screeningResult[app.id]?.status === 'potential_match'" to="/admin/aml" class="aml-link">
+                Review in AML queue
+              </router-link>
+            </div>
+
             <div v-if="app.status === 'pending'" class="app-actions">
               <input
                 v-model="notesById[app.id]"
@@ -107,6 +126,38 @@ function formatDate(d) {
 function setMessage(text, err = false) {
   message.value = text
   isError.value = err
+}
+
+const screeningId = ref(null)
+const screeningResult = ref({})
+
+function amlLabel(result) {
+  if (!result) return ''
+  if (result.status === 'clear') return 'Screened — no match'
+  if (result.status === 'potential_match') return `${result.match_count} potential match(es)`
+  return result.status.replace(/_/g, ' ')
+}
+
+async function runScreening(app) {
+  screeningId.value = app.id
+  try {
+    const { screenAndRecord } = await import('@/services/amlService')
+    // Screen the name ON THE APPLICATION, not the profile: the application is
+    // what is being verified, and the two can differ.
+    const result = await screenAndRecord({
+      userId: app.user_id,
+      name: app.full_name || '',
+      kycApplicationId: app.id,
+    })
+    screeningResult.value = { ...screeningResult.value, [app.id]: result }
+    if (result.status === 'potential_match') {
+      setMessage('Potential sanctions/PEP match — review before approving.', true)
+    }
+  } catch (err) {
+    setMessage(err.message || 'Screening failed.', true)
+  } finally {
+    screeningId.value = null
+  }
 }
 
 async function load() {
@@ -363,5 +414,34 @@ load()
   .container { padding: 0 1rem; }
   .app-card { flex-direction: column; }
   .app-actions { min-width: 0; }
+}
+
+.aml-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.aml-result {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+.aml-result.clear {
+  background: #dcfce7;
+  color: #166534;
+}
+.aml-result.potential_match {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.aml-link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #b91c1c;
 }
 </style>

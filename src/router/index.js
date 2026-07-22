@@ -393,6 +393,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/admin/aml',
+      name: 'admin-aml',
+      component: () => import('@/views/AdminAmlView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
       path: '/verifier',
       name: 'verifier',
       component: () => import('@/views/VerifierPanel.vue'),
