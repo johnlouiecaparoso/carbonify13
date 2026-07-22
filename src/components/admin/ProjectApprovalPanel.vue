@@ -94,13 +94,56 @@
     <!-- Projects List -->
     <div v-else class="projects-layout">
       <aside class="project-list">
-        <button
+        <!-- Bulk triage. Validate/reject are deliberately absent — see the
+             comment on selectedIds. -->
+        <div class="bulk-bar">
+          <label class="bulk-select-all">
+            <input
+              type="checkbox"
+              :checked="allVisibleSelected"
+              :disabled="!displayedProjects.length"
+              @change="toggleSelectAll"
+            />
+            <span>{{ selectedCount ? `${selectedCount} selected` : 'Select all' }}</span>
+          </label>
+
+          <div v-if="selectedCount" class="bulk-actions">
+            <select v-model="bulkAssignee" class="assign-select" :disabled="bulkBusy">
+              <option value="">Unassign</option>
+              <option v-for="v in verifiers" :key="v.id" :value="v.id">
+                {{ v.id === currentUserId ? `${v.display_name} (you)` : v.display_name }}
+              </option>
+            </select>
+            <button type="button" class="bulk-btn" :disabled="bulkBusy" @click="bulkAssign">
+              Assign
+            </button>
+            <button type="button" class="bulk-btn" :disabled="bulkBusy" @click="bulkStartReview">
+              Mark under review
+            </button>
+            <button type="button" class="bulk-btn ghost" :disabled="bulkBusy" @click="clearSelection">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div
           v-for="project in displayedProjects"
           :key="project.id"
-          type="button"
-          :class="['project-list-item', { active: project.id === activeProjectId }]"
-          @click="activeProjectId = project.id"
+          class="project-list-row"
+          :class="{ selected: selectedIds.has(project.id) }"
         >
+          <input
+            type="checkbox"
+            class="project-select"
+            :checked="selectedIds.has(project.id)"
+            :aria-label="`Select ${project.title}`"
+            @change="toggleSelected(project.id)"
+          />
+          <button
+            type="button"
+            :class="['project-list-item', { active: project.id === activeProjectId }]"
+            @click="activeProjectId = project.id"
+          >
           <span class="project-list-title">{{ project.title }}</span>
           <span class="project-list-badges">
             <span :class="['status-badge', project.status]">{{ getStatusLabel(project.status) }}</span>
@@ -127,7 +170,8 @@
               {{ verifierName(project.assigned_verifier_id) }}
             </span>
           </span>
-        </button>
+          </button>
+        </div>
       </aside>
 
       <section v-if="activeProject" class="project-detail">
@@ -659,6 +703,91 @@ const auditRows = ref([])
 const timeline = computed(() =>
   activeProject.value ? buildProjectTimeline({ project: activeProject.value, auditRows: auditRows.value }) : [],
 )
+
+/**
+ * Bulk actions (role-needs #7).
+ *
+ * Deliberately limited to ASSIGNMENT and MARK-UNDER-REVIEW. Bulk validate and
+ * bulk reject are not offered and should not be: validating mints credits and
+ * creates a marketplace listing, and this panel already requires a rubric to be
+ * assessed before one project can be validated -- doing that to twenty at once
+ * would make the rubric decorative. Rejection likewise needs a per-project
+ * reason, which is exactly what a bulk control cannot supply.
+ *
+ * What actually costs a verifier time at scale is triage, not judgement, so
+ * that is what is batched.
+ */
+const selectedIds = ref(new Set())
+const bulkBusy = ref(false)
+
+const selectedCount = computed(() => selectedIds.value.size)
+const allVisibleSelected = computed(
+  () =>
+    displayedProjects.value.length > 0 &&
+    displayedProjects.value.every((p) => selectedIds.value.has(p.id)),
+)
+
+function toggleSelected(projectId) {
+  const next = new Set(selectedIds.value)
+  if (next.has(projectId)) next.delete(projectId)
+  else next.add(projectId)
+  selectedIds.value = next
+}
+
+function toggleSelectAll() {
+  selectedIds.value = allVisibleSelected.value
+    ? new Set()
+    : new Set(displayedProjects.value.map((p) => p.id))
+}
+
+function clearSelection() {
+  selectedIds.value = new Set()
+}
+
+/** Run `fn` over the selection, reporting how many failed rather than stopping. */
+async function runBulk(fn, describe) {
+  if (!selectedCount.value || bulkBusy.value) return
+  bulkBusy.value = true
+  const ids = [...selectedIds.value]
+  const failures = []
+
+  try {
+    for (const id of ids) {
+      try {
+        await fn(id)
+      } catch (err) {
+        failures.push(`${allProjects.value.find((p) => p.id === id)?.title || id}: ${err.message}`)
+      }
+    }
+    await loadPendingProjects(true)
+    clearSelection()
+
+    if (failures.length) {
+      await showErrorPrompt({
+        title: `${describe}: ${failures.length} of ${ids.length} failed`,
+        message: failures.slice(0, 5).join('\n'),
+      })
+    } else {
+      await success({ title: describe, message: `${ids.length} project(s) updated.` })
+    }
+  } finally {
+    bulkBusy.value = false
+  }
+}
+
+const bulkAssignee = ref('')
+
+function bulkAssign() {
+  const target = bulkAssignee.value || null
+  return runBulk((id) => assignProject(id, target), target ? 'Assigned' : 'Assignment cleared')
+}
+
+function bulkStartReview() {
+  return runBulk(
+    (id) => projectApprovalService.updateProjectStatus(id, 'in_review', ''),
+    'Marked under review',
+  )
+}
 
 // Which export is running ('pdf' | 'csv' | null), so only that button shows it.
 const exporting = ref(null)
@@ -1314,6 +1443,78 @@ async function openVerificationModal(project, newStatus) {
   color: #334155;
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Bulk triage ------------------------------------------------------------- */
+.bulk-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--carbonify-border, #e5e7eb);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.bulk-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.bulk-btn {
+  border: 1px solid var(--primary-color, #069e2d);
+  background: var(--primary-color, #069e2d);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bulk-btn.ghost {
+  background: #fff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.bulk-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.project-list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.project-list-row.selected {
+  background: #ecfdf5;
+  border-radius: 10px;
+}
+
+.project-select {
+  margin-top: 0.9rem;
+  flex: 0 0 auto;
+}
+
+.project-list-row .project-list-item {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Assignment -------------------------------------------------------------- */
