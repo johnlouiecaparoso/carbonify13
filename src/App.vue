@@ -22,6 +22,18 @@ const route = useRoute()
 // Track if app has been initially loaded to prevent showing loading screen on tab switches
 const isInitialized = ref(false)
 
+// The store was previously only instantiated inside functions here; the
+// suspension banner needs it at setup scope. Safe: main.js calls app.use(pinia)
+// before app.mount, so Pinia is active by the time this setup runs, and the
+// later useUserStore() calls return this same instance.
+const userStore = useUserStore()
+
+// Suspension state. `is_active === false` only — a missing column (an
+// un-migrated database) must read as ACTIVE, or every user would see the
+// banner.
+const isSuspended = computed(() => userStore.profile?.is_active === false)
+const suspensionReason = computed(() => userStore.profile?.suspension_reason || '')
+
 const showHeader = computed(() => {
   // Don't show header on auth pages
   return !['login', 'register', 'role-application'].includes(route.name)
@@ -184,6 +196,22 @@ onMounted(async () => {
     <!-- Main App -->
     <div v-else>
       <Header v-if="showHeader" />
+
+      <!-- A suspended account is blocked at the database, so without this the
+           user would only discover their state as an unexplained failure part
+           way through a purchase. It says what still works, because the things
+           that still work are the ones they may urgently need. -->
+      <div v-if="isSuspended" class="suspension-banner" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">block</span>
+        <div>
+          <strong>Your account is suspended.</strong>
+          You cannot buy, sell, retire credits or submit projects.
+          <template v-if="suspensionReason"> Reason: {{ suspensionReason }}.</template>
+          You can still view your receipts and certificates, and export your data.
+          Contact support if you believe this is an error.
+        </div>
+      </div>
+
       <router-view />
 
       <!-- Footer -->
@@ -1274,6 +1302,32 @@ body {
     gap: 0.75rem;
     text-align: center;
     border-radius: 0 0 0.75rem 0.75rem;
+  }
+}
+
+.suspension-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: 1280px;
+  margin: 1rem auto 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.suspension-banner .material-symbols-outlined {
+  font-size: 1.2rem;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1320px) {
+  .suspension-banner {
+    margin: 1rem 1rem 0;
   }
 }
 </style>

@@ -40,6 +40,7 @@
                 <th>Role</th>
                 <th>KYC Level</th>
                 <th>Business (KYB)</th>
+                <th>Status</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -59,6 +60,18 @@
                     {{ user.kyb_verified ? 'Verified' : '—' }}
                   </span>
                 </td>
+                <td>
+                  <span
+                    class="status-badge"
+                    :class="isSuspendedProfile(user) ? 'suspended' : 'active'"
+                    :title="user.suspension_reason || ''"
+                  >
+                    {{ isSuspendedProfile(user) ? 'Suspended' : 'Active' }}
+                  </span>
+                  <div v-if="user.suspension_reason" class="suspend-reason">
+                    {{ user.suspension_reason }}
+                  </div>
+                </td>
                 <td>{{ formatDate(user.created_at) }}</td>
                 <td>
                   <button
@@ -67,6 +80,19 @@
                     title="Edit User"
                   >
                     <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                  </button>
+                  <!-- Suspension blocks transacting only; the user keeps access
+                       to their receipts, certificates and data export. -->
+                  <button
+                    class="action-btn"
+                    :class="isSuspendedProfile(user) ? 'reactivate-btn' : 'suspend-btn'"
+                    :disabled="busyUserId === user.id"
+                    :title="isSuspendedProfile(user) ? 'Reactivate account' : 'Suspend account'"
+                    @click="openSuspendModal(user)"
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">
+                      {{ isSuspendedProfile(user) ? 'lock_open' : 'block' }}
+                    </span>
                   </button>
                 </td>
               </tr>
@@ -140,6 +166,47 @@
       @cancel="handleCancel"
       @close="handleClose"
     />
+
+    <!-- Suspend / reactivate -->
+    <div v-if="showSuspendModal" class="modal-overlay" @click.self="closeSuspendModal">
+      <div class="modal">
+        <h3>{{ suspendTarget && isSuspendedProfile(suspendTarget) ? 'Reactivate account' : 'Suspend account' }}</h3>
+        <p class="modal-sub">{{ suspendTarget?.full_name || suspendTarget?.email }}</p>
+
+        <template v-if="suspendTarget && !isSuspendedProfile(suspendTarget)">
+          <p class="modal-note">
+            They will be blocked from buying, selling, retiring credits and submitting
+            projects. They keep access to their receipts, certificates and data export —
+            a retirement certificate is ESG evidence and must not disappear because of a
+            platform sanction.
+          </p>
+          <label class="modal-label" for="suspend-reason">Reason (required)</label>
+          <textarea
+            id="suspend-reason"
+            v-model="suspendReason"
+            class="modal-input"
+            rows="3"
+            placeholder="Why is this account being suspended?"
+          ></textarea>
+        </template>
+        <p v-else class="modal-note">
+          This restores their ability to transact. The suspension reason on record is cleared.
+        </p>
+
+        <p v-if="suspendError" class="modal-error">{{ suspendError }}</p>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" :disabled="busyUserId" @click="closeSuspendModal">Cancel</button>
+          <button
+            class="btn-danger"
+            :disabled="busyUserId"
+            @click="confirmSuspend"
+          >
+            {{ suspendTarget && isSuspendedProfile(suspendTarget) ? 'Reactivate' : 'Suspend' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -148,6 +215,7 @@ import { ref, computed, onMounted } from 'vue'
 import { getSupabase } from '@/services/supabaseClient'
 import { KYC_LEVELS, kycLevelLabel, adminSetUserProfile } from '@/services/kycService'
 import { adminSetKybVerified } from '@/services/kybService'
+import { setUserSuspended, isSuspendedProfile } from '@/services/roleService'
 import { useModernPrompt } from '@/composables/useModernPrompt'
 import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 
@@ -187,6 +255,46 @@ const filteredUsers = computed(() => {
 
   return filtered
 })
+
+const showSuspendModal = ref(false)
+const suspendTarget = ref(null)
+const suspendReason = ref('')
+const suspendError = ref('')
+const busyUserId = ref(null)
+
+function openSuspendModal(user) {
+  suspendTarget.value = user
+  suspendReason.value = ''
+  suspendError.value = ''
+  showSuspendModal.value = true
+}
+
+function closeSuspendModal() {
+  if (busyUserId.value) return
+  showSuspendModal.value = false
+  suspendTarget.value = null
+}
+
+async function confirmSuspend() {
+  if (!suspendTarget.value) return
+  const target = suspendTarget.value
+  const suspending = !isSuspendedProfile(target)
+
+  busyUserId.value = target.id
+  suspendError.value = ''
+  try {
+    await setUserSuspended(target.id, suspending, suspendReason.value)
+    showSuspendModal.value = false
+    suspendTarget.value = null
+    await loadUsers()
+  } catch (err) {
+    // The RPC refuses self-suspension and a suspension with no reason — show
+    // those verbatim rather than a generic failure.
+    suspendError.value = err.message || 'Could not update the account status.'
+  } finally {
+    busyUserId.value = null
+  }
+}
 
 async function loadUsers() {
   try {
@@ -563,5 +671,124 @@ th {
 .error-state {
   text-align: center;
   padding: 2rem;
+}
+
+/* Suspension ------------------------------------------------------------- */
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.status-badge.active {
+  background: #dcfce7;
+  color: #166534;
+}
+.status-badge.suspended {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.suspend-reason {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: #64748b;
+  max-width: 22ch;
+}
+.action-btn.suspend-btn {
+  color: #b91c1c;
+}
+.action-btn.reactivate-btn {
+  color: #166534;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 460px;
+}
+.modal h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+.modal-sub {
+  margin: 0.2rem 0 0.75rem;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+.modal-note {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.5;
+}
+.modal-label {
+  display: block;
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+.modal-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+.modal-error {
+  margin: 0.6rem 0 0;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.83rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.btn-ghost {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-danger {
+  border: 1px solid #dc2626;
+  background: #dc2626;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-ghost:disabled,
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

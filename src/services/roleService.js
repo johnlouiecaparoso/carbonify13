@@ -344,3 +344,54 @@ export const getUserRole = roleService.getUserRole.bind(roleService)
 export const getAllRoles = roleService.getAllRoles.bind(roleService)
 export const getRoleDescription = roleService.getRoleDescription.bind(roleService)
 export const getRoleDisplayName = roleService.getRoleDisplayName.bind(roleService)
+
+/**
+ * Suspend or reactivate an account (admin only).
+ *
+ * Suspension blocks TRANSACTING, not access. A suspended user can still sign
+ * in, read their receipts, download certificates for credits they already
+ * retired, and exercise their Data Privacy Act rights — see the header of
+ * 20260722000800 for why that separation is load-bearing.
+ *
+ * The RPC is authoritative: it refuses a non-admin, refuses self-suspension,
+ * and refuses a suspension with no reason.
+ *
+ * @param {string} userId
+ * @param {boolean} suspended
+ * @param {string} [reason] - required when suspending
+ */
+export async function setUserSuspended(userId, suspended, reason = '') {
+  const supabase = getSupabase()
+  if (!supabase) throw new Error('Supabase client not available')
+  if (!userId) throw new Error('User is required')
+
+  const { data, error } = await supabase.rpc('set_user_suspended', {
+    p_user_id: userId,
+    p_suspended: !!suspended,
+    p_reason: reason || null,
+  })
+  if (error) throw new Error(error.message || 'Could not update the account status.')
+
+  logUserAction(
+    suspended ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
+    'profiles',
+    null,
+    userId,
+    { reason: reason || null },
+  ).catch(() => {})
+
+  return data
+}
+
+/**
+ * True when a profile row represents a suspended account.
+ *
+ * Treats a missing `is_active` as ACTIVE: every profile predates
+ * 20260722000800, and defaulting the other way would read every existing user
+ * as suspended on an un-migrated database.
+ *
+ * Pure — exported for unit testing.
+ */
+export function isSuspendedProfile(profile) {
+  return profile?.is_active === false
+}
