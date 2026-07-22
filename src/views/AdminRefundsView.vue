@@ -8,6 +8,7 @@ import {
 } from '@/services/disputeService'
 
 const loading = ref(true)
+const loadError = ref('')
 const activeTab = ref('transactions')
 const transactions = ref([])
 const disputes = ref([])
@@ -32,10 +33,22 @@ function disputeStatusLabel(s) {
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const [txns, disp] = await Promise.all([listRecentTransactions(100), listAllDisputes()])
-    transactions.value = txns
-    disputes.value = disp
+    // Previously Promise.all with no catch: either query throwing left the page
+    // silently empty, with no error and no indication anything had failed.
+    const [txRes, dispRes] = await Promise.allSettled([
+      listRecentTransactions(100),
+      listAllDisputes(),
+    ])
+    if (txRes.status === 'fulfilled') transactions.value = txRes.value
+    if (dispRes.status === 'fulfilled') disputes.value = dispRes.value
+
+    const failed = [
+      txRes.status === 'rejected' && 'transactions',
+      dispRes.status === 'rejected' && 'disputes',
+    ].filter(Boolean)
+    if (failed.length) loadError.value = `Could not load: ${failed.join(', ')}.`
   } finally {
     loading.value = false
   }
@@ -100,6 +113,7 @@ onMounted(load)
     </div>
 
     <p v-if="toast" class="toast">{{ toast }}</p>
+    <div v-if="loadError" class="admin-load-error">{{ loadError }}</div>
     <div v-if="loading" class="muted">Loading…</div>
 
     <!-- Transactions -->
@@ -381,5 +395,15 @@ code {
 .resolved li {
   font-size: 0.88rem;
   color: #374151;
+}
+
+.admin-load-error {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.86rem;
 }
 </style>

@@ -45,6 +45,14 @@
           <button class="btn" :disabled="loading" @click="refresh">
             {{ loading ? 'Refreshing…' : 'Refresh' }}
           </button>
+          <button
+            class="btn"
+            :disabled="loading || !transactions.length"
+            :title="`Export ${transactions.length} transaction(s) as CSV`"
+            @click="exportCsv"
+          >
+            Export CSV
+          </button>
         </div>
         <div v-if="drift.length === 0" class="recon-ok">
           ✓ Books balanced — no drift detected.
@@ -107,6 +115,7 @@ import {
   getRecentTransactions,
   getReconciliation,
 } from '@/services/adminFinanceService'
+import { exportTransactionsCsv } from '@/services/adminExportService'
 
 const loading = ref(false)
 const error = ref('')
@@ -136,18 +145,39 @@ function formatDate(value) {
   })
 }
 
+function exportCsv() {
+  exportTransactionsCsv(transactions.value)
+}
+
 async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const [s, txs, d] = await Promise.all([
+    // allSettled, not all: getReconciliation() scans for ledger drift and is the
+    // flakiest of the three. Failing it used to blank the whole console --
+    // summary, transactions and all -- leaving the platform owner with no money
+    // visibility at all rather than one empty panel.
+    const [sRes, txRes, dRes] = await Promise.allSettled([
       getFinanceSummary(),
       getRecentTransactions(50),
       getReconciliation(),
     ])
-    summary.value = s
-    transactions.value = txs
-    drift.value = d
+
+    if (sRes.status === 'fulfilled') summary.value = sRes.value
+    if (txRes.status === 'fulfilled') transactions.value = txRes.value
+    if (dRes.status === 'fulfilled') drift.value = dRes.value
+
+    const failed = [
+      sRes.status === 'rejected' && 'summary',
+      txRes.status === 'rejected' && 'transactions',
+      dRes.status === 'rejected' && 'reconciliation',
+    ].filter(Boolean)
+
+    // Name what is missing, so a partially-loaded console is never mistaken for
+    // a complete one.
+    if (failed.length) {
+      error.value = `Could not load: ${failed.join(', ')}. The rest of this page is current.`
+    }
   } catch (e) {
     error.value = e?.message || 'Failed to load finance data.'
   } finally {

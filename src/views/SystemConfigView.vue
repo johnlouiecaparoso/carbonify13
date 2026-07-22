@@ -7,6 +7,7 @@
         (e.g. the platform fee applies to new purchases).
       </p>
 
+      <div v-if="loadError" class="admin-load-error">{{ loadError }}</div>
       <div v-if="loading" class="state-card">Loading configuration…</div>
 
       <template v-else>
@@ -98,6 +99,7 @@ import {
 } from '@/services/settingsService'
 
 const loading = ref(true)
+const loadError = ref('')
 const feePercent = ref(0)
 const minKyc = ref(1)
 const kycTiers = ref([])
@@ -112,12 +114,32 @@ const factorMsg = ref(null)
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const [settings, factorRows] = await Promise.all([getAllSettings(), listMethodologyFactors()])
-    feePercent.value = Number(settings.platform_fee_percent ?? 0)
-    minKyc.value = Number(settings.min_kyc_level_to_trade ?? 1)
-    kycTiers.value = Array.isArray(settings.kyc_tiers) ? settings.kyc_tiers : []
-    factors.value = factorRows
+    // Settings and methodology factors are independent panels; a failure in one
+    // used to leave the whole config page blank with no explanation.
+    const [settingsRes, factorRes] = await Promise.allSettled([
+      getAllSettings(),
+      listMethodologyFactors(),
+    ])
+
+    if (settingsRes.status === 'fulfilled') {
+      const settings = settingsRes.value
+      feePercent.value = Number(settings.platform_fee_percent ?? 0)
+      minKyc.value = Number(settings.min_kyc_level_to_trade ?? 1)
+      kycTiers.value = Array.isArray(settings.kyc_tiers) ? settings.kyc_tiers : []
+    }
+    if (factorRes.status === 'fulfilled') factors.value = factorRes.value
+
+    const failed = [
+      settingsRes.status === 'rejected' && 'platform settings',
+      factorRes.status === 'rejected' && 'methodology factors',
+    ].filter(Boolean)
+    // Never let a blank field read as "the saved value is empty" -- saving over
+    // that would silently reset live configuration.
+    if (failed.length) {
+      loadError.value = `Could not load: ${failed.join(', ')}. Do not save those sections until this resolves.`
+    }
   } finally {
     loading.value = false
   }
@@ -312,5 +334,15 @@ onMounted(load)
   .factor-table {
     white-space: nowrap;
   }
+}
+
+.admin-load-error {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.86rem;
 }
 </style>
