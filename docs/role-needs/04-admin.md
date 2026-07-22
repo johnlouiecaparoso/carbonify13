@@ -33,7 +33,7 @@
 | 1 | "Give me **financial oversight**: transactions, revenue, fees, **payouts**, refunds, reconciliation." | ✅ | I 'oversee trading' — I'm blind to money today. | Shipped: `/admin/finance` with gross sales, fees, platform revenue, payout state, recent transactions and book‑reconciliation drift. Now loads with `allSettled`, so a failing reconciliation scan no longer blanks the whole console. | — | — |
 | 2 | "Let me **configure the system** (emission factors, methodologies, fees, KYC peso tiers) without code." | ✅ | Rules change; I shouldn't need a developer each time. | Shipped: `/admin/config` edits platform fee, minimum KYC level to trade, KYC peso tiers and methodology factors. | — | — |
 | 3 | "Generate **regulatory & business reports** (DENR/CCC, issuance, retirements, sales) and CSV exports." | 🟡 | Reporting is a core admin duty. | **CSV export shipped** for transactions and audit logs (`adminExportService`). Still missing: a **report builder** with date ranges and issuance/retirement roll‑ups. | 🟠 | M |
-| 4 | "Manage the **user lifecycle**: suspend/ban, reset, support impersonation, bulk ops." | 🟡 | Abuse handling + support. | Still roles only — there is no `is_active`, no suspend/ban, no impersonation anywhere. The single biggest remaining admin gap. | 🟠 | M |
+| 4 | "Manage the **user lifecycle**: suspend/ban, reset, support impersonation, bulk ops." | 🟡 | Abuse handling + support. | **Suspend/reactivate shipped** (`20260722000800`), enforced at the database: blocked at `assert_can_trade`, on retirement insert and on project insert. A suspended user keeps receipts, certificates and DPA rights — a retirement certificate is ESG evidence and a sanction must not destroy it. Still missing: **support impersonation** and **bulk role ops**. | 🟢 | M |
 | 5 | "Give me a **fraud/risk dashboard** with anomaly alerts." | ❌ | Protect market integrity. | Add **risk signals + alerts** (velocity, oversell attempts, suspicious KYC). | 🟠 | M |
 | 6 | "Compliance tooling: **AML screening results, DPA data requests (export/delete), data‑retention**." | 🟡 | Legal obligation (AMLA, Data Privacy Act). | **DPA half shipped**: `/admin/privacy` lists every data‑subject request with requester, age and an over‑30‑days flag, and `process_data_subject_request` moves one through triage (rejection requires a reason). It deliberately does **not** erase — the `account-deletion` worker holds the service role behind a shared secret a browser must never carry. Still missing: **AML screening**. | 🔴 | M |
 | 7 | "A **dispute‑resolution console** for buyer/seller issues + refunds." | ✅ | I'm the escalation point. | Shipped: `/admin/refunds` lists transactions and disputes with a refund RPC. Now degrades per‑panel instead of failing silently with no error at all. | — | — |
@@ -47,22 +47,23 @@
 
 ## 🎯 What's left (2026-07-22)
 
-Six of twelve items are done. What remains, in the order I would take it:
+Seven of twelve items are done. What remains, in the order I would take it:
 
-1. **Suspend / ban / reactivate** (#4, 🟠) — the only abuse-handling tool an
-   operator has today is changing someone's role. Needs an `is_active` column,
-   guards across the auth path, and a decision about what a suspended user can
-   still see (their own receipts? a retired certificate?).
-2. **Segregation of duties** (#11, 🟠) — verifier independence now exists
-   (nobody validates a project they own, enforced by trigger), but an admin can
-   still assign themselves any role, approve their own KYC and issue refunds with
-   no second signature anywhere on the money path.
-3. **Fraud / risk signals** (#5, 🟠) — velocity caps and oversell guards already
+1. **Segregation of duties** (#11, 🟠) — the sharpest remaining risk. Verifier
+   independence is enforced by trigger, and an admin can no longer suspend
+   themselves, but an admin can still assign themselves any role, approve their
+   own KYC and issue refunds with no second signature anywhere on the money path.
+2. **Fraud / risk signals** (#5, 🟠) — velocity caps and oversell guards already
    fire server-side; nothing surfaces them as alerts for a human to look at.
-4. **AML screening** (the other half of #6, 🔴) — KYC/KYB capture identity but
+3. **AML screening** (the other half of #6, 🔴) — KYC/KYB capture identity but
    nothing screens against sanctions or PEP lists.
-5. **Broadcast** (#8), **feature flags / maintenance mode** (#10) and **project
-   moderation** (#12) — all still unbuilt, all 🟢.
+4. **Report builder** (the rest of #3, 🟠) — CSV export exists; date-ranged
+   issuance/retirement roll-ups do not.
+5. **Impersonation + bulk role ops** (the rest of #4), **broadcast** (#8),
+   **feature flags / maintenance mode** (#10) and **project moderation** (#12).
 
-**Still unverified at runtime.** `20260722000700` (the DPA admin RPC) has not been
-applied or exercised against a live database.
+**Still unverified at runtime.** `20260722000700` (DPA admin RPC) and
+`20260722000800` (suspension) have not been exercised against a live database.
+Suspension in particular has eight listed checks in its migration header — the
+one most worth running is that a suspended user can still download a retirement
+certificate, since that is the whole design.
