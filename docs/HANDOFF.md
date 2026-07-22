@@ -1,6 +1,6 @@
 # Carbonify — Handoff (current state)
 
-> ## 📍 Where we are — verified 2026-07-20 · doc reconciliation 2026-07-21
+> ## 📍 Where we are — verified 2026-07-20 · role audit + hardening 2026-07-22
 >
 > **Feature-complete for the current product scope. The money path is hardened in code and verified against the live DB. Remaining work is mostly external, operational, or legal.**
 >
@@ -8,7 +8,36 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, ~313 tests green at the last verified checkpoint.
+> **Current build state:** build green, lint green, **543 tests green** (was ~313 before the 2026-07-22 pass).
+>
+> ### 🆕 2026-07-22 — all five roles audited end to end
+>
+> Every role was walked against its own `docs/role-needs/` page. **Two findings
+> repeated for all five:** the requirements doc badly understated what had already
+> shipped, and each role carried exactly one structural bug that undercut its
+> premise.
+>
+> | Role | Structural bug found | Status |
+> |---|---|---|
+> | Developer | Progress tracker frozen at stage 3 of 5 — it was never passed issuance/listing state | fixed |
+> | Verifier | The **Submitted** queue tab hid every first-time submission (tab matched `'submitted'`, create paths write `'pending'`) | fixed |
+> | LGU | Endorsements were **unscoped nationwide** — nothing recorded which municipality an LGU governs | fixed |
+> | Buyer | Permanent credit retirement had **no confirmation step** | fixed |
+> | Admin | DPA request queue had an index, RLS and a worker — but **no reader** | fixed |
+>
+> Security posture moved substantially, all enforced **at the database** rather
+> than in the UI: verifier independence, endorsement jurisdiction, account
+> suspension, admin segregation of duties, and AML screening.
+>
+> Also fixed along the way: project verification decisions were writing **no audit
+> rows at all**, and every resource-scoped audit reader queried columns that do not
+> exist (`entity_type`/`entity_id`/`timestamp` vs `resource_type`/`resource_id`/
+> `created_at`).
+>
+> ⚠️ **Six migrations from this pass are listed in §0.4 — apply them before relying
+> on any of the above.** Several of these features are inert until their migration
+> runs, and two of them (LGU jurisdiction, admin SoD) are *silently* inert: the UI
+> works, the guard simply is not there.
 >
 > *2026-07-21 was a documentation-reconciliation pass only — no code, DB, or deploy change. It corrected stale "do this next" instructions that later entries in this same file had already superseded.*
 
@@ -829,6 +858,57 @@ to confirm an empty result.
 > | 26 | `20260712000000_parcel_supply_visibility.sql` | ✅ **applied (2026-07-09)** | Unblocks **plantation hectares** on the MRV dashboard. #25 made `farm_parcels` owner-private, so a developer couldn't read the area of parcels supplying them. Adds a narrow SELECT policy: a buyer may read a parcel **only** where it supplied them a delivery with `status='confirmed'` (a pending/rejected delivery grants nothing, so a farmer can't be exposed by merely logging one). Owner INSERT/UPDATE/DELETE from #25 untouched. Plus a `(parcel_id, buyer_id, status)` index. **Apply, then the MRV dashboard's “Plantation hectares” stops showing “—”.** |
 > | 25 | `20260711000000_farmer_portal.sql` | ✅ **applied (2026-07-09)** | Expansion #6. Adds `farm_parcels` (plantation register, owner-private RLS) + `farmer_deliveries` (delivery against an accepted RFQ, with proof docs, buyer confirmation, and a bookkeeping `payment_status`) + 3 SECURITY DEFINER RPCs (`record_farmer_delivery` / `confirm_farmer_delivery` / `mark_farmer_delivery_paid` — no INSERT/UPDATE policy, so a farmer can't mark their own delivery paid). Also **widens the two role gates**: `assign_user_role()` now admits `'farmer'`, `role_applications.role_requested` CHECK now admits `'farmer'`, and `notify_role_application_trigger()` routes farmer applications to admins. **Apply, then run the click-through in the header note.** |
 > | 23 | `20260709000000_admin_set_kyb_verified.sql` | ✅ **applied (2026-07-08)** | Adds `admin_set_kyb_verified(uuid, boolean)` (is_admin-gated) so an admin can manually verify a business from **User Management** — clears the "Business verification required" gate for a developer who never filed a KYB application (previously only `review_kyb_application` could set `kyb_verified`, and only against an existing application). Also revokes client `update(kyb_verified)` so users can't self-verify. **Apply, then: Admin → User Management → edit a user → tick "Business verified (KYB)" → Save → that account's Sell-Feedstock gate disappears.** |
+
+---
+
+### 0.4 🆕 2026-07-22 — role audit + hardening migrations (NOT yet applied)
+
+Apply in order. All additive and idempotent, each with its own `AFTER APPLYING,
+TEST` checklist and a rollback block in its header.
+
+| # | Migration | Purpose | Inert until applied? |
+|---|---|---|---|
+| 1 | `20260721000400_seller_listing_management.sql` | `update_my_listing` RPC — sellers set price / quantity / pause. Clamps quantity to the pool so a raised listing cannot fail *after* the buyer pays. | Manage-listing errors |
+| 2 | `20260722000100_verifier_independence_guard.sql` | Nobody may validate a project they own, or approve VERs against it. | ⚠️ **Silently** — UI works, guard absent |
+| 3 | `20260722000200_verifier_queue_assignment.sql` | `assigned_verifier_id` + `list_verifiers()`. | Assignment picker errors |
+| 4 | `20260722000300_verification_timeline.sql` | Lets verifiers read **project-scoped** audit rows (payments/auth stay admin-only). | Timeline shows only its spine |
+| 5 | `20260722000400_evidence_integrity.sql` | EXIF capture time + GPS + SHA-256 hash on MRV evidence; duplicate detection. | Degrades gracefully — upload still works |
+| 6 | `20260722000500_lgu_jurisdiction.sql` | `profiles.municipality` + endorsement jurisdiction trigger. | ⚠️ **Silently** — every LGU still sees every project nationwide |
+| 7 | `20260722000600_lgu_record_evidence.sql` | Attachments on LGU emissions records. | Degrades gracefully |
+| 8 | `20260722000700_dpa_admin_queue.sql` | `process_data_subject_request` — the DPA queue's missing action path. | `/admin/privacy` lists, actions error |
+| 9 | `20260722000800_account_suspension.sql` | `profiles.is_active` + suspension guards at `assert_can_trade`, retirement and project insert. | Suspend button errors |
+| 10 | `20260722000900_admin_segregation_of_duties.sql` | No self-granted KYC level, role, KYB verification, or refund on your own transaction. | ⚠️ **Silently** — self-dealing stays possible |
+| 11 | `20260722001000_aml_screening.sql` | `aml_watchlist_entries` + `aml_screenings` + record/review RPCs. | `/admin/aml` errors |
+
+**Verify all eleven in one query** (each row should read `true`):
+
+```sql
+select 'update_my_listing'            as check, exists(select 1 from pg_proc where proname='update_my_listing') as ok
+union all select 'verifier independence', exists(select 1 from pg_trigger where tgname='trg_guard_project_self_validation')
+union all select 'queue assignment',      exists(select 1 from information_schema.columns where table_name='projects' and column_name='assigned_verifier_id')
+union all select 'timeline policy',       exists(select 1 from pg_policies where tablename='audit_logs' and policyname like 'Verifiers%')
+union all select 'evidence integrity',    exists(select 1 from information_schema.columns where table_name='monitoring_evidence' and column_name='content_hash')
+union all select 'lgu jurisdiction',      exists(select 1 from information_schema.columns where table_name='profiles' and column_name='municipality')
+union all select 'lgu evidence',          exists(select 1 from information_schema.columns where table_name='lgu_emissions_records' and column_name='documents')
+union all select 'dpa admin rpc',         exists(select 1 from pg_proc where proname='process_data_subject_request')
+union all select 'suspension',            exists(select 1 from information_schema.columns where table_name='profiles' and column_name='is_active')
+union all select 'admin sod',             exists(select 1 from pg_proc where proname='admin_set_kyb_verified')
+union all select 'aml screening',         exists(select 1 from information_schema.columns where table_name='aml_screenings' and column_name='status');
+```
+
+> The Supabase SQL editor shows **only the last statement's result** when several
+> are pasted together. Run the union above as one statement, or check each
+> separately — a single-row result is not confirmation that the others passed.
+
+**The two runtime checks that matter most**, because each is the whole point of
+its feature and the thing a careless change would break:
+
+1. A **suspended user can still download a retirement certificate.** Suspension
+   blocks transacting, never access to your own records — a retirement
+   certificate is ESG evidence and a platform sanction must not destroy it.
+2. An **admin editing their own display name still succeeds.** The SoD guard
+   compares against *current* values precisely so this keeps working; the admin
+   UI submits the whole form every time.
 
 ---
 

@@ -9,7 +9,7 @@
 
 | Layer | State |
 |---|---|
-| Unit tests | ✅ ~313 passing (Vitest) — pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. 47 cover the farmer service. |
+| Unit tests | ✅ **543 passing** (Vitest) — pure math: fees, VAT, reconciliation logic, farmer/investor/MRV aggregation. The 2026-07-22 role audit added ~200, covering the VER calculation breakdown, EXIF/evidence integrity, LGU jurisdiction matching, AML name screening, admin segregation of duties and the verification timeline. |
 | Live-DB security verification | ✅ done 2026-07-20 — RLS lockdown + money-table policies verified; `reconcile_financials()` = 0. |
 | Integration tests (RPC/RLS on a real DB) | ❌ none automated — RLS/grants are checked by hand (as we did today). |
 | End-to-end (Playwright) | 🟡 present but **not required in CI**, not run on a seeded backend. |

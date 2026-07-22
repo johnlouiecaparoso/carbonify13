@@ -35,7 +35,7 @@
 | 3 | "Generate **regulatory & business reports** (DENR/CCC, issuance, retirements, sales) and CSV exports." | 🟡 | Reporting is a core admin duty. | **CSV export shipped** for transactions and audit logs (`adminExportService`). Still missing: a **report builder** with date ranges and issuance/retirement roll‑ups. | 🟠 | M |
 | 4 | "Manage the **user lifecycle**: suspend/ban, reset, support impersonation, bulk ops." | 🟡 | Abuse handling + support. | **Suspend/reactivate shipped** (`20260722000800`), enforced at the database: blocked at `assert_can_trade`, on retirement insert and on project insert. A suspended user keeps receipts, certificates and DPA rights — a retirement certificate is ESG evidence and a sanction must not destroy it. Still missing: **support impersonation** and **bulk role ops**. | 🟢 | M |
 | 5 | "Give me a **fraud/risk dashboard** with anomaly alerts." | ❌ | Protect market integrity. | Add **risk signals + alerts** (velocity, oversell attempts, suspicious KYC). | 🟠 | M |
-| 6 | "Compliance tooling: **AML screening results, DPA data requests (export/delete), data‑retention**." | 🟡 | Legal obligation (AMLA, Data Privacy Act). | **DPA half shipped**: `/admin/privacy` lists every data‑subject request with requester, age and an over‑30‑days flag, and `process_data_subject_request` moves one through triage (rejection requires a reason). It deliberately does **not** erase — the `account-deletion` worker holds the service role behind a shared secret a browser must never carry. Still missing: **AML screening**. | 🔴 | M |
+| 6 | "Compliance tooling: **AML screening results, DPA data requests (export/delete), data‑retention**." | ✅ | Legal obligation (AMLA, Data Privacy Act). | **DPA**: `/admin/privacy` triages every data‑subject request; it deliberately does not erase (the `account-deletion` worker holds the service role behind a shared secret). **AML**: `/admin/aml` screens against a local sanctions/PEP watchlist at KYC review and retains the evidence — including a recorded *clear*, which is the half usually skipped. Screening rows are admin‑only to **read**, since telling a subject they matched is tipping off. ⚠️ Not a commercial provider: `list_source`/`list_version` exist so one can be adopted without losing the trail. | — | — |
 | 7 | "A **dispute‑resolution console** for buyer/seller issues + refunds." | ✅ | I'm the escalation point. | Shipped: `/admin/refunds` lists transactions and disputes with a refund RPC. Now degrades per‑panel instead of failing silently with no error at all. | — | — |
 | 8 | "**Broadcast announcements** / system notifications to users." | 🟡 | Communicate outages, policy changes. | Add **admin broadcast** + banner. | 🟢 | S |
 | 9 | "Better **audit log**: search, filter, export, and money/security events." | ✅ | Investigations + audits. | Search and filters existed; **CSV export added**, exporting the filtered set rather than the whole table. Project verification decisions were also writing **no audit rows at all** until `20260722000300` — fixed there. | — | — |
@@ -47,28 +47,25 @@
 
 ## 🎯 What's left (2026-07-22)
 
-Seven of twelve items are done, and #11 is materially advanced. What remains:
+Eight of twelve items are done, and #11 is materially advanced. Nothing red
+remains. What is left:
 
-1. **AML screening** (the other half of #6, 🔴) — KYC/KYB capture identity but
-   nothing screens against sanctions or PEP lists. The last 🔴 on this page.
-2. **Fraud / risk signals** (#5, 🟠) — velocity caps and oversell guards already
-   fire server-side; nothing surfaces them as alerts for a human to look at.
-3. **Maker-checker** (the rest of #11, 🟠) — self-dealing is now blocked, but a
-   single admin can still act alone on a refund or a role grant. Needs proposal
-   and approval records, plus a decision about what a **single-admin deployment**
-   does: a two-person rule that cannot be satisfied is an outage, not a control.
+1. **Fraud / risk signals** (#5, 🟠) — velocity caps and oversell guards already
+   fire server-side; nothing surfaces them as alerts for a human to look at. The
+   AML queue is now the natural home for them.
+2. **Maker-checker** (the rest of #11, 🟠) — self-dealing is blocked, but one
+   admin can still act alone on a refund or a role grant. Needs proposal and
+   approval records, plus a decision about **single-admin deployments**: a
+   two-person rule that cannot be satisfied is an outage, not a control.
+3. **A commercial AML provider** (the rest of #6) — the local watchlist is real
+   screening with a real evidence trail, but it cannot match a provider on list
+   coverage, aliases or transliteration. A **commercial decision**, like the
+   registry integration on the buyer side; the seam is already built.
 4. **Report builder** (the rest of #3, 🟠) — CSV export exists; date-ranged
    issuance/retirement roll-ups do not.
 5. **Impersonation + bulk role ops** (the rest of #4), **broadcast** (#8),
    **feature flags / maintenance mode** (#10) and **project moderation** (#12).
 
-**Still unverified at runtime.** `20260722000700` (DPA admin RPC),
-`20260722000800` (suspension) and `20260722000900` (segregation of duties) have
-not been exercised against a live database.
-
-Two checks matter most:
-* a suspended user can still download a retirement certificate — that separation
-  is the entire design of suspension;
-* an admin editing their own **display name** still succeeds. The SoD guard
-  compares against current values precisely so that keeps working, and it is the
-  case most likely to be broken by a careless change to it.
+**Still unverified at runtime.** `20260722000700`–`20260722001000` have not been
+exercised against a live database. See HANDOFF.md §0.4 for the full list, the
+one-shot verification query, and the two checks that matter most.
