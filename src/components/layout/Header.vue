@@ -438,6 +438,7 @@ const profileSections = computed(() => {
       { path: '/admin/kyc', label: 'KYC Review', icon: 'badge' },
       { path: '/admin/kyb', label: 'KYB Review', icon: 'verified_user' },
       { path: '/admin/refunds', label: 'Refunds & Disputes', icon: 'currency_exchange' },
+      { path: '/admin/privacy', label: 'Privacy Requests', icon: 'privacy_tip' },
       { path: '/admin/config', label: 'System Config', icon: 'tune' },
     )
   }

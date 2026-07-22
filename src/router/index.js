@@ -384,6 +384,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/admin/privacy',
+      name: 'admin-privacy-requests',
+      component: () => import('@/views/AdminPrivacyRequestsView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true,
+      },
+    },
+    {
       path: '/verifier',
       name: 'verifier',
       component: () => import('@/views/VerifierPanel.vue'),
