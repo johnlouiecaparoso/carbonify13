@@ -266,6 +266,19 @@
       :message="toast.message"
       @close="toast.show = false"
     />
+
+    <ModernPrompt
+      :is-open="promptState.isOpen"
+      :type="promptState.type"
+      :title="promptState.title"
+      :message="promptState.message"
+      :confirm-text="promptState.confirmText"
+      :cancel-text="promptState.cancelText"
+      :show-cancel="promptState.showCancel"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+      @close="handleClose"
+    />
   </div>
 </template>
 
@@ -279,9 +292,19 @@ import {
   getUserRetirementHistory,
 } from '@/services/transactionHistoryService'
 import Toast from '@/components/ui/Toast.vue'
+import { useModernPrompt } from '@/composables/useModernPrompt'
+import ModernPrompt from '@/components/ui/ModernPrompt.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
+
+const {
+  promptState,
+  confirm: confirmPrompt,
+  handleConfirm,
+  handleCancel,
+  handleClose,
+} = useModernPrompt()
 
 // Lightweight in-app toast (replaces blocking window.alert on retire).
 const toast = ref({ show: false, type: 'success', message: '' })
@@ -443,6 +466,20 @@ const loadUserCredits = async () => {
 const handleRetire = async () => {
   if (!canRetire.value) return
 
+  // Retirement is permanent: retire_credits_atomic burns the balance and issues
+  // a retirement certificate, and there is no un-retire. Every lesser
+  // destructive action in this app confirms first; the one that irreversibly
+  // consumes the asset did not.
+  const confirmed = await confirmPrompt({
+    title: 'Retire these credits permanently?',
+    message:
+      `You are retiring ${creditsToRetire.value} credit(s) from "${selectedProjectName.value}". ` +
+      'Retired credits are burned, cannot be sold or transferred, and this cannot be undone. ' +
+      'A retirement certificate will be issued in your name.',
+    confirmText: 'Retire permanently',
+  })
+  if (!confirmed) return
+
   loading.value = true
   error.value = ''
 
@@ -547,9 +584,11 @@ const generateMissingCertificates = async () => {
       console.log(`✅ Generated ${result.generated} missing certificates`)
       // Reload history to show new certificates
       await loadUserCredits()
-      alert(`Successfully generated ${result.generated} certificate(s)!`)
+      // This view already has a toast; these were the last two blocking
+      // window.alert calls in it.
+      showToast(`Generated ${result.generated} certificate(s).`, 'success')
     } else {
-      alert('All purchases already have certificates.')
+      showToast('All purchases already have certificates.', 'success')
     }
     
     if (result.errors && result.errors.length > 0) {
