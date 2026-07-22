@@ -35,6 +35,16 @@
             </option>
           </select>
           <button @click="refreshLogs" class="refresh-btn">Refresh</button>
+          <!-- Exports what is on screen, filters included: an investigation
+               usually wants the narrowed set, not the whole table. -->
+          <button
+            class="refresh-btn"
+            :disabled="!filteredLogs.length"
+            :title="`Export ${filteredLogs.length} row(s) as CSV`"
+            @click="exportCsv"
+          >
+            Export CSV
+          </button>
         </div>
 
         <!-- Logs Table -->
@@ -79,6 +89,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { searchAuditLogs } from '@/services/auditService'
+import { exportAuditLogsCsv } from '@/services/adminExportService'
 
 const logs = ref([])
 const loading = ref(true)
@@ -98,6 +109,10 @@ const uniqueUsers = computed(() => {
   })
   return Array.from(userMap.values())
 })
+
+function exportCsv() {
+  exportAuditLogsCsv(filteredLogs.value)
+}
 
 const filteredLogs = computed(() => {
   let filtered = logs.value
