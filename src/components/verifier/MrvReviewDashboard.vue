@@ -44,7 +44,7 @@
                the factor that produced it asked them to certify a figure they
                could not audit. Reproduces calculate_report_vers() exactly. -->
           <h4 class="block-title">Activity Data &amp; Calculation</h4>
-          <table class="data-table" v-if="calculation.lines.length">
+          <table class="data-table stack-on-mobile" v-if="calculation.lines.length">
             <thead>
               <tr>
                 <th>Metric</th>
@@ -56,22 +56,22 @@
             </thead>
             <tbody>
               <tr v-for="(line, i) in calculation.lines" :key="i" :class="{ unmatched: !line.matched }">
-                <td>
+                <td data-label="Metric">
                   {{ line.label }}
                   <span v-if="!line.matched" class="no-factor" title="No emission factor is defined for this metric on this project type, so it contributes nothing to the total.">
                     no factor
                   </span>
                 </td>
-                <td class="num">{{ Number(line.value).toLocaleString() }}</td>
-                <td>{{ line.unit || '—' }}</td>
-                <td class="num">{{ line.matched ? `× ${line.factor}` : '—' }}</td>
-                <td class="num">{{ line.matched ? line.subtotal.toLocaleString() : '0' }}</td>
+                <td class="num" data-label="Value">{{ Number(line.value).toLocaleString() }}</td>
+                <td data-label="Unit">{{ line.unit || '—' }}</td>
+                <td class="num" data-label="Factor">{{ line.matched ? `× ${line.factor}` : '—' }}</td>
+                <td class="num" data-label="tCO2e">{{ line.matched ? line.subtotal.toLocaleString() : '0' }}</td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
                 <td colspan="4"><strong>Total</strong></td>
-                <td class="num"><strong>{{ calculation.total.toLocaleString() }}</strong></td>
+                <td class="num" data-label="tCO2e"><strong>{{ calculation.total.toLocaleString() }}</strong></td>
               </tr>
             </tfoot>
           </table>
@@ -92,20 +92,36 @@
 
           <h4 class="block-title">Evidence</h4>
           <div v-if="selected.evidence?.length" class="evidence-grid">
-            <a
-              v-for="ev in selected.evidence"
-              :key="ev.id"
-              :href="ev.file_url"
-              target="_blank"
-              rel="noopener"
-              class="evidence-item"
-            >
-              <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" />
-              <span v-else class="material-symbols-outlined file-icon">description</span>
-              <span class="evidence-caption">{{ ev.caption || 'Evidence' }}</span>
-            </a>
+            <!-- Each item carries its integrity flags: when and where the photo
+                 was taken, and whether these exact bytes have been submitted
+                 against another report. -->
+            <div v-for="ev in selected.evidence" :key="ev.id" class="evidence-cell">
+              <a :href="ev.file_url" target="_blank" rel="noopener" class="evidence-item">
+                <img v-if="isImage(ev.file_type)" :src="ev.file_url" alt="evidence" />
+                <span v-else class="material-symbols-outlined file-icon">description</span>
+                <span class="evidence-caption">{{ ev.caption || 'Evidence' }}</span>
+              </a>
+              <ul class="integrity-flags">
+                <li
+                  v-for="(flag, i) in integrityFor(ev).flags"
+                  :key="i"
+                  :class="['integrity-flag', flag.level]"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    {{ flagIcon(flag.level) }}
+                  </span>
+                  {{ flag.text }}
+                </li>
+              </ul>
+            </div>
           </div>
           <p v-else class="muted">No evidence attached.</p>
+
+          <p v-if="suspiciousEvidenceCount" class="calc-warning">
+            <span class="material-symbols-outlined" aria-hidden="true">gpp_maybe</span>
+            {{ suspiciousEvidenceCount }} evidence item(s) need a closer look — a duplicate
+            submission or a capture date outside this reporting period. Resolve before approving.
+          </p>
 
           <div v-if="selected.notes" class="dev-notes">
             <strong>Developer notes:</strong> {{ selected.notes }}
@@ -194,7 +210,9 @@ import {
   rejectReport,
   getMethodologyFactors,
   buildVerCalculation,
+  findDuplicateEvidence,
 } from '@/services/monitoringService'
+import { evidenceIntegrity } from '@/utils/imageEvidence'
 
 const {
   promptState,
@@ -224,6 +242,32 @@ const selectedProjectTitle = computed(() => {
 
 // Emission factors for the selected report's project type.
 const factors = ref([])
+
+// evidence id → other reports carrying the identical file.
+const duplicatesByEvidence = ref({})
+
+function integrityFor(evidence) {
+  return evidenceIntegrity(evidence, duplicatesByEvidence.value[evidence.id] || [], selected.value)
+}
+
+function flagIcon(level) {
+  return { ok: 'check_circle', warn: 'info', alert: 'gpp_maybe', info: 'help' }[level] || 'info'
+}
+
+const suspiciousEvidenceCount = computed(
+  () => (selected.value?.evidence || []).filter((ev) => integrityFor(ev).suspicious).length,
+)
+
+/** Look up duplicates for every hashed evidence item on the open report. */
+async function loadEvidenceDuplicates(report) {
+  const found = {}
+  for (const ev of report?.evidence || []) {
+    if (!ev.content_hash) continue
+    const dupes = await findDuplicateEvidence(ev.content_hash, report.id)
+    if (dupes.length) found[ev.id] = dupes
+  }
+  duplicatesByEvidence.value = found
+}
 
 /**
  * The platform's arithmetic, line by line. `mismatch` flags a breakdown that no
@@ -286,6 +330,8 @@ async function select(reportId) {
     reductionType.value = suggestedReductionType(category)
     // Same factors the server-side calculation joins against.
     factors.value = await getMethodologyFactors(category)
+    duplicatesByEvidence.value = {}
+    loadEvidenceDuplicates(selected.value).catch(() => {})
     notes.value = ''
   } catch (err) {
     setMessage(err.message || 'Failed to load report', true)
@@ -548,6 +594,49 @@ loadQueue()
 .calc-warning .material-symbols-outlined {
   font-size: 1.05rem;
   flex: 0 0 auto;
+}
+
+/* Evidence integrity ------------------------------------------------------ */
+.evidence-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.integrity-flags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.integrity-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.integrity-flag .material-symbols-outlined {
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.integrity-flag.ok {
+  color: #166534;
+}
+
+/* A missing geotag is an absence to weigh, not an accusation — amber, not red. */
+.integrity-flag.warn {
+  color: #92400e;
+}
+
+.integrity-flag.alert {
+  color: #b91c1c;
+  font-weight: 600;
 }
 
 .muted {

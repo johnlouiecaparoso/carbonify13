@@ -247,13 +247,66 @@ export async function saveActivityData(reportId, items = []) {
  */
 export async function addEvidence(reportId, { file_url, file_type = null, caption = '' }) {
   const supabase = client()
-  const { data, error } = await supabase
-    .from('monitoring_evidence')
-    .insert([{ report_id: reportId, file_url, file_type, caption }])
-    .select()
-    .single()
+
+  // Capture metadata + content hash at upload (20260722000400). Best-effort:
+  // integrity data supports the verifier's review, it is never a reason to lose
+  // a developer's upload, so a failure here still stores the file.
+  let integrity = {}
+  try {
+    const { analyseEvidence } = await import('@/utils/imageEvidence')
+    integrity = await analyseEvidence(file_url)
+  } catch (err) {
+    console.warn('[mrv] evidence analysis skipped:', err?.message)
+  }
+
+  const insert = async (row) =>
+    supabase.from('monitoring_evidence').insert([row]).select().single()
+
+  let { data, error } = await insert({
+    report_id: reportId,
+    file_url,
+    file_type,
+    caption,
+    ...integrity,
+  })
+
+  // Schema-drift safety, as the project services do: if the integrity columns
+  // are not applied on this DB, store the evidence without them rather than
+  // failing the upload.
+  if (error && /column .* does not exist/i.test(error.message || '')) {
+    console.warn('[mrv] integrity columns missing, storing evidence without them')
+    ;({ data, error } = await insert({ report_id: reportId, file_url, file_type, caption }))
+  }
+
   if (error) throw new Error(error.message || 'Failed to add evidence')
   return data
+}
+
+/**
+ * Other evidence rows sharing this file's exact bytes.
+ *
+ * An identical hash on a different report means the same photo is doing duty
+ * twice — the check the verifier cannot perform by eye. Excludes the row's own
+ * report so re-uploading within one report is not reported as a duplicate.
+ *
+ * Verifier/admin only in practice (mrv_evidence_all is staff-or-owner), and
+ * degrades to [] so a review screen never breaks over it.
+ */
+export async function findDuplicateEvidence(contentHash, excludeReportId = null) {
+  if (!contentHash) return []
+  const supabase = client()
+  let query = supabase
+    .from('monitoring_evidence')
+    .select('id, report_id, caption, created_at')
+    .eq('content_hash', contentHash)
+  if (excludeReportId) query = query.neq('report_id', excludeReportId)
+
+  const { data, error } = await query.limit(20)
+  if (error) {
+    console.warn('[mrv] duplicate evidence lookup unavailable:', error.message)
+    return []
+  }
+  return data || []
 }
 
 export async function deleteEvidence(evidenceId) {
