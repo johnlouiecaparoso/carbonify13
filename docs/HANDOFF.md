@@ -8,7 +8,45 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **543 tests green** (was ~313 before the 2026-07-22 pass).
+> **Current build state:** build green, lint green, **665 tests green** (was 543 after the 2026-07-22 pass, ~313 before it).
+>
+> ### 🆕 2026-07-23 — navigation moved to a sidebar; auth + role guards audited and fixed
+>
+> Two pieces of work, both on `feature-user-onboarding-ux`.
+>
+> **1. Navigation is now one grouped sidebar**, not three drifting menus. Signed-in
+> users navigate from a persistent left sidebar ([AppSidebar.vue](../src/components/layout/AppSidebar.vue));
+> the header keeps only identity + alerts (cart, bell, avatar); the avatar menu is
+> account-only. Every destination is declared once in
+> [constants/navigation.js](../src/constants/navigation.js), so a page can no longer
+> carry three different names on three surfaces (it did: "Buy credits" / "Marketplace",
+> "Saved" / "Watchlist"). The three-line menu button sits next to the logo and also
+> collapses the desktop rail; guests keep the old marketing header. The developer
+> project list now collapses to one row per project, grouped by what the developer
+> must do about each ([groupDeveloperProjects.js](../src/utils/groupDeveloperProjects.js)).
+>
+> **2. Login / register / role-guard audit — three access-control blockers fixed:**
+>
+> | Blocker | Was | Fix |
+> |---|---|---|
+> | Public marketplace unreachable | The guard's allowlist had lost `marketplace` + `project-detail`, so the signed-out header's own links bounced visitors to `/login` | Routes declare `meta.public`; a test forbids any route being neither public nor `requiresAuth` |
+> | `super_admin` locked out of the whole app | `getRoleDefaultRoute` sent them to `/admin`, the guard's `===` refused them, → **infinite redirect** | One `canonicalizeRole()` mirrors the DB's `canonicalize_notification_role()`; `super_admin` → `admin` everywhere |
+> | Non-buying roles could walk checkout | `/cart`, `/credit-portfolio`, `/watchlist`, `/sales`, `/kyc` had no role gate — only the cart *icon* was hidden | `disallowedRoles` on each, matching what the UI already claimed |
+>
+> Plus: registration now reports email-confirmation-pending and already-registered
+> instead of always "Account created, sign in"; the unapproved-specialist login gate
+> keys on `err.code` not a matched sentence and fails **open** on lookup error by
+> design; logout no longer wipes theme/language/sidebar prefs (auth keys only); a
+> parallel dead authorization path (`canAccessRoute` / `getRoutePermissions`) that
+> disagreed with the real guards was removed; and a **verifier-panel crash on every
+> mount** (`Cannot access 'auditRows' before initialization`, a TDZ hit in an
+> `immediate` watcher) was fixed — found while sweeping every role's dashboard in a
+> real browser.
+>
+> **One migration from this pass — [`20260723000100_profile_on_signup.sql`](../supabase/migrations/20260723000100_profile_on_signup.sql)
+> — is NOT yet applied** (§0.5). It guarantees every `auth.users` row gets a profile
+> via a signup trigger; until it runs, accounts created with email confirmation on
+> silently land with no profile (blank name, demoted to `general_user`).
 >
 > ### 🆕 2026-07-22 — all five roles audited end to end
 >
@@ -912,7 +950,71 @@ its feature and the thing a careless change would break:
 
 ---
 
+### 0.5 🆕 2026-07-23 — profile-on-signup (NOT yet applied)
+
+One migration. Additive, idempotent, safe to re-run; has a rollback block in its
+header.
+
+| # | Migration | Purpose | Inert until applied? |
+|---|---|---|---|
+| 1 | `20260723000100_profile_on_signup.sql` | A `security definer` trigger on `auth.users` creates the profile row **inside the signup transaction**, before any session exists — plus a backfill for accounts already missing one. | ⚠️ **Silently** — email-confirmation signups get no profile, so they load blank and demoted to `general_user` |
+
+**Why a trigger and not client code:** the profile was created from the browser
+right after `signUp()`. That only works when `signUp` returns a session; with
+email confirmation on it does not, so the client INSERT is refused by the
+`profiles` RLS policy (`auth.uid() = id`) and the error is swallowed. OAuth and
+phone signups never ran that path at all. A definer trigger is the only place
+that can hold the invariant. The trigger always writes `general_user` — trusting
+a role from signup metadata would let anyone self-register as admin — and swallows
+its own errors so a failure can never block a signup.
+
+**Verify:**
+
+```sql
+select exists(select 1 from pg_trigger where tgname = 'on_auth_user_created') as trigger_installed,
+       (select count(*) from auth.users u
+          left join public.profiles p on p.id = u.id
+         where p.id is null) as users_without_profile;  -- expect 0 after backfill
+```
+
+Then: register a brand-new email on a project with confirmation enabled → confirm
+a `profiles` row exists immediately, with the name from signup and role
+`general_user`.
+
+---
+
 ## 1. What changed
+
+### 2026-07-23 — navigation → sidebar, and a login/register/role-guard audit (branch `feature-user-onboarding-ux`)
+
+**Navigation.** Collapsed three parallel menus (top nav, avatar dropdown,
+per-dashboard link directories) into a single grouped left sidebar for signed-in
+users, sourced from one canonical destination table
+([constants/navigation.js](../src/constants/navigation.js)). The header retains
+only identity and alerts; the avatar menu is account-only; the three-line button
+next to the logo opens the mobile drawer and collapses the desktop rail (the
+sidebar's own collapse control was removed so there is one). Guests keep the
+marketing header. Developer projects collapse to grouped one-line rows
+([DeveloperProjectsDashboardView.vue](../src/views/DeveloperProjectsDashboardView.vue),
+[groupDeveloperProjects.js](../src/utils/groupDeveloperProjects.js)). Dead
+`UserDashboard.vue` / `UserProfile.vue` deleted. New: `AppSidebar` (rewritten),
+[useSidebar.js](../src/composables/useSidebar.js), [logout.js](../src/utils/logout.js).
+
+**Access control.** Fixed three blockers (public marketplace redirecting to login;
+`super_admin` infinite-redirect; non-buying roles reaching checkout) at their root
+— route `meta.public`, a shared `canonicalizeRole()` mirroring the DB, and
+`disallowedRoles` on the buying routes. Removed ~450ms of hardcoded per-navigation
+guard sleeps that waited on an already-resolved promise. Auth-form signals
+(email-confirmation-pending, already-registered) now reported honestly; the
+specialist-approval gate keys on `err.code`; storage clearing scoped to auth keys
+only; the dead `canAccessRoute`/`getRoutePermissions`/`createRoleGuard` path
+removed. Fixed a verifier-panel TDZ crash in
+[ProjectApprovalPanel.vue](../src/components/admin/ProjectApprovalPanel.vue).
+Verified every role's dashboard mounts clean in a real browser. New migration in
+§0.5. **+122 tests** (543 → 665): navigation IA, sidebar render per role, project
+grouping, route-access metadata, role canonicalization, auth-flow signals, and
+auth-storage-key scoping.
+
 
 ### 2026-07-02 — server-authoritative cutover: first live sandbox pass (bug found + fixed; commit `a881294`)
 The cutover money path was runtime-tested for the first time. It did **not** work

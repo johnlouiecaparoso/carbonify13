@@ -1,5 +1,38 @@
 # Carbonify — Release Notes
 
+## 2026-07-23 — New navigation, and access-control fixes
+
+**Headline:** signed-in users now navigate from a single grouped sidebar on the left,
+and three access-control bugs around sign-in and roles were fixed.
+
+### New navigation
+- **One sidebar for everything.** Every feature a role can use is listed in a grouped
+  left sidebar, in one place, under one name. Previously the same page could appear as
+  "Buy credits" in one menu and "Marketplace" in another. The header now carries only
+  your cart, notifications, and avatar; the avatar menu holds only account settings.
+- **Collapsible sidebar.** The three-line button beside the logo widens or narrows the
+  sidebar on desktop and opens it as a drawer on mobile.
+- **Tidier developer project list.** Projects collapse to one row each, grouped by what
+  needs your attention — "Needs your action", "In review", "Live", "Closed".
+
+### Access-control fixes
+- **The public marketplace is public again.** Browsing the marketplace and opening a
+  project link no longer forces you to sign in first.
+- **Admin accounts can sign in.** A `super_admin` account was being caught in a redirect
+  loop and could not reach the app; it now lands on the admin dashboard.
+- **Buying pages are limited to buyers.** Staff roles (admin, verifier, project developer)
+  can no longer open the cart or checkout pages that don't apply to them.
+- **Clearer sign-up and sign-in.** Registration now tells you when to check your email for
+  a confirmation link, and when an address is already registered, instead of always saying
+  "account created". Signing out no longer resets your theme or language.
+
+### For operators
+- One database migration ships with this release, `20260723000100_profile_on_signup.sql`,
+  which guarantees every new account gets a profile row. **Apply it before onboarding real
+  users** — see HANDOFF.md §0.5.
+
+---
+
 ## 2026-07-03 — Server-authoritative money path (complete & hardened)
 
 **Headline:** the entire money path now runs on the server and is locked down. Every money
