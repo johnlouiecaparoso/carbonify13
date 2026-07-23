@@ -239,10 +239,35 @@ onMounted(load)
         <router-link to="/cart" class="btn btn-info">Finish checkout</router-link>
       </section>
 
-      <!-- Loading -->
-      <div v-if="loading" class="state-card">
-        <div class="spinner" aria-hidden="true"></div>
-        <p>Loading your dashboard…</p>
+      <!-- Loading: skeletons in the real layout rather than one centred spinner.
+           The stat row and panel grid keep their final geometry, so nothing
+           jumps when the data lands, and the page reads as "filling in" instead
+           of "blank". aria-busy + the visually-hidden status line carry the same
+           message to screen readers, which cannot see a shimmer. -->
+      <div v-if="loading" class="skeleton-wrap" aria-busy="true">
+        <p class="sr-only" role="status">Loading your dashboard…</p>
+
+        <section class="stats-grid" aria-hidden="true">
+          <article v-for="n in 4" :key="`s${n}`" class="stat-card skeleton-stat">
+            <span class="skeleton skeleton-icon"></span>
+            <div class="skeleton-stat-body">
+              <span class="skeleton skeleton-line skeleton-line--value"></span>
+              <span class="skeleton skeleton-line skeleton-line--label"></span>
+            </div>
+          </article>
+        </section>
+
+        <div class="dash-grid" aria-hidden="true">
+          <section v-for="n in 4" :key="`p${n}`" class="panel">
+            <div class="panel-head">
+              <span class="skeleton skeleton-line skeleton-line--title"></span>
+              <span class="skeleton skeleton-line skeleton-line--link"></span>
+            </div>
+            <div class="skeleton-rows">
+              <span v-for="r in 3" :key="r" class="skeleton skeleton-row"></span>
+            </div>
+          </section>
+        </div>
       </div>
 
       <div v-else-if="loadError" class="state-card error">
@@ -425,37 +450,6 @@ onMounted(load)
           </section>
         </div>
 
-        <!-- Quick actions -->
-        <section class="quick-actions">
-          <router-link to="/marketplace" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
-            <span>Buy credits</span>
-          </router-link>
-          <router-link to="/retire" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">eco</span>
-            <span>Retire credits</span>
-          </router-link>
-          <router-link to="/certificates" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">verified</span>
-            <span>Certificates</span>
-          </router-link>
-          <router-link to="/orders" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">shopping_bag</span>
-            <span>My orders</span>
-          </router-link>
-          <router-link to="/receipts" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
-            <span>Receipts</span>
-          </router-link>
-          <router-link to="/carbon-calculator" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">calculate</span>
-            <span>Carbon calculator</span>
-          </router-link>
-          <router-link to="/credit-portfolio" class="quick-action">
-            <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
-            <span>Full portfolio</span>
-          </router-link>
-        </section>
       </template>
     </div>
   </div>
@@ -602,19 +596,82 @@ onMounted(load)
   background: #fef2f2;
   color: #991b1b;
 }
-.spinner {
-  width: 32px;
-  height: 32px;
-  margin: 0 auto 1rem;
-  border: 3px solid #e2e8f0;
-  border-top-color: #069e2d;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+/* Skeletons — same geometry as the real cards, so the layout never shifts. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+.skeleton {
+  display: block;
+  background: #e2e8f0;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
+}
+/* A shimmer that never stops is a vestibular trigger; hold it still instead. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+.skeleton-stat {
+  align-items: center;
+}
+.skeleton-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skeleton-stat-body {
+  flex: 1;
+}
+.skeleton-line {
+  height: 0.75rem;
+}
+.skeleton-line--value {
+  width: 55%;
+  height: 1.35rem;
+  margin-bottom: 0.5rem;
+}
+.skeleton-line--label {
+  width: 75%;
+}
+.skeleton-line--title {
+  width: 8rem;
+  height: 1rem;
+}
+.skeleton-line--link {
+  width: 4.5rem;
+}
+.skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.skeleton-row {
+  height: 2.6rem;
+  border-radius: 8px;
 }
 
 /* Stat tiles */
@@ -898,39 +955,6 @@ onMounted(load)
   margin: 0.5rem 0 0;
   font-size: 0.775rem;
   color: #94a3b8;
-}
-
-/* Quick actions */
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.75rem;
-}
-.quick-action {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1.1rem 0.75rem;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  text-decoration: none;
-  color: #374151;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-align: center;
-  transition:
-    border-color 0.15s,
-    transform 0.15s;
-}
-.quick-action:hover {
-  border-color: #069e2d;
-  color: #069e2d;
-  transform: translateY(-2px);
-}
-.quick-action .material-symbols-outlined {
-  font-size: 1.5rem;
 }
 
 @media (max-width: 640px) {

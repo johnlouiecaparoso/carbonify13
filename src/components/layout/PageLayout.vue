@@ -1,9 +1,7 @@
 <template>
+  <!-- No sidebar here: App.vue's shell renders one for every signed-in route,
+       so mounting a second one inside a page put two sidebars on screen. -->
   <div class="page-layout">
-    <!-- Sidebar -->
-    <AppSidebar />
-
-    <!-- Main Content -->
     <div class="main-content">
       <!-- Top Navigation Bar -->
       <header class="top-nav">
@@ -48,8 +46,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
-import { ROLES } from '@/constants/roles'
-import AppSidebar from './AppSidebar.vue'
+import { ROLES, getRoleDisplayName } from '@/constants/roles'
 
 const router = useRouter()
 const route = useRoute()
@@ -79,9 +76,7 @@ const userProfile = computed(() => {
 
   const sessionUser = store.session?.user
   const fallbackName =
-    sessionUser?.user_metadata?.name ||
-    sessionUser?.email?.split('@')[0] ||
-    'User'
+    sessionUser?.user_metadata?.name || sessionUser?.email?.split('@')[0] || 'User'
 
   return {
     full_name: fallbackName,
@@ -103,20 +98,13 @@ const userInitials = computed(() => {
   return 'U'
 })
 
-const userRoleDisplay = computed(() => {
-  const role = store.role || userProfile.value?.role || ROLES.GENERAL_USER
-  switch (role) {
-    case ROLES.SUPER_ADMIN:
-      return 'Super Admin'
-    case ROLES.ADMIN:
-      return 'Administrator'
-    case ROLES.VERIFIER:
-      return 'Verifier'
-    case ROLES.USER:
-    default:
-      return 'User'
-  }
-})
+// Was a hand-rolled switch on ROLES.SUPER_ADMIN and ROLES.USER — neither of
+// which exists, so both compiled to `case undefined:` and any user with an
+// undefined role was labelled "Super Admin" while the second branch was
+// unreachable. getRoleDisplayName covers every real role and canonicalizes.
+const userRoleDisplay = computed(() =>
+  getRoleDisplayName(store.role || userProfile.value?.role || ROLES.GENERAL_USER),
+)
 
 function goHome() {
   router.push('/profile')
@@ -131,8 +119,11 @@ function goHome() {
 }
 
 .main-content {
+  /* No margin-left any more — it was reserving space for a sidebar this
+     component used to render itself. The shell's sidebar is a flex sibling of
+     the page, so the page already starts where the sidebar ends. */
   flex: 1;
-  margin-left: 280px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -270,10 +261,6 @@ function goHome() {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .main-content {
-    margin-left: 0;
-  }
-
   .top-nav {
     padding: 1rem;
   }

@@ -17,7 +17,12 @@
         <div v-if="actionError" class="banner banner--error" role="alert">
           <span class="material-symbols-outlined" aria-hidden="true">error</span>
           <p>{{ actionError }}</p>
-          <button class="banner__dismiss" type="button" aria-label="Dismiss" @click="actionError = ''">
+          <button
+            class="banner__dismiss"
+            type="button"
+            aria-label="Dismiss"
+            @click="actionError = ''"
+          >
             <span class="material-symbols-outlined" aria-hidden="true">close</span>
           </button>
         </div>
@@ -35,7 +40,9 @@
             <strong>{{ reminderHeadline }}</strong>
             {{ reminderDetail }}
           </p>
-          <span class="material-symbols-outlined banner__chevron" aria-hidden="true">chevron_right</span>
+          <span class="material-symbols-outlined banner__chevron" aria-hidden="true"
+            >chevron_right</span
+          >
         </router-link>
 
         <!-- Portfolio summary. The per-status counts that used to live here are
@@ -96,8 +103,8 @@
           <span class="material-symbols-outlined empty-hero__icon" aria-hidden="true">forest</span>
           <h2 class="empty-hero__title">Submit your first carbon project</h2>
           <p class="empty-hero__text">
-            List your project, attach the required documents, and a verifier will review it.
-            Once validated, your credits go on sale in the marketplace.
+            List your project, attach the required documents, and a verifier will review it. Once
+            validated, your credits go on sale in the marketplace.
           </p>
           <button class="submit-btn" type="button" @click="goToSubmitProject">
             Submit your first project
@@ -108,189 +115,259 @@
           No projects found for this status.
         </div>
 
-        <div v-else class="project-list">
-          <article v-for="project in filteredProjects" :key="project.id" class="project-card">
-            <div class="project-card__header">
-              <div>
-                <h3 class="project-title">{{ project.title }}</h3>
-                <p class="project-meta">
-                  {{ project.category || 'Uncategorized' }} • {{ project.location || 'No location' }}
-                </p>
-              </div>
-              <span class="status-badge" :class="statusClass(project.status)">
-                {{ statusLabel(project.status) }}
-              </span>
-            </div>
+        <!-- Grouped by what the developer has to do about each project, with
+             every project collapsed to a single row until asked for. -->
+        <div v-else class="project-groups">
+          <section v-for="group in projectGroups" :key="group.key" class="project-group">
+            <button
+              v-if="group.showHeader"
+              class="group-header"
+              type="button"
+              :aria-expanded="!collapsedGroups.has(group.key)"
+              @click="toggleGroup(group.key)"
+            >
+              <span
+                class="material-symbols-outlined group-caret"
+                :class="{ open: !collapsedGroups.has(group.key) }"
+                aria-hidden="true"
+                >chevron_right</span
+              >
+              <span class="group-title">{{ group.title }}</span>
+              <span class="group-count">{{ group.items.length }}</span>
+              <span class="group-hint">{{ group.hint }}</span>
+            </button>
 
-            <!-- The tracker was previously given no issuance/trading signal, so
-                 it froze at "Verification" forever. Feed it the real ledger and
-                 listing state. -->
-            <ProjectProgressTracker
-              :project="project"
-              :credits-issued="hasIssuedCredits(project.id)"
-              :listed="hasActiveListing(project.id)"
-            />
-
-            <p class="project-description">{{ project.description || 'No description provided.' }}</p>
-
-            <!-- Credits, once a project is live. Previously a developer had to
-                 leave the dashboard entirely to learn any of this. -->
-            <dl v-if="ledgerFor(project.id)" class="credit-strip">
-              <div>
-                <dt>Issued</dt>
-                <dd>{{ num(ledgerFor(project.id).issued) }}</dd>
-              </div>
-              <div>
-                <dt>Available</dt>
-                <dd>{{ num(ledgerFor(project.id).inventory) }}</dd>
-              </div>
-              <div>
-                <dt>Sold</dt>
-                <dd>{{ num(ledgerFor(project.id).sold) }}</dd>
-              </div>
-              <div>
-                <dt>Earned</dt>
-                <dd>{{ peso(ledgerFor(project.id).soldValue) }}</dd>
-              </div>
-              <div v-if="listingFor(project.id)">
-                <dt>Listed at</dt>
-                <dd>
-                  {{ peso(listingFor(project.id).pricePerCredit) }}
+            <ul v-if="!collapsedGroups.has(group.key)" class="project-list">
+              <li v-for="project in group.items" :key="project.id" class="project-row">
+                <!-- Collapsed summary. Everything below it is the card that used
+                     to render unconditionally for every project. -->
+                <button
+                  class="row-summary"
+                  type="button"
+                  :aria-expanded="isExpanded(project)"
+                  @click="toggleProject(project)"
+                >
                   <span
-                    class="listing-pill"
-                    :class="listingFor(project.id).status"
-                  >{{ listingFor(project.id).status === 'active' ? 'On sale' : 'Paused' }}</span>
-                </dd>
-              </div>
-            </dl>
-
-            <div class="project-dates">
-              <span>Submitted: {{ formatDate(project.created_at) }}</span>
-              <span v-if="project.verified_at">Reviewed: {{ formatDate(project.verified_at) }}</span>
-            </div>
-
-            <div v-if="project.status === 'rejected'" class="notes-box rejected-note">
-              <h4>Rejection Reason</h4>
-              <p>{{ project.verification_notes || 'No rejection note was provided by verifier.' }}</p>
-            </div>
-
-            <div v-else-if="project.status === 'needs_revision'" class="notes-box revision-note">
-              <h4>Revisions Requested</h4>
-              <p>{{ project.verification_notes || 'The verifier asked for changes — see the conversation below.' }}</p>
-              <div class="revision-actions">
-                <button class="resubmit-btn" type="button" @click="goToEdit(project)">
-                  Edit details
+                    class="material-symbols-outlined row-caret"
+                    :class="{ open: isExpanded(project) }"
+                    aria-hidden="true"
+                    >chevron_right</span
+                  >
+                  <span class="row-body">
+                    <span class="row-title">{{ project.title }}</span>
+                    <span class="row-meta">
+                      {{ project.category || 'Uncategorized' }} •
+                      {{ project.location || 'No location' }}
+                    </span>
+                  </span>
+                  <span v-if="rowSignal(project)" class="row-signal">{{ rowSignal(project) }}</span>
+                  <span class="status-badge" :class="statusClass(project.status)">
+                    {{ statusLabel(project.status) }}
+                  </span>
                 </button>
-                <button
-                  class="resubmit-btn primary"
-                  type="button"
-                  :disabled="resubmittingId === project.id"
-                  @click="resubmit(project)"
-                >
-                  {{ resubmittingId === project.id ? 'Resubmitting…' : 'Resubmit for review' }}
-                </button>
-                <button
-                  class="resubmit-btn danger"
-                  type="button"
-                  :disabled="deletingId === project.id"
-                  @click="removeProject(project)"
-                >
-                  {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
-                </button>
-              </div>
-            </div>
 
-            <div
-              v-else-if="['approved', 'validated'].includes(project.status) && project.verification_notes"
-              class="notes-box approved-note"
-            >
-              <h4>Verifier Notes</h4>
-              <p>{{ project.verification_notes }}</p>
-            </div>
+                <article v-if="isExpanded(project)" class="project-card">
+                  <!-- The tracker was previously given no issuance/trading signal,
+                       so it froze at "Verification" forever. Feed it the real
+                       ledger and listing state. -->
+                  <ProjectProgressTracker
+                    :project="project"
+                    :credits-issued="hasIssuedCredits(project.id)"
+                    :listed="hasActiveListing(project.id)"
+                  />
 
-            <!-- A draft has not been submitted to anyone yet, so it gets its own
-                 explanation and the action that moves it into the queue. -->
-            <div v-if="project.status === 'draft'" class="notes-box draft-note">
-              <h4>Not submitted yet</h4>
-              <p>
-                This draft is visible only to you. Submitting it sends it to a verifier
-                for review — all required documents must be attached first.
-              </p>
-              <div class="revision-actions">
-                <button class="resubmit-btn" type="button" @click="goToEdit(project)">
-                  Continue editing
-                </button>
-                <button
-                  class="resubmit-btn primary"
-                  type="button"
-                  :disabled="submittingId === project.id"
-                  @click="submitDraft(project)"
-                >
-                  {{ submittingId === project.id ? 'Submitting…' : 'Submit for review' }}
-                </button>
-                <button
-                  class="resubmit-btn danger"
-                  type="button"
-                  :disabled="deletingId === project.id"
-                  @click="removeProject(project)"
-                >
-                  {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
-                </button>
-              </div>
-            </div>
+                  <p class="project-description">
+                    {{ project.description || 'No description provided.' }}
+                  </p>
 
-            <!-- Edit / delete for submissions still pending review (draft and
-                 needs_revision cards have their own action rows above). -->
-            <div
-              v-if="canManage(project) && !['needs_revision', 'draft'].includes(project.status)"
-              class="project-actions"
-            >
-              <button class="action-link" type="button" @click="goToEdit(project)">
-                Edit
-              </button>
-              <button
-                class="action-link danger"
-                type="button"
-                :disabled="deletingId === project.id"
-                @click="removeProject(project)"
-              >
-                {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
-              </button>
-            </div>
+                  <!-- Credits, once a project is live. Previously a developer had to
+                       leave the dashboard entirely to learn any of this. -->
+                  <dl v-if="ledgerFor(project.id)" class="credit-strip">
+                    <div>
+                      <dt>Issued</dt>
+                      <dd>{{ num(ledgerFor(project.id).issued) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Available</dt>
+                      <dd>{{ num(ledgerFor(project.id).inventory) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Sold</dt>
+                      <dd>{{ num(ledgerFor(project.id).sold) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Earned</dt>
+                      <dd>{{ peso(ledgerFor(project.id).soldValue) }}</dd>
+                    </div>
+                    <div v-if="listingFor(project.id)">
+                      <dt>Listed at</dt>
+                      <dd>
+                        {{ peso(listingFor(project.id).pricePerCredit) }}
+                        <span class="listing-pill" :class="listingFor(project.id).status">{{
+                          listingFor(project.id).status === 'active' ? 'On sale' : 'Paused'
+                        }}</span>
+                      </dd>
+                    </div>
+                  </dl>
 
-            <!-- A live project used to be a dead end: no way to price it, report
-                 on it, or even see its public page from here. -->
-            <div v-if="isLive(project)" class="project-actions">
-              <button
-                v-if="listingFor(project.id)"
-                class="action-link"
-                type="button"
-                @click="manageListing(project)"
-              >
-                Manage listing
-              </button>
-              <router-link class="action-link" to="/monitoring">
-                Submit monitoring report
-              </router-link>
-              <router-link class="action-link" :to="`/projects/${project.id}`">
-                View public page
-              </router-link>
-            </div>
+                  <div class="project-dates">
+                    <span>Submitted: {{ formatDate(project.created_at) }}</span>
+                    <span v-if="project.verified_at"
+                      >Reviewed: {{ formatDate(project.verified_at) }}</span
+                    >
+                  </div>
 
-            <!-- Conversation with the verifier. This used to render expanded on
-                 every card, so a developer with a dozen projects paid a dozen
-                 round trips on load and scrolled past a dozen open threads.
-                 Note the v-if is load-bearing: <details> hides its content but
-                 still mounts it, so collapsing alone would not stop the query. -->
-            <details class="thread-toggle" @toggle="onThreadToggle(project.id, $event)">
-              <summary>Conversation with the verifier</summary>
-              <ProjectCommentThread
-                v-if="openThreads.has(project.id)"
-                :project-id="project.id"
-                :allow-internal="false"
-              />
-            </details>
-          </article>
+                  <div v-if="project.status === 'rejected'" class="notes-box rejected-note">
+                    <h4>Rejection Reason</h4>
+                    <p>
+                      {{
+                        project.verification_notes || 'No rejection note was provided by verifier.'
+                      }}
+                    </p>
+                  </div>
+
+                  <div
+                    v-else-if="project.status === 'needs_revision'"
+                    class="notes-box revision-note"
+                  >
+                    <h4>Revisions Requested</h4>
+                    <p>
+                      {{
+                        project.verification_notes ||
+                        'The verifier asked for changes — see the conversation below.'
+                      }}
+                    </p>
+                    <div class="revision-actions">
+                      <button class="resubmit-btn" type="button" @click="goToEdit(project)">
+                        Edit details
+                      </button>
+                      <button
+                        class="resubmit-btn primary"
+                        type="button"
+                        :disabled="resubmittingId === project.id"
+                        @click="resubmit(project)"
+                      >
+                        {{
+                          resubmittingId === project.id ? 'Resubmitting…' : 'Resubmit for review'
+                        }}
+                      </button>
+                      <button
+                        class="resubmit-btn danger"
+                        type="button"
+                        :disabled="deletingId === project.id"
+                        @click="removeProject(project)"
+                      >
+                        {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    v-else-if="
+                      ['approved', 'validated'].includes(project.status) &&
+                      project.verification_notes
+                    "
+                    class="notes-box approved-note"
+                  >
+                    <h4>Verifier Notes</h4>
+                    <p>{{ project.verification_notes }}</p>
+                  </div>
+
+                  <!-- A draft has not been submitted to anyone yet, so it gets its own
+                       explanation and the action that moves it into the queue. -->
+                  <div v-if="project.status === 'draft'" class="notes-box draft-note">
+                    <h4>Not submitted yet</h4>
+                    <p>
+                      This draft is visible only to you. Submitting it sends it to a verifier for
+                      review — all required documents must be attached first.
+                    </p>
+                    <div class="revision-actions">
+                      <button class="resubmit-btn" type="button" @click="goToEdit(project)">
+                        Continue editing
+                      </button>
+                      <button
+                        class="resubmit-btn primary"
+                        type="button"
+                        :disabled="submittingId === project.id"
+                        @click="submitDraft(project)"
+                      >
+                        {{ submittingId === project.id ? 'Submitting…' : 'Submit for review' }}
+                      </button>
+                      <button
+                        class="resubmit-btn danger"
+                        type="button"
+                        :disabled="deletingId === project.id"
+                        @click="removeProject(project)"
+                      >
+                        {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Edit / delete for submissions still pending review (draft and
+                       needs_revision cards have their own action rows above). -->
+                  <div
+                    v-if="
+                      canManage(project) && !['needs_revision', 'draft'].includes(project.status)
+                    "
+                    class="project-actions"
+                  >
+                    <button class="action-link" type="button" @click="goToEdit(project)">
+                      Edit
+                    </button>
+                    <button
+                      class="action-link danger"
+                      type="button"
+                      :disabled="deletingId === project.id"
+                      @click="removeProject(project)"
+                    >
+                      {{ deletingId === project.id ? 'Deleting…' : 'Delete' }}
+                    </button>
+                  </div>
+
+                  <!-- A live project used to be a dead end: no way to price it, report
+                       on it, or even see its public page from here. -->
+                  <div v-if="isLive(project)" class="project-actions">
+                    <button
+                      v-if="listingFor(project.id)"
+                      class="action-link"
+                      type="button"
+                      @click="manageListing(project)"
+                    >
+                      Manage listing
+                    </button>
+                    <router-link class="action-link" to="/monitoring">
+                      Submit monitoring report
+                    </router-link>
+                    <router-link class="action-link" :to="`/projects/${project.id}`">
+                      View public page
+                    </router-link>
+                  </div>
+
+                  <!-- Conversation with the verifier. This used to render expanded on
+                       every card, so a developer with a dozen projects paid a dozen
+                       round trips on load and scrolled past a dozen open threads.
+                       Note the v-if is load-bearing: <details> hides its content but
+                       still mounts it, so collapsing alone would not stop the query. -->
+                  <!-- :open restores the thread when a collapsed card is reopened.
+                       Without it the v-if below would remount the thread hidden
+                       inside a closed <details> and refetch for nothing. -->
+                  <details
+                    class="thread-toggle"
+                    :open="openThreads.has(project.id)"
+                    @toggle="onThreadToggle(project.id, $event)"
+                  >
+                    <summary>Conversation with the verifier</summary>
+                    <ProjectCommentThread
+                      v-if="openThreads.has(project.id)"
+                      :project-id="project.id"
+                      :allow-internal="false"
+                    />
+                  </details>
+                </article>
+              </li>
+            </ul>
+          </section>
         </div>
       </div>
     </div>
@@ -316,6 +393,7 @@ import { computeMrvReminders, syncMrvReminderNotifications } from '@/services/mr
 import ProjectProgressTracker from '@/components/ProjectProgressTracker.vue'
 import ProjectCommentThread from '@/components/project/ProjectCommentThread.vue'
 import ListingManagerModal from '@/components/developer/ListingManagerModal.vue'
+import { groupDeveloperProjects, ACTION_STATUSES } from '@/utils/groupDeveloperProjects'
 
 const router = useRouter()
 
@@ -433,9 +511,87 @@ const filteredProjects = computed(() => {
   return projects.value.filter((project) => allowed.includes(project.status))
 })
 
+/* ── Grouping + progressive disclosure ─────────────────────────────────────
+ *
+ * A fully expanded project card runs to roughly 600px — progress tracker,
+ * description, credit strip, dates, notes, two action rows and a comment
+ * thread. Rendered flat, a developer with ten projects scrolled through six
+ * thousand pixels to find one of them, and the four summary tiles at the top
+ * were off screen the moment they started looking.
+ *
+ * So: projects collapse to a one-line row, and the rows are grouped by what
+ * the developer has to do about them (see groupDeveloperProjects) rather than
+ * by raw status. Expanding a row renders the card exactly as before.
+ */
+
+// Closed work is reference material, not the working set.
+const collapsedGroups = ref(new Set(['closed']))
+// id → explicit user choice. Absent means "whatever the default rule says", so
+// a project that starts needing action doesn't spring shut once it's approved.
+const projectOverrides = ref({})
+
+const projectGroups = computed(() => {
+  // A status tab is already one bucket. Grouping it again would wrap the list
+  // in a header that just repeats the tab the developer clicked.
+  if (activeFilter.value !== 'all') {
+    return [{ key: activeFilter.value, showHeader: false, items: filteredProjects.value }]
+  }
+  return groupDeveloperProjects(projects.value)
+})
+
+function toggleGroup(key) {
+  const next = new Set(collapsedGroups.value)
+  if (!next.delete(key)) next.add(key)
+  collapsedGroups.value = next
+}
+
+/**
+ * Expanded by default only where collapsing would hide something the developer
+ * has to act on, or where there is nothing to scroll past anyway.
+ */
+function isExpanded(project) {
+  const override = projectOverrides.value[project.id]
+  if (typeof override === 'boolean') return override
+  return projects.value.length === 1 || ACTION_STATUSES.includes(project.status)
+}
+
+function toggleProject(project) {
+  projectOverrides.value = { ...projectOverrides.value, [project.id]: !isExpanded(project) }
+}
+
+/**
+ * The one fact worth reading without expanding the card — chosen per group,
+ * because "what do I need to know about this project" differs completely
+ * between something awaiting your edit and something already selling credits.
+ */
+function rowSignal(project) {
+  if (project.status === 'draft') return 'Not submitted yet'
+  if (project.status === 'needs_revision') return 'Verifier asked for changes'
+  if (TAB_STATUSES.pending.includes(project.status)) {
+    return `Submitted ${formatDay(project.created_at)}`
+  }
+  if (isLive(project)) {
+    const ledger = ledgerFor(project.id)
+    if (ledger) return `${num(ledger.issued)} issued · ${num(ledger.inventory)} available`
+    return hasActiveListing(project.id) ? 'Listed for sale' : 'No credits issued yet'
+  }
+  if (project.status === 'rejected') return `Reviewed ${formatDay(project.verified_at)}`
+  return ''
+}
+
 function formatDate(value) {
   if (!value) return '—'
   return new Date(value).toLocaleString()
+}
+
+/** Date only — a collapsed row has no room for a timestamp. */
+function formatDay(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function statusLabel(status) {
@@ -700,7 +856,9 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 1rem;
   text-decoration: none;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .summary-card:hover {
@@ -799,35 +957,156 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+/* Grouped project list ---------------------------------------------------- */
+.project-groups {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0;
+  margin-bottom: 0.6rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.group-caret,
+.row-caret {
+  font-size: 1.25rem;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.group-caret.open,
+.row-caret.open {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group-caret,
+  .row-caret {
+    transition: none;
+  }
+}
+
+.group-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.group-count {
+  min-width: 1.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.group-hint {
+  color: #64748b;
+  font-size: 0.8rem;
+  /* Explanatory only — the count and title already carry the meaning, so this
+     is the first thing to go when the row runs out of room. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .project-list {
   display: grid;
-  gap: 1rem;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.project-row {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* The collapsed row: one line per project, so ten projects fit on a screen
+   instead of one. */
+.row-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.row-summary:hover {
+  background: #f8fafc;
+}
+
+.row-summary:focus-visible {
+  outline: 2px solid var(--primary-color, #069e2d);
+  outline-offset: -2px;
+}
+
+.row-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-meta {
+  margin-top: 0.1rem;
+  color: #64748b;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-signal {
+  color: #334155;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .project-card {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-top: 1px solid #e2e8f0;
   padding: 1.2rem;
 }
 
-.project-card__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: start;
-}
-
-.project-title {
-  margin: 0;
-  font-size: 1.15rem;
-  color: #0f172a;
-}
-
-.project-meta {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.9rem;
+@media (max-width: 640px) {
+  /* Two columns of nowrap text cannot share a phone-width row; the signal is
+     the one that repeats information the expanded card also carries. */
+  .row-signal,
+  .group-hint {
+    display: none;
+  }
 }
 
 .project-description {

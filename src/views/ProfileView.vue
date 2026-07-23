@@ -315,14 +315,11 @@
                         <p class="role-desc">{{ roleAccess.description }}</p>
                       </div>
                       <div class="role-links">
-                        <router-link
-                          v-for="link in roleAccess.links"
-                          :key="link.to"
-                          :to="link.to"
-                          class="role-link"
-                        >
-                          <span class="material-symbols-outlined" aria-hidden="true">{{ link.icon }}</span>
-                          <span>{{ link.label }}</span>
+                        <router-link :to="roleAccess.workspace.path" class="role-link">
+                          <span class="material-symbols-outlined" aria-hidden="true">
+                            {{ roleAccess.workspace.icon || 'space_dashboard' }}
+                          </span>
+                          <span>Go to {{ roleAccess.workspace.label }}</span>
                         </router-link>
                       </div>
                       <p v-if="roleAccess.showApply" class="role-apply-hint">
@@ -408,6 +405,7 @@ import {
   getLatestRoleApplicationForUser,
 } from '@/services/roleApplicationService'
 import { ROLES, getRoleDisplayName } from '@/constants/roles'
+import { homeDestination } from '@/constants/navigation'
 import { getRoleDescription } from '@/services/roleService'
 import ChangePasswordPanel from '@/components/auth/ChangePasswordPanel.vue'
 import MfaSetupPanel from '@/components/auth/MfaSetupPanel.vue'
@@ -526,41 +524,19 @@ export default {
       const p = this.userProfile || {}
       return !p.company && !p.location && !p.phone && !p.website
     },
-    // Role-aware access panel: name, description, and quick links per role.
+    // Role-aware access panel: name, description, and the way back to work.
+    //
+    // This used to hold its own hand-written link list per role — a fourth
+    // navigation surface with a fourth set of names ("My Portfolio", "Saved",
+    // "Browse Marketplace"), and one link (/monitoring, labelled "Monitoring
+    // (MRV)") that no other surface used. It now points at the role's
+    // workspace, which is where every one of those pages is grouped.
     roleAccess() {
       const role = this.store.role || ROLES.GENERAL_USER
-      const linksByRole = {
-        [ROLES.ADMIN]: [
-          { label: 'Admin Dashboard', to: '/admin', icon: 'dashboard' },
-          { label: 'System Configuration', to: '/admin/config', icon: 'tune' },
-          { label: 'User Management', to: '/admin/users', icon: 'group' },
-        ],
-        [ROLES.VERIFIER]: [
-          { label: 'Verifier Panel', to: '/verifier', icon: 'fact_check' },
-        ],
-        [ROLES.PROJECT_DEVELOPER]: [
-          { label: 'My Projects', to: '/developer/projects', icon: 'inventory_2' },
-          { label: 'Submit Project', to: '/submit-project', icon: 'add_circle' },
-          { label: 'Monitoring (MRV)', to: '/monitoring', icon: 'monitoring' },
-        ],
-        [ROLES.LGU_USER]: [
-          { label: 'LGU Tools', to: '/lgu', icon: 'map' },
-        ],
-        [ROLES.BUYER_INVESTOR]: [
-          { label: 'My Portfolio', to: '/credit-portfolio', icon: 'account_balance_wallet' },
-          { label: 'Wallet', to: '/wallet', icon: 'payments' },
-          { label: 'Saved', to: '/watchlist', icon: 'favorite' },
-          { label: 'Cart', to: '/cart', icon: 'shopping_cart' },
-        ],
-        [ROLES.GENERAL_USER]: [
-          { label: 'Browse Marketplace', to: '/marketplace', icon: 'storefront' },
-          { label: 'Apply for a role', to: '/apply', icon: 'badge' },
-        ],
-      }
       return {
         name: getRoleDisplayName(role),
         description: getRoleDescription(role),
-        links: linksByRole[role] || linksByRole[ROLES.GENERAL_USER],
+        workspace: homeDestination(this.store),
         showApply: role === ROLES.GENERAL_USER,
       }
     },

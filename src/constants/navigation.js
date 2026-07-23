@@ -1,0 +1,299 @@
+/**
+ * Single source of truth for the app's navigation.
+ *
+ * Before this file, the same page could be reached three ways under three
+ * different names — the marketplace was "Marketplace" in the top nav and "Buy
+ * credits" on the dashboard; the watchlist was "Saved" in the profile menu and
+ * "Watchlist" on the dashboard panel. Every destination is now declared once,
+ * here, and the three surfaces below compose those declarations:
+ *
+ *   buildGuestNav()    → the header's top nav. Signed-OUT visitors only.
+ *   buildSidebar()     → the app sidebar. Every product feature a signed-in
+ *                        role can reach, grouped.
+ *   buildAccountMenu() → the avatar dropdown. Things about YOU, nothing else.
+ *
+ * The split is the point: if it's about your account it's under your face; if
+ * it's part of the product it's in the sidebar. Nothing appears in both.
+ *
+ * buildWorkspace() is the role-specific middle of the sidebar, kept separate
+ * because that is the part that differs per role and needs testing on its own.
+ */
+
+/**
+ * Canonical destinations. A label may only be written here — never inline at a
+ * call site — so a page cannot drift into having two names again.
+ */
+const D = {
+  // Product surfaces
+  home: { path: '/', label: 'Home' },
+  dashboard: { path: '/dashboard', label: 'Dashboard', icon: 'space_dashboard' },
+  marketplace: { path: '/marketplace', label: 'Marketplace', icon: 'storefront' },
+  biomass: { path: '/biomass', label: 'Biomass', icon: 'compost' },
+  registry: { path: '/registry', label: 'Registry', icon: 'inventory_2' },
+  map: { path: '/map', label: 'Project Map', icon: 'map' },
+  about: { path: '/about', label: 'About', icon: 'info' },
+
+  // Buying
+  cart: { path: '/cart', label: 'Cart', icon: 'shopping_cart' },
+  watchlist: { path: '/watchlist', label: 'Watchlist', icon: 'bookmark' },
+  calculator: { path: '/carbon-calculator', label: 'Carbon calculator', icon: 'calculate' },
+
+  // Credits
+  portfolio: { path: '/credit-portfolio', label: 'Portfolio', icon: 'account_tree' },
+  retire: { path: '/retire', label: 'Retire credits', icon: 'eco' },
+  certificates: { path: '/certificates', label: 'Certificates', icon: 'verified' },
+
+  // Records
+  orders: { path: '/orders', label: 'Orders', icon: 'shopping_bag' },
+  receipts: { path: '/receipts', label: 'Receipts', icon: 'receipt_long' },
+  disputes: { path: '/disputes', label: 'Reported problems', icon: 'gavel' },
+
+  // Insights
+  analytics: { path: '/analytics', label: 'Analytics', icon: 'monitoring' },
+  marketPrices: { path: '/market', label: 'Market prices', icon: 'trending_up' },
+  assistant: { path: '/assistant', label: 'AI Assistant', icon: 'smart_toy' },
+
+  // Account
+  profile: { path: '/profile', label: 'Profile & settings', icon: 'manage_accounts' },
+  kyc: { path: '/kyc', label: 'KYC verification', icon: 'verified_user' },
+  wallet: { path: '/wallet', label: 'Wallet', icon: 'account_balance_wallet' },
+  upgrade: { path: '/upgrade', label: 'Upgrade plan', icon: 'rocket_launch' },
+
+  // Biomass trading
+  sellFeedstock: { path: '/biomass/sell', label: 'Sell feedstock', icon: 'compost' },
+  feedstockRfqs: { path: '/biomass/rfqs', label: 'Feedstock requests', icon: 'request_quote' },
+
+  // Investor
+  investor: { path: '/investor', label: 'Investor Portal', icon: 'trending_up' },
+
+  // Project developer
+  devProjects: { path: '/developer/projects', label: 'My Projects', icon: 'space_dashboard' },
+  submitProject: { path: '/submit-project', label: 'Submit project', icon: 'add_circle' },
+  devLedger: { path: '/developer/ledger', label: 'Carbon Assets', icon: 'account_balance_wallet' },
+  devOfftakes: { path: '/developer/offtakes', label: 'Offtake agreements', icon: 'handshake' },
+  devDataRoom: { path: '/developer/data-room', label: 'Data room activity', icon: 'visibility' },
+  devMrv: { path: '/developer/mrv-dashboard', label: 'MRV & monitoring', icon: 'query_stats' },
+  sellerEarnings: { path: '/sales', label: 'Seller earnings', icon: 'payments' },
+
+  // Verifier
+  verifier: { path: '/verifier', label: 'Verifier Panel', icon: 'fact_check' },
+
+  // LGU
+  lgu: { path: '/lgu', label: 'LGU Tools', icon: 'apartment' },
+
+  // Farmer
+  farmer: { path: '/farmer', label: 'Farmer Portal', icon: 'agriculture' },
+
+  // Admin
+  admin: { path: '/admin', label: 'Admin Dashboard', icon: 'space_dashboard' },
+  adminUsers: { path: '/admin/users', label: 'User management', icon: 'group' },
+  adminFinance: { path: '/admin/finance', label: 'Finance console', icon: 'account_balance' },
+  adminAudit: { path: '/admin/audit-logs', label: 'Audit logs', icon: 'assignment' },
+  adminConfig: { path: '/admin/config', label: 'System configuration', icon: 'tune' },
+  adminKyc: { path: '/admin/kyc', label: 'KYC review', icon: 'badge' },
+  adminKyb: { path: '/admin/kyb', label: 'KYB review', icon: 'verified_user' },
+  adminAml: { path: '/admin/aml', label: 'AML screening', icon: 'gpp_maybe' },
+  adminPrivacy: { path: '/admin/privacy', label: 'Privacy requests', icon: 'privacy_tip' },
+  adminRefunds: { path: '/admin/refunds', label: 'Refunds & disputes', icon: 'currency_exchange' },
+  adminRoles: { path: '/admin/role-applications', label: 'Role applications', icon: 'how_to_reg' },
+}
+
+/** Short blurbs, used only by the card layout of the workspace directory. */
+const HINTS = {
+  '/marketplace': 'Browse and buy verified credits',
+  '/cart': 'Finish a checkout you started',
+  '/watchlist': 'Listings you saved to track',
+  '/carbon-calculator': 'Work out how much to offset',
+  '/credit-portfolio': 'Everything you own, plus ESG export',
+  '/retire': 'Claim an offset permanently',
+  '/certificates': 'Proof of retirement to share',
+  '/orders': 'Track and complete purchases',
+  '/receipts': 'Tax and accounting records',
+  '/disputes': 'Problems you have reported',
+  '/analytics': 'Trends across your activity',
+  '/market': 'Live pricing across the market',
+  '/assistant': 'Ask questions about your portfolio',
+  '/biomass/rfqs': 'Buyers looking for feedstock',
+  '/biomass/sell': 'List feedstock for sale',
+  '/investor': 'Deal flow and project financing',
+  '/developer/projects': 'Every project you have submitted',
+  '/submit-project': 'Start a new carbon project',
+  '/developer/ledger': 'Credits issued and inventory',
+  '/developer/offtakes': 'Forward sale agreements',
+  '/developer/data-room': 'Who viewed your documents',
+  '/developer/mrv-dashboard': 'Monitoring reports and schedules',
+  '/sales': 'Earnings, escrow and withdrawals',
+  '/admin/users': 'Accounts, roles and permissions',
+  '/admin/finance': 'Sales, fees, payouts, reconciliation',
+  '/admin/audit-logs': 'System activity and user actions',
+  '/admin/config': 'Fees, KYC tiers, emission factors',
+  '/admin/kyc': 'Approve identity verification',
+  '/admin/kyb': 'Approve business verification',
+  '/admin/aml': 'Sanctions and watchlist screening',
+  '/admin/privacy': 'Data export and erasure requests',
+  '/admin/refunds': 'Refund and dispute resolution',
+  '/admin/role-applications': 'Verifier and developer applicants',
+}
+
+function withHint(destination) {
+  return { ...destination, hint: HINTS[destination.path] || '' }
+}
+
+function group(title, destinations) {
+  return { title, items: destinations.map(withHint) }
+}
+
+/**
+ * A "buyer" is anyone whose job here is to purchase credits. They're the only
+ * roles that get /dashboard, a cart, and the buying-side workspace.
+ */
+export function isBuyerRole(user) {
+  return !(
+    user.isAdmin ||
+    user.isVerifier ||
+    user.isProjectDeveloper ||
+    user.isLguUser ||
+    user.isFarmer
+  )
+}
+
+/** The route each role lands on — and the first item in its top nav. */
+export function homeDestination(user) {
+  if (!user.isAuthenticated) return D.home
+  if (user.isAdmin) return D.admin
+  if (user.isVerifier) return D.verifier
+  if (user.isProjectDeveloper) return D.devProjects
+  if (user.isLguUser) return D.lgu
+  if (user.isFarmer) return D.farmer
+  return D.dashboard
+}
+
+/**
+ * Header nav for signed-out visitors. Signed-in users navigate from the
+ * sidebar, so the header carries no links for them at all — a header nav plus
+ * a sidebar is two menus competing to be the place you look.
+ */
+export function buildGuestNav() {
+  return [D.home, D.marketplace, D.biomass, D.registry, D.about]
+}
+
+/**
+ * The public surfaces every signed-in role can browse. Farmers sell feedstock
+ * rather than trade credits, so biomass leads for them.
+ */
+function exploreGroup(user) {
+  if (user.isFarmer) return group('Explore', [D.biomass, D.marketplace, D.registry, D.map])
+  return group('Explore', [D.marketplace, D.biomass, D.registry, D.map])
+}
+
+/**
+ * The full sidebar: the role's own workspace on top, then its role-specific
+ * groups, then the shared public surfaces. This is the complete list of every
+ * product feature the role can reach, which is exactly what makes it possible
+ * to say "if it's a feature, it's in the sidebar" and have that be true.
+ *
+ * The first group is deliberately untitled — a lone "Dashboard" link under a
+ * heading reads as a category with one thing in it.
+ */
+export function buildSidebar(user, { cartCount = 0 } = {}) {
+  if (!user.isAuthenticated) return []
+
+  return [
+    { title: '', items: [withHint(homeDestination(user))] },
+    ...buildWorkspace(user, { cartCount }),
+    exploreGroup(user),
+  ]
+}
+
+/**
+ * Avatar dropdown — your account, and nothing else. Six items at most, so it
+ * never needs to scroll. Product features that used to live here now live in
+ * buildWorkspace(), rendered on the dashboard.
+ */
+export function buildAccountMenu(user) {
+  if (!user.isAuthenticated) return []
+
+  const items = [D.profile]
+
+  // Admins and verifiers don't buy, so identity/funding/plan don't apply.
+  if (!(user.isAdmin || user.isVerifier)) {
+    items.push(D.kyc)
+    if (isBuyerRole(user)) items.push(D.wallet)
+    items.push(D.upgrade)
+  }
+
+  return items.map(withHint)
+}
+
+/**
+ * The role-specific middle of the sidebar — everything this role can do that
+ * other roles cannot.
+ *
+ * Deliberately excludes the shared public surfaces (marketplace, biomass,
+ * registry, map — see exploreGroup) and the role's own landing page, which the
+ * sidebar already lists on top. A group that repeats what is directly above it
+ * is how this app ended up with three names for one destination.
+ */
+export function buildWorkspace(user, { cartCount = 0 } = {}) {
+  if (!user.isAuthenticated) return []
+
+  const insights = group('Insights', [D.analytics, D.marketPrices, D.assistant])
+
+  if (user.isAdmin) {
+    return [
+      group('Operations', [D.adminUsers, D.adminFinance, D.adminAudit, D.adminConfig]),
+      group('Compliance', [
+        D.adminKyc,
+        D.adminKyb,
+        D.adminAml,
+        D.adminPrivacy,
+        D.adminRefunds,
+        D.adminRoles,
+      ]),
+      insights,
+    ]
+  }
+
+  // A verifier's actual work is the tabs inside /verifier, so there is nothing
+  // to list beyond the cross-role insight pages.
+  if (user.isVerifier) {
+    return [insights]
+  }
+
+  if (user.isProjectDeveloper) {
+    return [
+      group('Projects', [D.submitProject, D.devLedger]),
+      group('Monitoring', [D.devMrv]),
+      group('Commercial', [D.devOfftakes, D.devDataRoom, D.sellerEarnings]),
+      group('Biomass', [D.sellFeedstock, D.feedstockRfqs]),
+      insights,
+    ]
+  }
+
+  if (user.isFarmer) {
+    return [group('Feedstock', [D.sellFeedstock, D.feedstockRfqs]), insights]
+  }
+
+  if (user.isLguUser) {
+    return [insights]
+  }
+
+  // Buyers / general users.
+  const cart = cartCount > 0 ? { ...D.cart, label: `${D.cart.label} (${cartCount})` } : D.cart
+
+  const sections = [
+    group('Buying', [cart, D.watchlist, D.calculator]),
+    group('Credits', [D.portfolio, D.retire, D.certificates]),
+    group('Records', [D.orders, D.receipts, D.disputes]),
+    insights,
+    group('Biomass', [D.feedstockRfqs, D.sellFeedstock]),
+  ]
+
+  if (user.isBuyerInvestor) {
+    sections.push(group('Investor', [D.investor]))
+  }
+
+  return sections
+}
+
+export { D as DESTINATIONS }
