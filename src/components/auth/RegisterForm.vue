@@ -63,15 +63,26 @@ async function handleSubmit() {
   loading.value = true
   try {
     // Register with email
-    await registerWithEmail({
+    const result = await registerWithEmail({
       name: name.value.trim(),
       email: email.value,
       password: password.value,
     })
 
-    // Signal the login page to confirm the account was created — otherwise the
-    // user lands on a bare sign-in form and can't tell whether it worked.
-    router.replace({ path: '/login', query: { registered: '1' } })
+    // This used to redirect to "Account created. Sign in to continue."
+    // unconditionally, without looking at the result. Two cases were wrong:
+    // an address that was already registered, and a project that requires
+    // email confirmation — where signing in is exactly what does NOT work yet.
+    if (result?.alreadyRegistered) {
+      emailError.value =
+        'That email already has an account. Sign in instead, or reset your password.'
+      return
+    }
+
+    router.replace({
+      path: '/login',
+      query: result?.needsEmailConfirmation ? { confirm: '1' } : { registered: '1' },
+    })
   } catch (err) {
     console.error('Registration failed:', err)
     errorMessage.value = err?.message || 'Unable to register. Please try again.'
@@ -91,7 +102,9 @@ async function handleSubmit() {
       <!-- Full Name Input -->
       <div class="form-field">
         <label for="name" class="form-label">
-          <span class="material-symbols-outlined label-icon" aria-hidden="true">account_circle</span>
+          <span class="material-symbols-outlined label-icon" aria-hidden="true"
+            >account_circle</span
+          >
           Full name
         </label>
         <UiInput
@@ -215,7 +228,8 @@ async function handleSubmit() {
   color: #1f2937;
   margin: 0 0 0.5rem;
   letter-spacing: -0.025em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .register-subtitle {
@@ -224,7 +238,8 @@ async function handleSubmit() {
   margin: 0;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Form Grid - Optimized spacing and centering */
@@ -252,7 +267,8 @@ async function handleSubmit() {
   font-size: 0.875rem;
   font-weight: 500;
   color: #6b7280;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .label-icon {
@@ -285,7 +301,9 @@ async function handleSubmit() {
   font-size: 0.875rem;
   color: #1f2937;
   background: #ffffff;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
@@ -326,7 +344,8 @@ async function handleSubmit() {
   justify-content: center;
   gap: 0.5rem;
   border: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .create-account-button :deep(.ui-btn:hover) {
@@ -412,7 +431,9 @@ button[disabled] {
   font-weight: 600;
   color: #374151;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .social-button:hover:not(:disabled) {

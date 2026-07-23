@@ -72,7 +72,8 @@ async function sendOtp() {
     await sendPhoneOtp(phone.value.trim())
     otpSent.value = true
   } catch (err) {
-    phoneError.value = err?.message || 'Could not send the code. SMS sign-in may not be enabled yet.'
+    phoneError.value =
+      err?.message || 'Could not send the code. SMS sign-in may not be enabled yet.'
   } finally {
     phoneLoading.value = false
   }
@@ -162,16 +163,21 @@ function validatePassword() {
     passwordError.value = 'Password is required'
     return false
   }
-  if (password.value.length < 6) {
-    passwordError.value = 'Password must be at least 6 characters'
-    return false
-  }
+  // No minimum length on SIGN-IN. Registration requires 8 characters, but this
+  // form used to demand 6 — a rule that can only ever reject a correct password
+  // belonging to an older account. Whether the password is right is the
+  // server's call.
   passwordError.value = ''
   return true
 }
 
 function validateForm() {
-  return validatePassword() && validateEmail()
+  // Both, deliberately not `a() && b()`. Short-circuiting meant a user who got
+  // both fields wrong fixed the password, submitted, and only then discovered
+  // the email was wrong too.
+  const passwordOk = validatePassword()
+  const emailOk = validateEmail()
+  return passwordOk && emailOk
 }
 
 async function handleSubmit() {
@@ -235,11 +241,15 @@ async function handleSubmit() {
     await finishLogin()
   } catch (err) {
     const msg = String(err?.message || '')
-    if (/email[_\s]not[_\s]confirmed|confirm your email|email not confirmed/i.test(msg)) {
+    // Pending-approval is matched on err.code, not on the sentence. The regex
+    // that used to do this had to stay word-for-word in sync with the message
+    // thrown in authService — a rewording there would have shown this user the
+    // generic "Unable to sign in" instead of the reason.
+    if (err?.code === 'ROLE_APPLICATION_PENDING') {
+      errorMessage.value = msg
+    } else if (/email[_\s]not[_\s]confirmed|confirm your email|email not confirmed/i.test(msg)) {
       errorMessage.value =
         'Your email address has not been confirmed yet. Please check your inbox for the confirmation link, or ask an admin to verify your account.'
-    } else if (/cannot sign in until it is approved|account is .* and cannot sign in/i.test(msg)) {
-      errorMessage.value = msg
     } else if (/Invalid login credentials|invalid/i.test(msg)) {
       errorMessage.value = 'Email or password is incorrect.'
     } else if (/User not found|user not registered/i.test(msg)) {
@@ -353,7 +363,11 @@ async function handleSubmit() {
       </button>
 
       <!-- Phone OTP flow -->
-      <form v-if="phoneMode" class="form-grid phone-form" @submit.prevent="otpSent ? verifyOtp() : sendOtp()">
+      <form
+        v-if="phoneMode"
+        class="form-grid phone-form"
+        @submit.prevent="otpSent ? verifyOtp() : sendOtp()"
+      >
         <div class="form-field">
           <label for="phone" class="form-label">
             <span class="material-symbols-outlined label-icon" aria-hidden="true">call</span>
@@ -373,7 +387,14 @@ async function handleSubmit() {
             <span class="material-symbols-outlined label-icon" aria-hidden="true">password</span>
             Verification code
           </label>
-          <UiInput id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" v-model="otpCode" />
+          <UiInput
+            id="otpCode"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            placeholder="6-digit code"
+            v-model="otpCode"
+          />
         </div>
 
         <div v-if="phoneError" class="error-message">{{ phoneError }}</div>
@@ -412,7 +433,8 @@ async function handleSubmit() {
   color: #1f2937;
   margin: 0 0 0.5rem;
   letter-spacing: -0.025em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .login-subtitle {
@@ -421,7 +443,8 @@ async function handleSubmit() {
   margin: 0;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Form Grid - Optimized spacing and centering */
@@ -449,7 +472,8 @@ async function handleSubmit() {
   font-size: 0.875rem;
   font-weight: 500;
   color: #6b7280;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .label-icon {
@@ -482,7 +506,9 @@ async function handleSubmit() {
   font-size: 0.875rem;
   color: #1f2937;
   background: #ffffff;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .form-grid :deep(.enhanced-input__field:focus) {
@@ -520,7 +546,8 @@ async function handleSubmit() {
   justify-content: center;
   gap: 0.5rem;
   border: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .sign-in-button :deep(.ui-btn:hover) {
@@ -602,7 +629,9 @@ async function handleSubmit() {
   font-weight: 600;
   color: #374151;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .social-button:hover:not(:disabled) {

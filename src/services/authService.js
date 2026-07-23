@@ -16,35 +16,48 @@ export async function loginWithEmail({ email, password }) {
     throw new Error(error.message || 'Invalid credentials or account not registered.')
   }
 
+  // Specialist accounts (verifier / project developer) may not sign in until an
+  // admin approves their application.
+  //
+  // The lookup and the decision are deliberately separate. They used to share
+  // one try block, with the rethrow keyed on the thrown message containing
+  // "cannot sign in until it is approved" — so a security decision hung on
+  // matching a sentence that also had to stay in sync with a regex in
+  // LoginForm.vue. Any edit to that wording would have silently let unapproved
+  // specialists in.
+  let blockingApplication = null
   try {
-    const blockingApplication = await getBlockingRoleApplicationForUser({
+    blockingApplication = await getBlockingRoleApplicationForUser({
       userId: data.user?.id,
       email,
     })
+  } catch (lookupError) {
+    // Fails OPEN, on purpose: this query hitting a missing table or a network
+    // blip must not lock every user out of the platform. The server-side RLS
+    // policies remain the real boundary on what an unapproved account can do.
+    console.error('Error checking role application approval during login:', lookupError)
+  }
 
-    if (blockingApplication) {
-      await supabase.auth.signOut({ scope: 'global' })
+  if (blockingApplication) {
+    await supabase.auth.signOut({ scope: 'global' })
 
-      const roleLabel =
-        blockingApplication.role_requested === 'verifier' ? 'Verifier' : 'Project Developer'
-      const statusLabel = getRoleApplicationStatusLabel(blockingApplication.status).toLowerCase()
+    const roleLabel =
+      blockingApplication.role_requested === 'verifier' ? 'Verifier' : 'Project Developer'
+    const statusLabel = getRoleApplicationStatusLabel(blockingApplication.status).toLowerCase()
 
-      await logUserAction('LOGIN_BLOCKED_UNVERIFIED_ROLE', 'user', data.user?.id, null, {
-        email,
-        requested_role: blockingApplication.role_requested,
-        application_status: blockingApplication.status,
-      })
+    await logUserAction('LOGIN_BLOCKED_UNVERIFIED_ROLE', 'user', data.user?.id, null, {
+      email,
+      requested_role: blockingApplication.role_requested,
+      application_status: blockingApplication.status,
+    })
 
-      throw new Error(
-        `Your ${roleLabel} account is ${statusLabel} and cannot sign in until it is approved. We will email you once your account is verified.`,
-      )
-    }
-  } catch (approvalError) {
-    if (approvalError?.message?.includes('cannot sign in until it is approved')) {
-      throw approvalError
-    }
-
-    console.error('Error checking role application approval during login:', approvalError)
+    // `code` is what callers should branch on. The message is for humans and
+    // may be reworded freely.
+    const blocked = new Error(
+      `Your ${roleLabel} account is ${statusLabel} and cannot sign in until it is approved. We will email you once your account is verified.`,
+    )
+    blocked.code = 'ROLE_APPLICATION_PENDING'
+    throw blocked
   }
 
   // Log successful login
@@ -73,8 +86,23 @@ export async function registerWithEmail({ name, email, password }) {
     throw new Error(error.message || 'Unable to register. Please try again.')
   }
 
+  // Supabase deliberately does NOT error when the email is already registered —
+  // that would let anyone enumerate accounts. It returns a decoy user with an
+  // empty `identities` array instead. Without this check the existing owner of
+  // that address is told they just created an account.
+  const alreadyRegistered =
+    Array.isArray(data.user?.identities) && data.user.identities.length === 0
+
+  // No session means Supabase is waiting on a confirmation click. The caller
+  // must not tell the user to go and sign in.
+  const needsEmailConfirmation = !alreadyRegistered && !data.session
+
   // Log successful registration
   await logUserAction('REGISTRATION_SUCCESS', 'user', data.user?.id, null, { email, name })
+
+  if (alreadyRegistered) {
+    return { ...data, alreadyRegistered: true, needsEmailConfirmation: false }
+  }
 
   // Create profile if user was created successfully
   if (data.user) {
@@ -94,7 +122,7 @@ export async function registerWithEmail({ name, email, password }) {
     }
   }
 
-  return data
+  return { ...data, alreadyRegistered: false, needsEmailConfirmation }
 }
 
 /**
@@ -175,8 +203,7 @@ export async function ensureUserProfile() {
   }
 
   const meta = user.user_metadata || {}
-  const fullName =
-    meta.full_name || meta.name || user.email?.split('@')[0] || user.phone || 'User'
+  const fullName = meta.full_name || meta.name || user.email?.split('@')[0] || user.phone || 'User'
 
   return createUserProfile(user.id, { full_name: fullName })
 }
@@ -268,12 +295,9 @@ export async function signOut() {
     let user = null
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('getUser timeout')), 2000)
+        setTimeout(() => reject(new Error('getUser timeout')), 2000),
       )
-      const { data } = await Promise.race([
-        supabase.auth.getUser(),
-        timeoutPromise,
-      ])
+      const { data } = await Promise.race([supabase.auth.getUser(), timeoutPromise])
       user = data?.user
     } catch (e) {
       // Ignore getUser timeout/error - proceed with signOut anyway
@@ -283,9 +307,9 @@ export async function signOut() {
     // Sign out from Supabase (with timeout to prevent hanging)
     const signOutPromise = supabase.auth.signOut({ scope: 'global' })
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('signOut timeout')), 3000)
+      setTimeout(() => reject(new Error('signOut timeout')), 3000),
     )
-    
+
     await Promise.race([signOutPromise, timeoutPromise])
 
     // Log successful logout (non-blocking)
@@ -299,9 +323,11 @@ export async function signOut() {
     try {
       const { data } = await supabase.auth.getUser()
       if (data?.user?.id) {
-        logUserAction('LOGOUT_FAILED', 'user', data.user.id, null, { error: e.message }).catch(() => {
-          // Ignore audit log errors
-        })
+        logUserAction('LOGOUT_FAILED', 'user', data.user.id, null, { error: e.message }).catch(
+          () => {
+            // Ignore audit log errors
+          },
+        )
       }
     } catch {
       // Ignore - we're already in error handling

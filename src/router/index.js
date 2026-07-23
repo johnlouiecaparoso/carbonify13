@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
-import { ROLES } from '@/constants/roles'
+import { ROLES, canonicalizeRole } from '@/constants/roles'
 import { getRoleDefaultRoute } from '@/utils/getRoleDefaultRoute'
 import {
   createProjectDeveloperGuard,
@@ -27,25 +27,59 @@ const UserPreferencesView = () =>
   import(/* webpackChunkName: "user" */ '@/views/UserPreferencesView.vue')
 const SocialView = () => import(/* webpackChunkName: "user" */ '@/views/SocialView.vue')
 
+/**
+ * Roles that never buy credits. Blocked from the whole buying path — browsing a
+ * cart, holding a portfolio, saving listings, checking out.
+ *
+ * Project developers sell credits rather than buy them, so they sit here too;
+ * their money pages are /sales and /developer/ledger.
+ */
 const FINANCE_RESTRICTED_ROLES = [ROLES.ADMIN, ROLES.VERIFIER, ROLES.PROJECT_DEVELOPER]
+
+/**
+ * Roles with no identity-verification path of their own. Everyone else — buyers,
+ * farmers, LGU users, developers — needs KYC to move money, so /kyc stays open
+ * to them.
+ */
+const NON_TRANSACTING_ROLES = [ROLES.ADMIN, ROLES.VERIFIER]
+
+/**
+ * Roles that have nothing to sell, and so have no earnings to see. Project
+ * developers sell credits and farmers sell feedstock; everyone else is blocked
+ * from /sales.
+ */
+const NON_SELLING_ROLES = [
+  ROLES.ADMIN,
+  ROLES.VERIFIER,
+  ROLES.GENERAL_USER,
+  ROLES.BUYER_INVESTOR,
+  ROLES.LGU_USER,
+]
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     // Public Routes
-    { path: '/home', name: 'home', component: HomepageView },
+    { path: '/home', name: 'home', meta: { public: true }, component: HomepageView },
     { path: '/', redirect: '/home' },
-    { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
-    { path: '/login', name: 'login', component: LoginView },
-    { path: '/register', name: 'register', component: RegisterView },
+    {
+      path: '/about',
+      name: 'about',
+      meta: { public: true },
+      component: () => import('@/views/AboutView.vue'),
+    },
+    { path: '/login', name: 'login', meta: { public: true }, component: LoginView },
+    { path: '/register', name: 'register', meta: { public: true }, component: RegisterView },
     {
       path: '/forgot-password',
       name: 'forgot-password',
+      meta: { public: true },
       component: () => import('@/views/ForgotPasswordView.vue'),
     },
     {
       path: '/reset-password',
       name: 'reset-password',
+      meta: { public: true },
       component: () => import('@/views/ResetPasswordView.vue'),
     },
     {
@@ -59,17 +93,20 @@ const router = createRouter({
       // OAuth / phone sign-in lands here to finalize the session.
       path: '/auth/callback',
       name: 'auth-callback',
+      meta: { public: true },
       component: () => import('@/views/AuthCallbackView.vue'),
     },
     {
       path: '/marketplace',
       name: 'marketplace',
+      meta: { public: true },
       component: () => import('@/views/MarketplaceViewEnhanced.vue'),
     },
     {
       // Public biomass feedstock marketplace (browse + request-for-quotation).
       path: '/biomass',
       name: 'biomass-marketplace',
+      meta: { public: true },
       component: () => import('@/views/BiomassMarketplaceView.vue'),
     },
     {
@@ -95,12 +132,14 @@ const router = createRouter({
       // Public carbon registry — anyone can browse/verify issued & retired credits.
       path: '/registry',
       name: 'registry',
+      meta: { public: true },
       component: () => import('@/views/RegistryView.vue'),
     },
     {
       // Public market dashboard — anonymous market snapshot (supply, price, impact).
       path: '/market',
       name: 'market-dashboard',
+      meta: { public: true },
       component: () => import('@/views/MarketDashboardView.vue'),
     },
     {
@@ -112,6 +151,7 @@ const router = createRouter({
     {
       path: '/apply',
       name: 'role-application',
+      meta: { public: true },
       component: () => import('@/views/RoleApplicationView.vue'),
     },
     {
@@ -131,11 +171,13 @@ const router = createRouter({
       // Public certificate verification (QR codes resolve here)
       path: '/verify/:certificateNumber?',
       name: 'certificate-verify',
+      meta: { public: true },
       component: () => import('@/views/CertificateVerifyView.vue'),
     },
     {
       path: '/mobile-test',
       name: 'mobile-test',
+      meta: { public: true },
       component: () => import('@/views/MobileTestView.vue'),
     },
 
@@ -252,31 +294,35 @@ const router = createRouter({
       path: '/buy-credits',
       name: 'buy-credits',
       component: () => import('@/views/BuyCreditsView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/credit-portfolio',
       name: 'credit-portfolio',
       component: () => import('@/views/CreditPortfolioView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/watchlist',
       name: 'watchlist',
       component: () => import('@/views/WatchlistView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/cart',
       name: 'cart',
       component: () => import('@/views/CartView.vue'),
-      meta: { requiresAuth: true },
+      // Checkout is buying. Admins/verifiers/developers used to reach this
+      // route freely — only the header's cart icon was hidden from them.
+      meta: { requiresAuth: true, disallowedRoles: FINANCE_RESTRICTED_ROLES },
     },
     {
       path: '/kyc',
       name: 'kyc',
       component: () => import('@/views/KycView.vue'),
-      meta: { requiresAuth: true },
+      // Developers and farmers need KYC to get paid; only admins and
+      // verifiers have no identity-verification path of their own.
+      meta: { requiresAuth: true, disallowedRoles: NON_TRANSACTING_ROLES },
     },
     {
       path: '/upgrade',
@@ -289,6 +335,7 @@ const router = createRouter({
     {
       path: '/projects/:id',
       name: 'project-detail',
+      meta: { public: true },
       component: () => import('@/views/ProjectDetailView.vue'),
       props: true,
     },
@@ -417,7 +464,9 @@ const router = createRouter({
       path: '/sales',
       name: 'seller-earnings',
       component: () => import('@/views/SellerEarningsView.vue'),
-      meta: { requiresAuth: true },
+      // Seller earnings belong to whoever sells. Any signed-in buyer could
+      // open this page before.
+      meta: { requiresAuth: true, disallowedRoles: NON_SELLING_ROLES },
     },
 
     // Settings Routes
@@ -505,9 +554,17 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   console.log('🔍 Router guard checking:', to.name, 'from:', from.name)
 
-  // Skip auth check for public routes
-  const publicRoutes = ['login', 'register', 'homepage', 'home', 'about', 'role-application', 'certificate-verify', 'forgot-password', 'reset-password', 'registry', 'market-dashboard', 'auth-callback', 'biomass-marketplace']
-  if (publicRoutes.includes(to.name)) {
+  // Public routes declare themselves with `meta: { public: true }`.
+  //
+  // This used to be a hand-maintained array of route names living down here,
+  // far from the route table. It had drifted: 'marketplace' and 'project-detail'
+  // were missing, so the public marketplace — linked from the signed-out header
+  // — bounced every anonymous visitor to /login, and every shared project link
+  // was dead. It also listed 'homepage', a name no route has ever had.
+  //
+  // Keeping the flag on the route means adding a public route and forgetting to
+  // allowlist it is no longer possible.
+  if (to.meta.public) {
     console.log('✅ Public route, allowing access')
     next()
     return
@@ -610,13 +667,18 @@ router.beforeEach(async (to, from, next) => {
 
     // IMPORTANT: Ensure profile is loaded before checking role-specific routes
     // This prevents navigation issues where role isn't loaded yet
-    if (to.meta.requiresProjectDeveloper || to.meta.requiresAdmin || to.meta.requiresVerifier || to.meta.requiresLgu || to.meta.requiresFarmer || to.meta.requiresFeature) {
+    if (
+      to.meta.requiresProjectDeveloper ||
+      to.meta.requiresAdmin ||
+      to.meta.requiresVerifier ||
+      to.meta.requiresLgu ||
+      to.meta.requiresFarmer ||
+      to.meta.requiresFeature
+    ) {
       if (!userStore.profile || !userStore.role || userStore.role === 'general_user') {
         console.log('⏳ Profile/role not loaded yet, fetching before route check...')
         try {
           await userStore.fetchUserProfile()
-          // Small delay to ensure store is updated
-          await new Promise((resolve) => setTimeout(resolve, 150))
         } catch (error) {
           console.error('Error fetching profile in router guard:', error)
         }
@@ -680,7 +742,9 @@ router.beforeEach(async (to, from, next) => {
 
     const disallowedRoles = Array.isArray(to.meta.disallowedRoles) ? to.meta.disallowedRoles : []
     if (disallowedRoles.length > 0) {
-      const normalizedRole = String(userStore.role || userStore.profile?.role || '').toLowerCase().trim()
+      // canonicalizeRole, not a local lowercase/trim: an alias like 'super_admin'
+      // has to resolve to 'admin' here or it slips past every block list.
+      const normalizedRole = canonicalizeRole(userStore.role || userStore.profile?.role)
       if (disallowedRoles.includes(normalizedRole)) {
         console.warn('❌ Route blocked for role:', {
           route: to.path,
@@ -718,16 +782,13 @@ router.beforeEach(async (to, from, next) => {
           userStore.session = session
           await userStore.fetchUserProfile()
 
-          // Now that we have session, redirect to role-based route if on homepage
-          if (to.name === 'homepage') {
-            const { getRoleDefaultRoute } = await import('@/utils/getRoleDefaultRoute')
-            const defaultRoute = getRoleDefaultRoute(userStore.role || userStore.profile?.role)
-            console.log('✅ Session restored, redirecting to:', defaultRoute)
-            next(defaultRoute)
-            return
-          }
-
-          // Allow access to the requested route
+          // Allow access to the requested route.
+          //
+          // A `to.name === 'homepage'` branch used to sit here, sending a
+          // restored session to its role's default route. No route has ever
+          // been named 'homepage' (the marketing page is 'home'), so it never
+          // ran — and 'home' is public, so it returns long before reaching
+          // this block anyway.
           next()
           return
         }
@@ -736,15 +797,15 @@ router.beforeEach(async (to, from, next) => {
       console.warn('⚠️ Could not check Supabase session:', supabaseError)
     }
 
-    // Only redirect to login if we're sure there's no session
-    // Don't redirect if user is already on login/register/homepage
-    if (to.name !== 'login' && to.name !== 'register' && to.name !== 'homepage') {
+    // Only redirect to login if we're sure there's no session. login/register
+    // are public and returned above; the check stays as a belt-and-braces guard
+    // against ever redirecting the login page to itself.
+    if (to.name !== 'login' && to.name !== 'register') {
       // Add returnTo query param to redirect back after login
       const returnTo = encodeURIComponent(to.fullPath)
       console.log('❌ User not authenticated, redirecting to login')
       next({ name: 'login', query: { returnTo } })
     } else {
-      // Allow access to login/register/homepage pages
       next()
     }
   }

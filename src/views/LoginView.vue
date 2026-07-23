@@ -8,6 +8,11 @@ const route = useRoute()
 // Set by RegisterForm on a successful signup. Without it the user lands on a
 // bare sign-in form with no confirmation their account was created.
 const showRegisteredBanner = computed(() => route.query.registered === '1')
+
+// Signup succeeded but the account is not usable until the emailed link is
+// clicked. Telling this user to "sign in to continue" sends them straight into
+// an "email not confirmed" error with no explanation of why.
+const showConfirmBanner = computed(() => route.query.confirm === '1')
 </script>
 
 <template>
@@ -17,11 +22,7 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
         <div class="brand">
           <div class="brand-badge">
             <div class="auth-logo-container">
-              <img
-                src="/carbonify-logo.png"
-                alt="Carbonify"
-                class="auth-logo-image"
-              />
+              <img src="/carbonify-logo.png" alt="Carbonify" class="auth-logo-image" />
             </div>
           </div>
           <div class="brand-text">
@@ -34,7 +35,10 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
 
     <section class="auth-panel">
       <div class="panel-card">
-        <div v-if="showRegisteredBanner" class="success-banner" role="status">
+        <div v-if="showConfirmBanner" class="success-banner" role="status">
+          Account created. Check your inbox and click the confirmation link, then sign in.
+        </div>
+        <div v-else-if="showRegisteredBanner" class="success-banner" role="status">
           Account created. Sign in to continue.
         </div>
         <LoginForm />
@@ -151,7 +155,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   margin: 0;
   letter-spacing: -0.02em;
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .brand-subtitle {
@@ -160,7 +165,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   color: #ffffff;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Enhanced Auth Panel */
@@ -255,7 +261,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   margin: 0;
   font-weight: 400;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .muted-link {
@@ -265,7 +272,8 @@ const showRegisteredBanner = computed(() => route.query.registered === '1')
   font-size: 0.875rem;
   transition: color 0.2s ease;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .muted-link:hover {

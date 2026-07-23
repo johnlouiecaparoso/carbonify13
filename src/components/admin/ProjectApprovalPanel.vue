@@ -682,6 +682,19 @@ const activeProject = computed(() =>
   displayedProjects.value.find((project) => project.id === activeProjectId.value) || null,
 )
 
+// Verification history for the open project. Audit rows only became readable to
+// verifiers in 20260722000300; buildProjectTimeline folds in the project's own
+// created_at/verified_at so pre-existing projects still show their spine.
+//
+// Declared BEFORE the watch below, which is `immediate` and therefore runs
+// during setup. Its callback is async, but on the first run activeProject is
+// null, so neither ternary reaches an `await` — the whole body executes
+// synchronously and the assignment to auditRows landed in its temporal dead
+// zone. Every mount of this panel threw "Cannot access 'auditRows' before
+// initialization" into the ErrorBoundary, so a verifier opening their queue got
+// an error card instead of the queue.
+const auditRows = ref([])
+
 // Supporting docs live in a private bucket → resolve signed URLs for the active
 // project whenever it changes (verifiers are authenticated, so signing works).
 const resolvedDocuments = ref([])
@@ -696,12 +709,10 @@ watch(
   { immediate: true },
 )
 
-// Verification history for the open project. Audit rows only became readable to
-// verifiers in 20260722000300; buildProjectTimeline folds in the project's own
-// created_at/verified_at so pre-existing projects still show their spine.
-const auditRows = ref([])
 const timeline = computed(() =>
-  activeProject.value ? buildProjectTimeline({ project: activeProject.value, auditRows: auditRows.value }) : [],
+  activeProject.value
+    ? buildProjectTimeline({ project: activeProject.value, auditRows: auditRows.value })
+    : [],
 )
 
 /**
