@@ -1717,11 +1717,11 @@ export default {
 }
 
 .tab-content {
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 .settings-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .settings-section:last-child {
@@ -1729,10 +1729,10 @@ export default {
 }
 
 .section-title {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .section-subtitle {
@@ -1745,8 +1745,8 @@ export default {
 .form-grid {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 1.5rem;
-  margin-bottom: 1.5rem;
+  gap: 0.85rem 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .form-group {
@@ -1764,17 +1764,17 @@ export default {
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 1rem 1.25rem;
+  padding: 0.6rem 0.85rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
   background: var(--bg-primary);
   line-height: 1.5;
