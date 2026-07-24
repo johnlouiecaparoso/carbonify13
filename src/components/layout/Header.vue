@@ -150,7 +150,7 @@
           <div v-if="userStore.isAuthenticated" class="user-menu">
             <div
               class="user-avatar user-avatar-thumb"
-              :class="{ 'has-image': showAvatarImage }"
+              :class="{ 'has-image': showAvatarImage, 'is-stale': userStore.profileFetchFailed }"
               @click="showUserMenu = !showUserMenu"
             >
               <img
@@ -161,6 +161,16 @@
                 @error.stop="onAvatarError"
               />
               <span v-else class="avatar-initials">{{ avatarInitials }}</span>
+              <!-- Ambient marker that the profile (and therefore the role/name
+                   shown) couldn't be loaded and is being retried, so a briefly
+                   stale role isn't silently mistaken for the real one. -->
+              <span
+                v-if="userStore.profileFetchFailed"
+                class="avatar-status-dot"
+                role="status"
+                aria-label="Couldn't load your profile — retrying"
+                title="Couldn't load your profile — retrying"
+              ></span>
             </div>
             <!-- User Dropdown Menu -->
             <div v-if="showUserMenu" class="user-dropdown">
@@ -185,6 +195,22 @@
                     {{ getRoleDisplayName(userStore.role) }}
                   </span>
                 </div>
+              </div>
+
+              <!-- Surfaced only while a profile fetch is failing: the name and
+                   role above may be stale or defaulted. Without this the app
+                   would silently show "User" and general_user permissions with
+                   no hint that anything went wrong. -->
+              <div
+                v-if="userStore.profileFetchFailed"
+                class="dropdown-stale-notice"
+                role="status"
+                aria-live="polite"
+              >
+                <span class="material-symbols-outlined dropdown-ico" aria-hidden="true"
+                  >sync_problem</span
+                >
+                <span>Couldn't load your profile. Retrying — your role may be out of date.</span>
               </div>
 
               <div class="dropdown-body">
@@ -1159,6 +1185,42 @@ watch(
   letter-spacing: 0.03em;
 }
 
+/* Stale-profile marker: overflow is hidden on the thumb, so the dot sits just
+   outside it. The ring keeps it legible over either the initials background or
+   a photo. */
+.user-avatar-thumb.is-stale {
+  overflow: visible;
+}
+
+.avatar-status-dot {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  animation: avatarStalePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes avatarStalePulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-status-dot {
+    animation: none;
+  }
+}
+
 .user-avatar:hover {
   background: var(--bg-accent);
 }
@@ -1268,6 +1330,24 @@ watch(
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
+}
+
+/* Stale-profile notice, between the identity header and the account links. */
+.dropdown-stale-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #92400e;
+  background: #fffbeb;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.dropdown-stale-notice .dropdown-ico {
+  color: #f59e0b;
+  font-size: 1.05rem;
 }
 
 /* Account links between the identity header and logout. No scroll region and
