@@ -10,6 +10,38 @@
 >
 > **Current build state:** build green, lint green, **665 tests green** (was 543 after the 2026-07-22 pass, ~313 before it).
 >
+> ### 🆕 2026-07-25 — profile-fetch failure hardened, and the signup-trigger migration applied
+>
+> Follow-on to the 2026-07-23 auth audit, on `feature-user-onboarding-ux`. The
+> signup-trigger migration below made a profile *always exist*; this pass fixes what
+> the **client** did when a profile still couldn't be read, so the same invisibility
+> that hid the original bug can't downgrade a signed-in user.
+>
+> - **No more silent role downgrade.** A profile fetch that times out, errors, or
+>   returns an unreadable row previously reset the user to `general_user` with no
+>   signal — an admin mid-session lost their admin UI/permissions until a reload
+>   happened to succeed. The store now **preserves the last-known role**, flags the
+>   failure, and recovers in the background
+>   ([userStore.js](../src/store/userStore.js)).
+> - **The background retry actually runs now.** `_retryProfileFetch` guarded on
+>   `_profileFetchInProgress`, but it's called from *inside* the in-progress fetch,
+>   so it returned immediately every time — dead code. It's on a dedicated
+>   `_profileRetryInProgress` flag now.
+> - **`createProfile` returns the full row, not an `{ id }` stub.** With the trigger
+>   pre-creating every profile, the "already exists" path is now common; returning a
+>   bare id made the store canonicalize `role` to `general_user` and render a blank
+>   profile ([profileService.js](../src/services/profileService.js)).
+> - **The failure is surfaced, not swallowed.** A new `profileFetchFailed` store flag
+>   drives a global `profile-stale-banner` ([App.vue](../src/App.vue)) plus an ambient
+>   pulsing dot on the avatar and a role-adjacent note in the account dropdown
+>   ([Header.vue](../src/components/layout/Header.vue)). All clear automatically once a
+>   profile loads.
+> - **✅ `20260723000100_profile_on_signup.sql` was applied to the live project on
+>   2026-07-25** (§0.5). Note the trigger swallows its own INSERT errors by design (so
+>   it can never block a signup) — meaning a future `profiles` constraint it can't
+>   satisfy would fail *silently*; worth watching the Postgres logs / adding an alert
+>   rather than relying on the `raise warning`.
+>
 > ### 🆕 2026-07-23 — navigation moved to a sidebar; auth + role guards audited and fixed
 >
 > Two pieces of work, both on `feature-user-onboarding-ux`.
@@ -43,10 +75,12 @@
 > `immediate` watcher) was fixed — found while sweeping every role's dashboard in a
 > real browser.
 >
-> **One migration from this pass — [`20260723000100_profile_on_signup.sql`](../supabase/migrations/20260723000100_profile_on_signup.sql)
-> — is NOT yet applied** (§0.5). It guarantees every `auth.users` row gets a profile
-> via a signup trigger; until it runs, accounts created with email confirmation on
-> silently land with no profile (blank name, demoted to `general_user`).
+> **The migration from this pass — [`20260723000100_profile_on_signup.sql`](../supabase/migrations/20260723000100_profile_on_signup.sql)
+> — was applied to the live project on 2026-07-25** (§0.5). It guarantees every
+> `auth.users` row gets a profile via a signup trigger, closing the gap where accounts
+> created with email confirmation on silently landed with no profile (blank name,
+> demoted to `general_user`). The client-side resilience follow-on is in the
+> 2026-07-25 note above.
 >
 > ### 🆕 2026-07-22 — all five roles audited end to end
 >
@@ -950,7 +984,7 @@ its feature and the thing a careless change would break:
 
 ---
 
-### 0.5 🆕 2026-07-23 — profile-on-signup (NOT yet applied)
+### 0.5 🆕 2026-07-23 — profile-on-signup (✅ applied 2026-07-25)
 
 One migration. Additive, idempotent, safe to re-run; has a rollback block in its
 header.
@@ -958,6 +992,11 @@ header.
 | # | Migration | Purpose | Inert until applied? |
 |---|---|---|---|
 | 1 | `20260723000100_profile_on_signup.sql` | A `security definer` trigger on `auth.users` creates the profile row **inside the signup transaction**, before any session exists — plus a backfill for accounts already missing one. | ⚠️ **Silently** — email-confirmation signups get no profile, so they load blank and demoted to `general_user` |
+
+**✅ Applied to the live project on 2026-07-25.** Run the verify query below to
+confirm (`trigger_installed = true`, `users_without_profile = 0`). The client-side
+resilience that pairs with it (last-known-role preservation, working retry, failure
+banner) shipped the same day — see the 🆕 2026-07-25 note near the top.
 
 **Why a trigger and not client code:** the profile was created from the browser
 right after `signUp()`. That only works when `signUp` returns a session; with

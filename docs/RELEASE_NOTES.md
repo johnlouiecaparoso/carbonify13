@@ -1,5 +1,26 @@
 # Carbonify — Release Notes
 
+## 2026-07-25 — Profile loading is more resilient
+
+**Headline:** a slow or failed profile load no longer makes you look like a lower-privileged
+user, and the app now tells you when it's retrying.
+
+- **Your role no longer flickers on a bad connection.** If loading your profile times out or
+  fails, the app keeps your last-known role and retries in the background, instead of silently
+  treating you as a basic user — which had been hiding admin and staff controls until a reload.
+- **A clear "couldn't load your profile" signal.** When a load fails you'll see a short banner,
+  plus a small marker on your avatar and a note in the account menu. All of them clear
+  themselves once your profile loads.
+- **New accounts always get a complete profile.** Fixed a case where a freshly created account
+  could come back with an empty profile (blank name, default role).
+
+### For operators
+- The signup-trigger migration `20260723000100_profile_on_signup.sql` **was applied to the live
+  project on 2026-07-25**. It guarantees every account has a profile row; the change above is
+  the client-side safety net for when one still can't be read.
+
+---
+
 ## 2026-07-23 — New navigation, and access-control fixes
 
 **Headline:** signed-in users now navigate from a single grouped sidebar on the left,
@@ -28,8 +49,8 @@ and three access-control bugs around sign-in and roles were fixed.
 
 ### For operators
 - One database migration ships with this release, `20260723000100_profile_on_signup.sql`,
-  which guarantees every new account gets a profile row. **Apply it before onboarding real
-  users** — see HANDOFF.md §0.5.
+  which guarantees every new account gets a profile row. **Applied to the live project on
+  2026-07-25** — see HANDOFF.md §0.5.
 
 ---
 
