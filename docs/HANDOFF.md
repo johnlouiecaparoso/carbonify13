@@ -173,12 +173,18 @@
 
 ## 🔜 Do these next, in order
 
-1. **Run the pilot pre-flight** — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed).
+> **The engineering track is clear.** Both pre-live-keys code blockers are resolved:
+> **#13c** (money-table RLS captured + applied + audited, 2026-07-25) and **#14** (escrow
+> decided — Option B — and implemented, staged for the pilot). Everything below is
+> pilot/ops/external. Committed + pushed as `e8efb4e` on `feature-user-onboarding-ux`.
+
+1. **Run the pilot pre-flight** — [SOFT_LAUNCH_RUNBOOK.md](SOFT_LAUNCH_RUNBOOK.md) §1, all seven checks green (reconcile 0 · no errored `webhook_events` · 7 edge functions deployed · PayMongo in **test** mode with the webhook enabled · `ALLOW_UNSIGNED_WEBHOOKS` unset · Sentry receiving · frontend deployed). **Plus, in this same window:**
+   - **Apply the staged escrow migration** [`20260725000200`](../supabase/migrations/20260725000200_restore_escrow_hold_window.sql), **redeploy + schedule** `process-payouts` (cron ~15 min, so `release_matured_escrow()` fires), and run the 4 escrow reconcile checks in [ESCROW_DECISION.md](ESCROW_DECISION.md) §6 (card→held, push→immediate, matured release, refund-while-held — each `reconcile_financials()` = 0). **Apply this BEFORE inviting pilot users**, so the beta exercises escrow on test money.
+   - **Run** [`money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) → expect **0 rows** (confirms #13c holds).
 2. **Decide the beta database** — [TESTING_PLAN.md](TESTING_PLAN.md) §3. Recommendation: reuse the current live project now that reconcile is clean, but purge or clearly label leftover test projects/listings first.
 3. **Confirm the `20260718000000`–`000700` batch is fully applied on live** — see the apply-status note below. One query settles it.
 4. **Run the closed beta** — invite ~8–15 users covering every role, disclose the runbook §2 limitations, hand out [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md), and check `reconcile_financials()` = 0 daily.
-5. **Close the remaining code-side item** — ~~capture the live money-table RLS into a versioned migration (#13c, ✅ done 2026-07-25)~~ and make the escrow call (#14, decision written up in [ESCROW_DECISION.md](ESCROW_DECISION.md)). #14 is still required before live keys regardless of pilot outcome.
-6. **Then start the real-money gate** — email confirmation on, independent penetration test, legal/PSP track.
+5. **Then start the real-money gate** — email confirmation on (needs an owned domain), independent penetration test, legal/PSP track. This is the only remaining P0 tier and it's all external.
 
 ### ⚠️ Apply-status note (2026-07-21) — `20260718000000`–`000700`
 
