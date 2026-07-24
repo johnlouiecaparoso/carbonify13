@@ -70,7 +70,7 @@
 | **Email confirmation is OFF by choice** — anyone can sign up with an address they do not control. Needs a domain (~₱600–900/yr), not a subscription. | Dashboard + domain | 🔴 open — HANDOFF |
 | **Runtime verification** — the spine (validate → list → buy → retire → certificate) was exercised live 2026-07-11 and the books reconcile to 0. Per-role breadth is now the **closed beta**. | Click-through | 🟡 in progress — [SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §3, [UAT_TEST_SCRIPT](UAT_TEST_SCRIPT.md) |
 | **Independent penetration test before switching to live keys** | External | 🔴 open — the last P0 |
-| 🆕 **Escrow hold window** — sellers are immediately withdrawable with no dispute/chargeback hold. Decide instant-payout-by-design vs. restore the hold **before live card keys**. | Decision + maybe DB | [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14 |
+| ~~**Escrow hold window** — sellers immediately withdrawable with no chargeback hold~~ | ✅ decided 2026-07-25 — Option B (method-gated hold); staged in `20260725000200`, apply + verify during the pilot | [DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14 · [ESCROW_DECISION.md](ESCROW_DECISION.md) |
 
 ### 🟠 P1 — High (before scaling / to be genuinely credible)
 | Item | Type |
@@ -146,8 +146,8 @@ Goal: make the app safe to expose. All P0 code/DB/dashboard items.
 - [x] All 6 money flows reconcile to 0 — `reconcile_financials()` = **0 rows** on live 2026-07-20
 - [ ] `ALLOW_UNSIGNED_WEBHOOKS` unset; all edge secrets present — re-confirm at pre-flight
 - [ ] Legacy/demo code paths removed — 🟡 partial ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #8)
-- [ ] **Money-table RLS posture captured into a versioned migration** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #13c) — live is correct, but a fresh env would rebuild without it
-- [ ] **Escrow decision made** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14) — instant payout documented, or hold window restored
+- [x] **Money-table RLS posture captured into a versioned migration** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #13c) — captured + applied to live 2026-07-25 (`20260725000100`); `supabase/diagnostics/money_table_rls_audit.sql` returns **0 findings**
+- [x] **Escrow decision made** ([DEFERRED_BACKLOG](DEFERRED_BACKLOG.md) #14) — Option B (method-gated hold) decided 2026-07-25; implementation staged in `20260725000200`, applied + verified during the pilot. See [ESCROW_DECISION.md](ESCROW_DECISION.md).
 - [ ] **Email confirmation re-enabled** with a verified sender domain
 - [ ] **Closed beta completed** against its exit criteria ([SOFT_LAUNCH_RUNBOOK](SOFT_LAUNCH_RUNBOOK.md) §6)
 - [ ] **Independent penetration test passed**

@@ -4,9 +4,11 @@ Items intentionally deferred during the phased implementation (`IMPLEMENTATION_R
 Each is safe to defer but should be closed out before "production-credible" sign-off.
 Come back to this list after the phases are implemented.
 
-> **Status pass 2026-07-21.** Two entries are **must-close before live payment keys**, not merely
-> deferred: **#13c** (money-table RLS posture not in version control) and **#14** (no escrow /
-> chargeback hold window). Both are surfaced in [HANDOFF.md](HANDOFF.md) and the
+> **Status pass 2026-07-25.** **#13c is CLOSED** — the money-table RLS posture is now captured in a
+> versioned migration (`20260725000100`), applied to live, and continuously verifiable via
+> `supabase/diagnostics/money_table_rls_audit.sql` (0 findings). **One entry remains must-close before
+> live payment keys:** **#14** (no escrow / chargeback hold window) — a decision now written up in
+> [ESCROW_DECISION.md](ESCROW_DECISION.md). Both are surfaced in [HANDOFF.md](HANDOFF.md) and the
 > [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) go/no-go gate. P1 and P2 below are now closed.
 
 ---
@@ -166,7 +168,7 @@ RPCs and one regression away from being a hole. One migration.
 
 ## From the 2026-07-11 senior review
 
-### 13. Financial-table RLS posture is not in version control 🟠 (audited 2026-07-11; 3 holes closed, capture remainder)
+### 13. Financial-table RLS posture is not in version control ✅ CLOSED (captured 2026-07-25)
 There is **no `create policy`** for `credit_ownership`, `wallet_accounts`, `wallet_transactions`, or
 `credit_transactions` anywhere in `supabase/migrations/` — those tables predate version control and the
 only write-lockdown lives in the **gated, out-of-band** `supabase/cutover/lockdown_financial_writes.sql`
@@ -193,10 +195,21 @@ only write-lockdown lives in the **gated, out-of-band** `supabase/cutover/lockdo
 present), and the full validate→list→buy→retire flow ran end-to-end with `reconcile_financials()` = 0 —
 so no live non-staff caller is writing those tables.
 
-**Still open — (c) only, and it is a P0-adjacent gap:** capture the remaining **SELECT** policies + the
-four already-locked tables into a declarative migration so a fresh env (staging/DR/local) rebuilds the
-*complete* posture, then retire the gated cutover script. Until this lands, **the repo cannot prove the
-money tables are locked down** — only the live database can, and only by inspection. Dump with:
+**✅ (c) CLOSED 2026-07-25.** The complete posture — the write-lockdown, the four ledger tables' SELECT
+policies, and the inventory tables' read posture — is now captured declaratively in migration
+**`20260725000100_capture_money_table_rls.sql`**, reconciled against a live `pg_policies` dump and applied
+to live. A fresh env (staging/DR/local) rebuilt from `supabase/migrations/` now reproduces the locked
+posture. The repo can **prove** the money tables are locked down two ways:
+- **`supabase/diagnostics/money_table_rls_audit.sql`** — read-only, returns **0 rows** when the posture is
+  correct (no client write policy, RLS on all 7, no known hole reintroduced). Run it at pilot pre-flight.
+- **`src/test/services/moneyTableRls.test.js`** — a CI-cheap guard that fails if the migration is edited to
+  reopen a hole, drop RLS, or make a private ledger read world-readable.
+
+The gated `supabase/cutover/lockdown_financial_writes.sql` is now redundant and can be retired. The
+reconstructed read policy for `wallet_transactions` was corrected during reconciliation — live scopes it
+through `account_id → wallet_accounts`, not a direct `user_id`.
+
+*Historical dump query (how the posture was captured):*
 
 ```sql
 select tablename, policyname, cmd, roles, qual, with_check from pg_policies
@@ -206,7 +219,21 @@ select tablename, policyname, cmd, roles, qual, with_check from pg_policies
  order by tablename, policyname;
 ```
 
-### 14. Escrow was silently reverted — sellers withdrawable with no hold window 🟠 (business + fraud)
+### 14. Escrow was silently reverted — sellers withdrawable with no hold window ✅ DECIDED 2026-07-25 (Option B; implementation staged for pilot)
+
+**Decision (2026-07-25):** Option B — a **method-gated hold** (cards held ~7d against chargebacks; push
+payments GCash/Maya and wallet purchases release immediately). Rationale + options in
+[ESCROW_DECISION.md](ESCROW_DECISION.md). **Implementation written and staged** as migration
+`20260725000200_restore_escrow_hold_window.sql` — it re-adds the `escrow_holds` write + `escrow_held`
+ledger leg to `process_marketplace_purchase` (behind configurable `app_settings` windows) and adds
+`release_matured_escrow()`. **Not yet applied** — it rewrites the live settlement RPC, so it lands in the
+pilot pre-flight window with a full reconcile-to-0 check (see ESCROW_DECISION §6). The refund path already
+reverses `escrow_held` while held (`20260606000900`), and `get_my_seller_balance()` already returns
+`held`/`available`. Remaining: apply during pilot, wire `release_matured_escrow()` to a worker/cron, surface
+Held vs Available in `SellerEarningsView.vue`. Original analysis kept below.
+
+---
+
 `20260606000600_escrow_and_seller_balance.sql` routed seller net into `escrow_holds` + an `escrow_held`
 ledger account, but **every later** `CREATE OR REPLACE process_marketplace_purchase` (`20260615000200`,
 `20260702000000`, `20260703000500`) credits `seller_payable:<id>` **directly** and never inserts an

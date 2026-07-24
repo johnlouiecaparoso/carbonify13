@@ -8,7 +8,7 @@
 >
 > Read [CARBONIFY_OVERVIEW.md](CARBONIFY_OVERVIEW.md) for the plain-language system map. Read [GO_LIVE_ROADMAP.md](GO_LIVE_ROADMAP.md) for the real-money launch gate.
 >
-> **Current build state:** build green, lint green, **665 tests green** (was 543 after the 2026-07-22 pass, ~313 before it).
+> **Current build state:** build green, lint green, **679 tests green** (was 665 before the 2026-07-25 RLS-capture pass, 543 after 2026-07-22, ~313 before that). *Run the suite with `--no-file-parallelism` — the parallel happy-dom worker init flakes on Windows and reports "no tests"; it is an environment issue, not a real failure.*
 >
 > ### 🆕 2026-07-25 — profile-fetch failure hardened, and the signup-trigger migration applied
 >
@@ -41,6 +41,32 @@
 >   it can never block a signup) — meaning a future `profiles` constraint it can't
 >   satisfy would fail *silently*; worth watching the Postgres logs / adding an alert
 >   rather than relying on the `raise warning`.
+>
+> ### 🆕 2026-07-25 (later) — money-table RLS posture captured into version control (#13c closed)
+>
+> The last repo-side security-provability gap is closed. The money tables' RLS was
+> **correct on live but existed nowhere in `supabase/migrations/`** (the four ledger
+> tables predate version control), so a fresh staging/DR/local env rebuilt them
+> *client-writable* and the repo could not *prove* the money path was locked.
+>
+> - **New migration [`20260725000100_capture_money_table_rls.sql`](../supabase/migrations/20260725000100_capture_money_table_rls.sql)** captures the complete posture declaratively — write-lockdown + the four ledger tables' own-row SELECT policies + the two inventory tables' public reads — **reconciled against a live `pg_policies` dump** and **applied to live 2026-07-25**.
+> - **A real bug was caught during reconciliation:** `wallet_transactions` is scoped through `account_id → wallet_accounts`, not a direct `user_id`; the migration was corrected to match live before finalizing.
+> - **Two ways to prove it now:** [`supabase/diagnostics/money_table_rls_audit.sql`](../supabase/diagnostics/money_table_rls_audit.sql) (read-only, **0 findings** on live — run at pilot pre-flight) and [`src/test/services/moneyTableRls.test.js`](../src/test/services/moneyTableRls.test.js) (CI guard that trips if the migration is edited to reopen a hole).
+> - The gated `supabase/cutover/lockdown_financial_writes.sql` is now **retired** (deleted) — its job is fully covered by the versioned migration; one source of truth.
+>
+> **Escrow (#14) decided the same day — Option B (method-gated hold).** Card
+> settlements hold the seller's net ~7 days against chargebacks; GCash/Maya and
+> wallet purchases release immediately. Implementation is **written and staged** as
+> [`20260725000200_restore_escrow_hold_window.sql`](../supabase/migrations/20260725000200_restore_escrow_hold_window.sql)
+> — it reuses the existing escrow machinery (`escrow_holds`, `release_escrow`, the
+> held-aware `refund_purchase`, the `held`/`available` split in
+> `get_my_seller_balance`) and adds only the escrow branch in
+> `process_marketplace_purchase`, a `release_matured_escrow()` batch releaser, and
+> two configurable `app_settings` windows. **Not yet applied** — it rewrites the
+> live settlement RPC, so it lands in the pilot pre-flight with a full reconcile-to-0
+> check (rationale + apply plan in [ESCROW_DECISION.md](ESCROW_DECISION.md)). With
+> both #13c and #14 resolved, the pre-live-keys *engineering* track is clear; the
+> remaining go-live P0s are external (pentest, email-confirmation domain, the beta).
 >
 > ### 🆕 2026-07-23 — navigation moved to a sidebar; auth + role guards audited and fixed
 >
@@ -139,8 +165,8 @@
 - **Real credit-supplier integration** for live registry-retirement fulfillment (Carbonmark/Cloverly/Patch). Today a retirement produces a Carbonify certificate, not a Verra/Gold Standard registry receipt.
 
 **Open engineering items that do not block the pilot but must be settled before live keys:**
-- **Escrow was silently reverted** ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #14) — sellers are immediately withdrawable with no dispute/chargeback hold window. Decide instant-payout-by-design vs. restore the hold.
-- **The money-table RLS posture is not in version control** ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #13c) — the live policies are correct and verified, but a fresh env (staging/DR/local) rebuilds from migrations that never create them. The repo cannot yet *prove* the money tables are locked down.
+- **Escrow — decided 2026-07-25 (Option B, method-gated hold)** ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #14, [ESCROW_DECISION.md](ESCROW_DECISION.md)). Implementation staged in `20260725000200_restore_escrow_hold_window.sql` (cards held ~7d; push payments immediate). **Apply during the pilot pre-flight** (it rewrites the settlement RPC), then wire `release_matured_escrow()` to a worker/cron and surface Held vs Available in the seller UI.
+- ~~**The money-table RLS posture is not in version control**~~ ✅ **CLOSED 2026-07-25** ([DEFERRED_BACKLOG.md](DEFERRED_BACKLOG.md) #13c) — captured in migration `20260725000100`, reconciled against a live `pg_policies` dump and applied to live. A fresh env now rebuilds the locked posture, and `supabase/diagnostics/money_table_rls_audit.sql` proves it (0 findings).
 - **Migration `20260718001100`** (receipt FK schema-cache reload) — still pending on live. Non-fatal; clears a console 400/406 on receipts.
 - **Testing gaps** ([TESTING_PLAN.md](TESTING_PLAN.md)) — no automated RPC/RLS integration tests, Playwright e2e not required in CI and not run on a seeded backend, no load test, accessibility pass partial.
 - **Externally-blocked feature work** — MRV satellite/IoT feeds (#4), AI assistant backend (#7, needs an API key + running cost), farmer training content (#6e).
@@ -151,7 +177,7 @@
 2. **Decide the beta database** — [TESTING_PLAN.md](TESTING_PLAN.md) §3. Recommendation: reuse the current live project now that reconcile is clean, but purge or clearly label leftover test projects/listings first.
 3. **Confirm the `20260718000000`–`000700` batch is fully applied on live** — see the apply-status note below. One query settles it.
 4. **Run the closed beta** — invite ~8–15 users covering every role, disclose the runbook §2 limitations, hand out [UAT_TEST_SCRIPT.md](UAT_TEST_SCRIPT.md), and check `reconcile_financials()` = 0 daily.
-5. **In parallel, close the two code-side items above** — capture the live money-table RLS into a versioned migration (#13c) and make the escrow call (#14). Both are required before live keys regardless of pilot outcome.
+5. **Close the remaining code-side item** — ~~capture the live money-table RLS into a versioned migration (#13c, ✅ done 2026-07-25)~~ and make the escrow call (#14, decision written up in [ESCROW_DECISION.md](ESCROW_DECISION.md)). #14 is still required before live keys regardless of pilot outcome.
 6. **Then start the real-money gate** — email confirmation on, independent penetration test, legal/PSP track.
 
 ### ⚠️ Apply-status note (2026-07-21) — `20260718000000`–`000700`
