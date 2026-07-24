@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 
 // Design tokens first, so every component style resolves against them.
 import '@/styles/tokens.css'
+import '@/styles/responsive.css'
 import '@/styles/responsive-table.css'
 
 import App from './App.vue'

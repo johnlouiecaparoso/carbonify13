@@ -1,0 +1,82 @@
+/* ============================================================================
+ * Global responsive safety net.
+ *
+ * The app is largely responsive already (auto-fit grids, per-view breakpoints,
+ * an off-canvas sidebar, card-stacking tables). What was missing were the
+ * app-wide foundations that prevent whole classes of mobile breakage — most of
+ * all a box-sizing reset. Without it, any `width: 100%` element that also has
+ * padding or a border computes WIDER than its container, and those few extra
+ * pixels are exactly what produces the horizontal scrollbar and the "content
+ * slightly off the right edge" that plague phones.
+ *
+ * Loaded after tokens.css and before component styles (see main.js).
+ * ==========================================================================*/
+
+/* 1) The reset the app never had. Border-box is what nearly every rule here
+ *    already assumes (padded inputs, cards, buttons at width:100%). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 2) Kill horizontal overflow WITHOUT breaking the sticky header/sidebar.
+ *    `overflow-x: clip` (unlike `hidden`) does not create a scroll container,
+ *    so `position: sticky` on the header and rail keeps working. A stray wide
+ *    child is clipped instead of dragging the whole page sideways. */
+html {
+  overflow-x: clip;
+}
+
+body {
+  max-width: 100%;
+  /* Smoother momentum scrolling in the installed PWA on iOS. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 3) Media never overflows its column. height:auto keeps images undistorted. */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+/* Leaflet manages its own tile sizing; the global img cap above would shatter
+ * the map into misaligned tiles, so opt its imagery back out. */
+.leaflet-container img,
+.leaflet-container svg,
+.leaflet-container canvas {
+  max-width: none;
+}
+
+/* 4) Long unbreakable strings — wallet addresses, serials, emails, URLs — are a
+ *    common source of overflow on narrow screens. Give code/monospace runs a
+ *    break hint without forcing it on ordinary prose. */
+code,
+pre,
+.mono,
+.wallet-address,
+.serial {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 5) PWA standalone: respect the notch / status-bar safe areas so sticky
+ *    chrome isn't tucked under the system UI on installed devices. Paired with
+ *    viewport-fit=cover in index.html. Progressive — no effect where unsupported. */
+@supports (padding: max(0px)) {
+  @media (display-mode: standalone) {
+    .app-header,
+    header.app-header,
+    .app-shell-header {
+      padding-left: max(var(--spacing-md, 1rem), env(safe-area-inset-left));
+      padding-right: max(var(--spacing-md, 1rem), env(safe-area-inset-right));
+    }
+  }
+}
