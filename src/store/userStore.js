@@ -425,6 +425,10 @@ export const useUserStore = defineStore('user', {
       this.profile = null
       this.role = ROLES.GENERAL_USER
       this.permissions = []
+      // A deliberate sign-out/expiry is a definitive answer, not a transient
+      // failure — clear the flag so a returning guest never sees the
+      // "couldn't load your profile" banner from a previous session.
+      this.profileFetchFailed = false
       this.clearLocalStorage()
     },
     clearLocalStorage() {

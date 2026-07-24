@@ -35,6 +35,15 @@ const userStore = useUserStore()
 const isSuspended = computed(() => userStore.profile?.is_active === false)
 const suspensionReason = computed(() => userStore.profile?.suspension_reason || '')
 
+// A transient profile-fetch failure (timeout / network / unreadable row) no
+// longer silently downgrades the user to general_user — the store keeps the
+// last-known role and retries in the background. Surface that state so the user
+// understands why some options may be missing rather than assuming their
+// account was demoted. Only shown to a signed-in user.
+const profileUnavailable = computed(
+  () => userStore.isAuthenticated && userStore.profileFetchFailed,
+)
+
 const showHeader = computed(() => {
   // Don't show header on auth pages
   return !['login', 'register', 'role-application'].includes(route.name)
@@ -223,6 +232,19 @@ onMounted(async () => {
               <template v-if="suspensionReason"> Reason: {{ suspensionReason }}.</template>
               You can still view your receipts and certificates, and export your data. Contact
               support if you believe this is an error.
+            </div>
+          </div>
+
+          <!-- Shown when the latest profile load failed transiently. The store
+               preserves the last-known role and retries in the background, so
+               this is informational, not a block: it explains a possibly-stale
+               view rather than announcing a downgrade that no longer happens. -->
+          <div v-if="profileUnavailable" class="profile-stale-banner" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">sync_problem</span>
+            <div>
+              <strong>We couldn't load your latest profile.</strong>
+              You're still signed in and we're retrying automatically. Some options may be
+              temporarily limited until it loads — refresh if this persists.
             </div>
           </div>
 
@@ -1520,6 +1542,32 @@ body {
 
 @media (max-width: 1320px) {
   .suspension-banner {
+    margin: 1rem 1rem 0;
+  }
+}
+
+.profile-stale-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: 1280px;
+  margin: 1rem auto 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.profile-stale-banner .material-symbols-outlined {
+  font-size: 1.2rem;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1320px) {
+  .profile-stale-banner {
     margin: 1rem 1rem 0;
   }
 }
